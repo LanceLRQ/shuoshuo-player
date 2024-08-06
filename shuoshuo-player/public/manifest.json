@@ -1,25 +1,47 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
-  "icons": [
+  "name": "说说播放器-b站第三方音频播放器",
+  "version": "1.0.0.0",
+  "description":"说说播放器 / shuoshuo-player: 一个第三方哔哩哔哩(bilibili.com)音频播放器 / A 3rd party Bilibili audio player.",
+  "manifest_version": 3,
+  "background": {
+    "service_worker": "serviceWorker.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "logo.png",
+      "128": "logo.png"
+    }
+  },
+  "content_scripts": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    },
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "matches": ["*://*/*"],
+      "js": ["js/contentscript.js"]
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "icons": {
+    "128": "logo.png"
+  },
+  "permissions": [
+    "declarativeNetRequest",
+    "storage",
+    "contextMenus",
+    "notifications"
+  ],
+  "host_permissions": [
+    "*://*.acgvideo.com/*",
+    "*://*.bilivideo.com/*",
+    "*://*.bilibili.com/*",
+    "*://*.hdslb.com/*",
+    "*://*.cgvideo.com/*",
+    "*://*.y.qq.com/*",
+    "*://*.bilivideo.cn/*",
+    "*://*.akamaized.net/*"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "ruleset_1",
+      "enabled": true,
+      "path": "rules.json"
+    }]
+  }
 }
