@@ -10,7 +10,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <div>
-        <a href="/popup.html">popup.html</a>
+        播放器本体：<a href="/options.html">options.html</a>
     </div>
   </React.StrictMode>
 );

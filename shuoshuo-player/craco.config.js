@@ -8,11 +8,11 @@ module.exports = {
         configure: (webpackConfig) => {
             webpackConfig.entry = {
                 main: path.resolve(__dirname, './src/index.js'),
-                popup: path.resolve(__dirname, './src/popup/index.js'),
+                player: path.resolve(__dirname, './src/player/index.js'),
             }
             webpackConfig.plugins.forEach((plugin) => {
                 if (plugin.constructor.name === 'HtmlWebpackPlugin') {
-                    plugin.options.excludeChunks = ['popup']
+                    plugin.options.excludeChunks = ['player']
                 }
             })
             webpackConfig.output = {
@@ -23,14 +23,16 @@ module.exports = {
             }
             webpackConfig.plugins.push(new HtmlWebpackPlugin({
                 inject: true,
-                template: path.resolve(__dirname, './public/popup.html'),
-                chunks: ['popup'],
-                filename: 'popup.html',
+                template: path.resolve(__dirname, './public/options.html'),
+                chunks: ['player'],
+                filename: 'options.html',
             }))
             return webpackConfig
         },
         alias: {
             "@": path.resolve(__dirname, "src"),
+            "@styles": path.resolve(__dirname, "src/styles"),
+            "@player": path.resolve(__dirname, "src/player"),
         },
         plugins: { // 喵的这里有坑....这个plugins比上面的configure早执行...HtmlWebpackPlugin别放这里，不然找不到对应chunks
             add: [
