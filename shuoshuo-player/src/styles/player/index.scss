@@ -1,3 +1,30 @@
-player-layout-main {
+@import '../common.scss';
 
+body, html, #root {
+    overflow: hidden;
+    height: 100%;
+}
+.player-layout-main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    .player-layout-content {
+        flex: 1 1 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: row;
+        .player-layout-nav {
+            flex: 0 0 auto;
+            border-right: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .player-layout-information {
+            flex: 1 1 auto;
+        }
+    }
+    .player-layout-bar {
+        flex: 0 0 $width-13;
+        overflow: hidden;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
 }
