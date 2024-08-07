@@ -1,25 +1,19 @@
 {
   "name": "说说播放器-b站第三方音频播放器",
   "version": "1.0.0.0",
-  "description":"说说播放器 / shuoshuo-player: 一个第三方哔哩哔哩(bilibili.com)音频播放器 / A 3rd party Bilibili audio player.",
+  "description":"说说播放器 - 将B站变成你的音乐播放器 / 定制版本",
   "manifest_version": 3,
   "background": {
-    "service_worker": "js/background.js"
+    "service_worker": "./js/background.js"
   },
   "action": {
     "default_icon": {
-      "16": "logo.png",
-      "128": "logo.png"
+      "16": "./logo.png",
+      "128": "./logo.png"
     }
   },
-  "content_scripts": [
-    {
-      "matches": ["*://*/*"],
-      "js": ["js/contentscript.js"]
-    }
-  ],
   "icons": {
-    "128": "logo.png"
+    "128": "./logo.png"
   },
   "permissions": [
     "declarativeNetRequest",
