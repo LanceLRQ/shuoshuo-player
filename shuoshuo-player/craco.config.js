@@ -26,16 +26,16 @@ module.exports = {
                     if (pathData.chunk.name === 'background') {
                         return 'js/background.js';
                     }
-                    return isDev ? 'js/[name].bundle.js' : 'js/[name].[contenthash:8].js'
+                    return 'js/[name].bundle.js';
                 },
             }
             webpackConfig.plugins.push(
                 new HtmlWebpackPlugin({
                     inject: true,
-                    template: path.resolve(__dirname, './public/options.html'),
+                    template: path.resolve(__dirname, './public/player.html'),
                     chunks: ['player'],
                     excludeChunks: ['background'],
-                    filename: 'options.html',
+                    filename: 'player.html',
                 }),
                 new ProgressBarPlugin({
                     complete: "█",
