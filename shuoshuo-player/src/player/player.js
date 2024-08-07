@@ -6,6 +6,8 @@ import { HashRouter } from 'react-router-dom';
 import '@styles/player/index.scss';
 import NavMenu from "@player/nav_menu";
 import TopBar from "@player/top_bar";
+import ReactJkMusicPlayer from 'react-jinke-music-player';
+import 'react-jinke-music-player/assets/index.css'
 
 const darkTheme = createTheme({
     palette: {
@@ -20,21 +22,39 @@ const PlayerIndex = () => {
         setMenuOpen(!menuOpen);
     };
 
+    const audioLists = [
+        {
+            name: 'Despacito',
+            singer: 'Luis Fonsi',
+            cover:
+                'http://res.cloudinary.com/alick/image/upload/v1502689731/Despacito_uvolhp.jpg',
+            musicSrc:
+                'http://res.cloudinary.com/alick/video/upload/v1502689683/Luis_Fonsi_-_Despacito_ft._Daddy_Yankee_uyvqw9.mp3',
+            // support async fetch music src. eg.
+            // musicSrc: async () => {
+            //   return await fetch('/api')
+            // },
+        },
+    ];
 
     return <HashRouter>
         <ThemeProvider theme={darkTheme}>
             <CssBaseline/>
-
             <Box className="player-layout-main">
                 <Box className="player-layout-content">
                     <TopBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
                     <NavMenu menuOpen={menuOpen} toggleMenu={toggleMenu} />
                     <section className="player-layout-information">
-                        {menuOpen ? 'open':'flase'}
+                        tests
                     </section>
                 </Box>
-                <section className="player-layout-bar">2</section>
             </Box>
+            <ReactJkMusicPlayer
+                mode="full"
+                toggleMode={false}
+                showMediaSession
+                audioLists={audioLists}
+            />
         </ThemeProvider>
     </HashRouter>
 }

@@ -1,8 +1,7 @@
 import React from 'react';
 import { styled } from '@mui/material/styles';
-import { AppBar as MuiAppBar, Toolbar, IconButton, Typography, Badge } from '@mui/material';
+import { AppBar as MuiAppBar, Toolbar, IconButton, Typography } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import NotificationsIcon from '@mui/icons-material/Notifications';
 
 const drawerWidth = 240;
 
@@ -55,11 +54,6 @@ const TopBar = (props) => {
             >
                 说说Crystal播放器
             </Typography>
-            <IconButton color="inherit">
-                <Badge badgeContent={4} color="secondary">
-                    <NotificationsIcon />
-                </Badge>
-            </IconButton>
         </Toolbar>
     </AppBar>;
 };

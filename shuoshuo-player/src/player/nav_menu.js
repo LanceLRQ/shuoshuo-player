@@ -61,7 +61,6 @@ const NavMenu = (props) => {
         setValue(value);
     };
 
-    console.log(menuOpen, 'menuOpen')
     return <Drawer variant="permanent" open={menuOpen}>
         <Toolbar
             sx={{
@@ -100,9 +99,8 @@ const NavMenu = (props) => {
                     return <ListItem
                         key={item.key}
                         disablePadding
-                        selected={value === item.key}
                     >
-                        <ListItemButton onClick={handleMenuClick(item.key)}>
+                        <ListItemButton selected={value === item.key} onClick={handleMenuClick(item.key)}>
                             <ListItemIcon>
                                 {item.icon}
                             </ListItemIcon>
