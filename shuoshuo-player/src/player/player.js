@@ -52,6 +52,7 @@ const PlayerIndex = () => {
             <ReactJkMusicPlayer
                 mode="full"
                 toggleMode={false}
+                responsive={false}
                 showMediaSession
                 audioLists={audioLists}
             />

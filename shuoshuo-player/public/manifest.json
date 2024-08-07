@@ -4,7 +4,7 @@
   "description":"说说播放器 / shuoshuo-player: 一个第三方哔哩哔哩(bilibili.com)音频播放器 / A 3rd party Bilibili audio player.",
   "manifest_version": 3,
   "background": {
-    "service_worker": "serviceWorker.js"
+    "service_worker": "js/background.js"
   },
   "action": {
     "default_icon": {
