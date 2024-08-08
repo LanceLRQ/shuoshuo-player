@@ -24,7 +24,7 @@ module.exports = {
                 ...webpackConfig.output,
                 filename: (pathData) => {
                     if (pathData.chunk.name === 'background') {
-                        return 'js/background.js';
+                        return 'background.js';
                     }
                     return 'js/[name].bundle.js';
                 },
@@ -59,7 +59,7 @@ module.exports = {
         },
         watchFiles: {
             options: {
-                ignored: /background\/index\.js/
+                ignored: /src\/background\/index\.js/
             },
         },
     },

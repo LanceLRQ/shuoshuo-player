@@ -4,7 +4,7 @@
   "description":"说说播放器 - 将B站变成你的音乐播放器 / 定制版本",
   "manifest_version": 3,
   "background": {
-    "service_worker": "./js/background.js"
+    "service_worker": "background.js"
   },
   "action": {
     "default_icon": {
