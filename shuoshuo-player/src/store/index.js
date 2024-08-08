@@ -3,25 +3,29 @@ import { createRootReducer } from './reducers';
 
 const preloadedState = {
     play_list: {},                  // 播放列表、歌单列表等
-    // preference: {},                 // 用户偏好信息
-    caches: {},                     // 缓存信息
+    profile: {},                    // 用户偏好信息
+    caches: {},                     // 缓存信息(数据不多的那种)
 };
 
-const persistKeys = ['play_list', 'preference', 'caches']
+const persistKeys = ['play_list', 'profile', 'caches']
+const chromeStorage = chrome && chrome.storage && chrome.storage.local;
 
-const loadReducerState = () => {
-    if (window.localStorage) {
-        try {
+const readStateFromChromeStorage = () => new Promise((resolve, reject) => {
+    try {
+        chromeStorage.get(persistKeys, (result) => {
             persistKeys.forEach((key) => {
-                if (preloadedState[key]) {
-                    preloadedState[key] = JSON.parse(window.localStorage.getItem(`shuoshuo-player:${key}`) || '{}');
+                if (result[key] && preloadedState[key]) {
+                    preloadedState[key] = result[key] || {};
                 }
             })
-        } catch (e) {}
+            resolve();
+        })
+    } catch (e) {
+        reject();
     }
-}
+});
 
-loadReducerState();
+await readStateFromChromeStorage();
 
 export const store = configureStore({
     reducer: createRootReducer(),
@@ -30,12 +34,17 @@ export const store = configureStore({
 
 store.subscribe(() => {
     const storeState = store.getState();
-    if (storeState && window.localStorage) {
+    if (storeState && chromeStorage) {
+        const result = {};
         persistKeys.forEach((key) => {
             if (storeState[key]) {
-                window.localStorage.setItem(`shuoshuo-player:${key}`, JSON.stringify(storeState[key]));
+                result[key] = storeState[key];
             }
         });
+        if (process.env.NODE_ENV === 'development') {
+            console.log(result, 'saved');
+        }
+        chromeStorage.set(result, () => {});
     }
 });
 

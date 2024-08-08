@@ -3,6 +3,7 @@ const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const chalk = require("chalk");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
+const LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
 const isDev = process.env.NODE_ENV === 'development';
 module.exports = {
     eslint: {
@@ -43,6 +44,7 @@ module.exports = {
                     clear: false
                 })
             )
+            webpackConfig.plugins.push(new LodashModuleReplacementPlugin())
             return webpackConfig
         },
         alias: {

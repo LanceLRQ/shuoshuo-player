@@ -9,7 +9,6 @@ export const BilibiliCachesReducer = createSlice({
         updateBilibiliVideoInfo: (state, action) => {
             const { video } = state;
             video[action.payload['bv']] = action.payload;
-            return {...state, video};
         },
     },
 });

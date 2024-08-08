@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { Box } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { HashRouter } from 'react-router-dom';
 import '@styles/player/index.scss';
 import NavMenu from "@player/nav_menu";
 import TopBar from "@player/top_bar";
 import ReactJkMusicPlayer from 'react-jinke-music-player';
-import 'react-jinke-music-player/assets/index.css'
+import 'react-jinke-music-player/assets/index.css';
+import { initUserInfo } from "@player/utils";
 
 const darkTheme = createTheme({
     palette: {
@@ -16,6 +18,16 @@ const darkTheme = createTheme({
 });
 
 const PlayerIndex = () => {
+    const dispatch = useDispatch();
+
+    const [inited, setInited] = useState(false);
+    useEffect( () => {
+        const initPlayer = async () => {
+            await initUserInfo(dispatch);
+            setInited(true);
+        }
+        initPlayer().then();
+    }, []);
 
     const [menuOpen, setMenuOpen] = React.useState(true);
     const toggleMenu = () => {
@@ -37,7 +49,7 @@ const PlayerIndex = () => {
         // },
     ];
 
-    return <HashRouter>
+    return inited ? <HashRouter>
         <ThemeProvider theme={darkTheme}>
             <CssBaseline/>
             <Box className="player-layout-main">
@@ -57,7 +69,7 @@ const PlayerIndex = () => {
                 audioLists={audioLists}
             />
         </ThemeProvider>
-    </HashRouter>
+    </HashRouter> : <div>loading</div>
 }
 
 export default PlayerIndex;
