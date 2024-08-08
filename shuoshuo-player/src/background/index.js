@@ -1,7 +1,7 @@
 chrome.action.onClicked.addListener(function (tab) {
     //console.log('onClicked')
     chrome.tabs.create({
-        'url': chrome.runtime.getURL("player.html")
+        'url': chrome.runtime.getURL("player.html"),
     });
 });
 

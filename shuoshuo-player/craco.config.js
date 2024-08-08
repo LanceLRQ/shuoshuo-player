@@ -53,7 +53,14 @@ module.exports = {
     },
     devServer: {
         devMiddleware: {
-            writeToDisk: true,
+            writeToDisk: (filePath) => {
+                return !/\.hot-update(.*)$/.test(filePath);
+            },
+        },
+        watchFiles: {
+            options: {
+                ignored: /background\/index\.js/
+            },
         },
     },
 }
