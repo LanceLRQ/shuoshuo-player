@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { Box, Button } from '@mui/material';
+import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { HashRouter } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import '@styles/player/index.scss';
-import NavMenu from "@player/nav_menu";
-import TopBar from "@player/top_bar";
+import NavMenu from "@player/components/nav_menu";
+import TopBar from "@player/components/top_bar";
 import ReactJkMusicPlayer from 'react-jinke-music-player';
 import 'react-jinke-music-player/assets/index.css';
 import { initUserInfo } from "@player/utils";
+import Pages from './pages';
 
 const darkTheme = createTheme({
     palette: {
@@ -27,7 +28,7 @@ const PlayerIndex = () => {
             setInited(true);
         }
         initPlayer().then();
-    }, []);
+    }, [dispatch]);
 
     const [menuOpen, setMenuOpen] = React.useState(true);
     const toggleMenu = () => {
@@ -57,7 +58,9 @@ const PlayerIndex = () => {
                     <TopBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
                     <NavMenu menuOpen={menuOpen} toggleMenu={toggleMenu} />
                     <section className="player-layout-information">
-                        tests
+                        <Routes>
+                            <Route path="" element={<Pages.HomePage />}></Route>
+                        </Routes>
                     </section>
                 </Box>
             </Box>

@@ -9,6 +9,7 @@ body, html, #root {
     flex-direction: column;
     height: calc(100% - 80px);
     overflow: hidden;
+
     .player-layout-content {
         flex: 1 1 auto;
         overflow: hidden;
@@ -20,9 +21,23 @@ body, html, #root {
             overflow: auto;
         }
     }
+
     .player-layout-bar {
         flex: 0 0 $width-13;
         overflow: hidden;
         border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .video-album-carousel {
+        &.embla {
+            overflow: hidden;
+        }
+        .embla__container {
+            display: flex;
+        }
+        .embla__slide {
+            flex: 0 0 100%;
+            min-width: 0;
+        }
     }
 }

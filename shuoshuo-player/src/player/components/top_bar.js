@@ -1,7 +1,8 @@
 import React from 'react';
 import { styled } from '@mui/material/styles';
-import { AppBar as MuiAppBar, Toolbar, IconButton, Typography } from '@mui/material';
+import { AppBar as MuiAppBar, Toolbar, IconButton, Typography, Avatar, Tooltip } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import { useSelector } from 'react-redux';
 
 const drawerWidth = 240;
 
@@ -26,6 +27,8 @@ const AppBar = styled(MuiAppBar, {
 const TopBar = (props) => {
 
     const { menuOpen, toggleMenu } = props;
+
+    const biliUser = useSelector(state => state.profile?.bili_user ?? null)
 
     return  <AppBar position="absolute" open={menuOpen}>
         <Toolbar
@@ -54,6 +57,9 @@ const TopBar = (props) => {
             >
                 说说Crystal播放器
             </Typography>
+            <Tooltip title={biliUser.uname}>
+            {biliUser ? <Avatar alt={biliUser.uname} src={biliUser.face} /> : null}
+            </Tooltip>
         </Toolbar>
     </AppBar>;
 };
