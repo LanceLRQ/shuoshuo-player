@@ -21,7 +21,7 @@ export const initUserInfo = async (dispatch) => {
     } catch (e) {}
 }
 
-// 读取用户的视频投稿信息
+// 读取用户的视频投稿信息（前30）
 export const readUserVideos = async (dispatch, mid, query) => {
     try {
         if (!mid) return;
@@ -29,13 +29,20 @@ export const readUserVideos = async (dispatch, mid, query) => {
             params: {
                 mid,
                 ...query,
-            },
-            headers: {
-                'Hack-Referer': `https://space.bilibili.com/${mid}/video`,
             }
         });
         dispatch(BilibiliUserVideoListReducer.actions.updateVideoList({
             mid, data: videoData
         }));
     } catch (e) {}
+}
+
+// TODO 遍历投稿：根据返回的数据，多次取得视频数据，并更新到视频列表中。注意尽量避免被阿B风控。
+
+// 格式化数字（单位：万）
+export const formatNumber10K = (number) => {
+    if (number > 10000) {
+        return (number / 10000).toFixed(1).replace('.0', '') + '万';
+    }
+    return number;
 }

@@ -7,6 +7,7 @@ import PlayCircleIcon from '@mui/icons-material/PlayCircleOutline';
 import AccessTimeFilledIcon from '@mui/icons-material/AccessTimeFilled';
 import ChatIcon from '@mui/icons-material/Chat';
 import PlayCircleFilledIcon from '@mui/icons-material/PlayCircleFilled';
+import {formatNumber10K} from "@player/utils";
 
 
 const VideoItem = (props) => {
@@ -29,13 +30,13 @@ const VideoItem = (props) => {
                     size="small"
                     variant="outlined"
                     icon={<PlayCircleFilledIcon />}
-                    label={video.play}
+                    label={formatNumber10K(video.play)}
                 />
                 <Chip
                     size="small"
                     variant="outlined"
                     icon={<ChatIcon />}
-                    label={video.comment}
+                    label={formatNumber10K(video.comment)}
                 />
             </Stack>}
         />
