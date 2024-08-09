@@ -1,5 +1,6 @@
 import axios from 'axios';
 import qs from 'qs';
+import {encWbi} from "@/api/utils";
 
 const service = axios.create({
     timeout: 30000,
@@ -8,7 +9,10 @@ const service = axios.create({
 });
 
 service.interceptors.request.use(function (config) {
-    let {data, method} = config;
+    let {data, method, useWbi = false} = config;
+    if (useWbi && window.BILIBILI_WBI_INFO) {
+        config.params = encWbi(config.params, window.BILIBILI_WBI_INFO.img_key, window.BILIBILI_WBI_INFO.sub_key)
+    }
     const noParse = (typeof data === "string" || data instanceof FormData);
     if (method === 'post' && !noParse) config.data = qs.stringify(data);
     return config;
@@ -22,6 +26,7 @@ export const apiCall = (config) => {
     const options = {
         method: 'get',
         withCredentials: true,
+        useWbi: false,
         ...config,
     };
 
@@ -39,6 +44,7 @@ export const apiCall = (config) => {
                 }
             }
         }).catch(e => {
+            console.error('[DEBUG]' + e);
             reject(null, {code: -1, message: '网络异常，请重试'})
         })
     })

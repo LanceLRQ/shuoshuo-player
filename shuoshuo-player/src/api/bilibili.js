@@ -6,7 +6,9 @@ const UserApi = {
     }),
     getUserVideoList: buildApiCall({
         // https://github.com/SocialSisterYi/bilibili-API-collect/blob/cb4f767d4ee3f4f66b6caff04c9c40164ea4af54/docs/user/space.md#%E6%8A%95%E7%A8%BF
+        // 需要设置referrer
         url: '/x/space/wbi/arc/search',
+        useWbi: true,
     })
 }
 

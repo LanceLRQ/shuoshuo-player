@@ -1,8 +1,10 @@
 // Example from: https://www.embla-carousel.com/examples/predefined
 
 import React, { useState, useCallback, useEffect } from 'react';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import useEmblaCarousel from 'embla-carousel-react'
 import Autoplay from 'embla-carousel-autoplay';
+import PropTypes from 'prop-types';
 
 const usePrevNextButtons = (emblaApi) => {
     const [prevBtnDisabled, setPrevBtnDisabled] = useState(true)
@@ -123,7 +125,8 @@ const DotButton = (props) => {
     )
 }
 
-const VideoAlbumCarousel = () => {
+const VideoAlbumCarousel = (props) => {
+    const { slides = [] } = props;
     const [emblaRef, emblaApi] = useEmblaCarousel({loop: true}, [Autoplay()])
 
     const { selectedIndex, scrollSnaps, onDotButtonClick } =
@@ -136,21 +139,27 @@ const VideoAlbumCarousel = () => {
         onNextButtonClick
     } = usePrevNextButtons(emblaApi)
 
-    const slides = [1,2,3,4,5,6];
-
     return <section className="video-album-carousel embla theme-dark">
         <div className="embla__viewport" ref={emblaRef}>
             <div className="embla__container">
-                {slides.map((index) => (
+                {slides.map((item, index) => (
                     <div className="embla__slide" key={index}>
-                        <div className="embla__slide__number">{index + 1}</div>
+                        <div className="embla__slide__card" onClick={() => item.onClick && item.onClick()}>
+                            <div className="embla__slide__image">
+                                <div className="embla__slide__image__cover">
+                                    <OpenInNewIcon />
+                                </div>
+                                <img alt={item.title} src={item.pic}/>
+                            </div>
+                            <div className="embla__slide__title">{item.title}</div>
+                        </div>
                     </div>
                 ))}
             </div>
         </div>
 
         <div className="embla__controls">
-            <div className="embla__buttons">
+        <div className="embla__buttons">
                 <PrevButton onClick={onPrevButtonClick} disabled={prevBtnDisabled}/>
                 <NextButton onClick={onNextButtonClick} disabled={nextBtnDisabled}/>
             </div>
@@ -169,5 +178,13 @@ const VideoAlbumCarousel = () => {
         </div>
     </section>
 };
+
+VideoAlbumCarousel.propTypes = {
+    slides: PropTypes.arrayOf(PropTypes.shape({
+        title: PropTypes.string.isRequired,
+        pic: PropTypes.string.isRequired,
+        onClick: PropTypes.func,
+    }))
+}
 
 export default VideoAlbumCarousel

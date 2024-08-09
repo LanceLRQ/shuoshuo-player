@@ -19,7 +19,10 @@
     "declarativeNetRequest",
     "storage",
     "contextMenus",
-    "notifications"
+    "notifications",
+    "unlimitedStorage",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "*://*.acgvideo.com/*",

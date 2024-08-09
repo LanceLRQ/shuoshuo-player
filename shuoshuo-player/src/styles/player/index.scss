@@ -75,7 +75,7 @@ body, html, #root {
             --text-medium-contrast: rgb(202, 202, 202);
             --text-low-contrast: rgb(170, 170, 170);
             --detail-high-contrast: rgb(101, 101, 101);
-            --detail-medium-contrast: rgb(25, 25, 25);
+            --detail-medium-contrast: rgb(50, 50, 50);
             --detail-low-contrast: rgb(21, 21, 21);
             --admonition-note: rgb(138, 180, 248);
             --admonition-warning: rgb(253, 186, 116);
@@ -91,18 +91,18 @@ body, html, #root {
             --text-medium-contrast-rgb-value: 202, 202, 202;
             --text-low-contrast-rgb-value: 170, 170, 170;
             --detail-high-contrast-rgb-value: 101, 101, 101;
-            --detail-medium-contrast-rgb-value: 25, 25, 25;
+            --detail-medium-contrast-rgb-value: 50, 50, 50;
             --detail-low-contrast-rgb-value: 21, 21, 21;
             --admonition-note-rgb-value: 138, 180, 248;
             --admonition-warning-rgb-value: 253, 186, 116;
             --admonition-danger-rgb-value: 220, 38, 38;
         }
         &.embla {
-            max-width: 90%;
+            max-width: 100%;
             margin: auto;
-            --slide-height: 19rem;
+            --slide-height: 16rem;
             --slide-spacing: 1rem;
-            --slide-size: 90%;
+            --slide-size: 80%;
         }
         .embla__viewport {
             overflow: hidden;
@@ -118,16 +118,51 @@ body, html, #root {
             min-width: 0;
             padding-left: var(--slide-spacing);
         }
-        .embla__slide__number {
-            box-shadow: inset 0 0 0 0.2rem var(--detail-medium-contrast);
-            border-radius: 1.8rem;
-            font-size: 4rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        //.embla__slide__number {
+        //    box-shadow: inset 0 0 0 0.2rem var(--detail-medium-contrast);
+        //    border-radius: 1.8rem;
+        //    font-size: 4rem;
+        //    font-weight: 600;
+        //    display: flex;
+        //    align-items: center;
+        //    justify-content: center;
+        //    height: var(--slide-height);
+        //    user-select: none;
+        //}
+        .embla__slide__card {
+            overflow: hidden;
+            cursor: pointer;
+            border-radius: 0.8rem;
+            border: 1px solid var(--detail-medium-contrast);
+        }
+        .embla__slide__image{
+            width: 100%;
             height: var(--slide-height);
-            user-select: none;
+            position: relative;
+            img {
+                width: 100%;
+                height: 100%;
+            }
+            .embla__slide__image__cover {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: absolute;
+                inset: 0;
+                opacity: 0;
+                background: rgba(0, 0, 0);
+                transition: opacity .5s ease-in-out;
+            }
+            &:hover .embla__slide__image__cover {
+                opacity: 0.5;
+            }
+        }
+        .embla__slide__title{
+            overflow: hidden;
+            word-break: break-all;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            padding: 0 $width-3 $width-2 ;
         }
         .embla__controls {
             display: grid;
@@ -176,7 +211,7 @@ body, html, #root {
             flex-wrap: wrap;
             justify-content: flex-end;
             align-items: center;
-            margin-right: calc((2.6rem - 1.4rem) / 2 * -1);
+            //margin-right: calc((2.6rem - 1.4rem) / 2 * -1);
         }
         .embla__dot {
             -webkit-tap-highlight-color: rgba(var(--text-high-contrast-rgb-value), 0.5);
