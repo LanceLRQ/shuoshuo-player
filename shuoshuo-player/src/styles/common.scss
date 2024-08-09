@@ -251,3 +251,19 @@ $padding-small: $width-2;
 $padding-normal: $width-4;
 $padding-big: $width-6;
 $padding-huge: $width-8;
+
+
+@mixin custom-webkit-scroll {
+  &::-webkit-scrollbar {
+    width: 12px;
+  }
+  &::-webkit-scrollbar-track {
+    background: $black;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $blue-10;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: $blue-8;
+  }
+}

@@ -4,7 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import '@styles/player/index.scss';
+import '@styles/player.scss';
 import NavMenu from "@player/components/nav_menu";
 import TopBar from "@player/components/top_bar";
 import ReactJkMusicPlayer from 'react-jinke-music-player';

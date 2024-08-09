@@ -1,9 +1,10 @@
-@import '../common.scss';
+@import 'common';
 
 body, html, #root {
     overflow: hidden;
     height: 100%;
 }
+
 .player-layout-main {
     display: flex;
     flex-direction: column;
@@ -19,6 +20,7 @@ body, html, #root {
             width: 100%;
             padding: $width-11 0 0 $width-4;
             overflow: auto;
+            @include custom-webkit-scroll;
         }
     }
 
@@ -243,6 +245,64 @@ body, html, #root {
         }
         .embla__dot--selected:after {
             box-shadow: inset 0 0 0 0.2rem var(--text-body);
+        }
+    }
+
+    .bilibili-video-item {
+        cursor: pointer;
+        &:nth-child(2n+1) {
+            background-color: darken($blue-8, 30%);
+        }
+        &:hover {
+            background-color: $blue-10;
+            .bilibili-video-item-sider {
+                opacity: 1;
+            }
+        }
+        .bilibili-video-item-avatar {
+            width: $width-8 * 1.6;
+            height: $width-8;
+            margin-right: $width-5;
+            border-radius: $width-1;
+            overflow: hidden;
+            img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+        }
+        .bilibili-video-item-sider {
+            flex: 0 0 $width-11;
+            width: $width-11;
+            opacity: 0;
+            transition: opacity .2s ease-in-out;
+        }
+    }
+
+    @media screen and (min-width: 1200px) {
+        .player-home-page {
+            height: 100%;
+            overflow: hidden;
+
+            .player-home-page-left {
+                overflow: auto;
+                height: 100%;
+            }
+
+            .player-home-page-right {
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                height: 100%;
+                .player-home-page-recent-title {
+                    flex: 0 0 auto;
+                }
+                .player-home-page-recent-list {
+                    flex: 1 1 auto;
+                    overflow: auto;
+                    @include custom-webkit-scroll;
+                }
+            }
         }
     }
 }
