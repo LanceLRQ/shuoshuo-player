@@ -18,8 +18,9 @@ const VideoItem = (props) => {
         </ListItemAvatar>
         <ListItemText
             primary={video.title}
-            secondary={<Stack direction="row" spacing={1} sx={{ marginTop: '8px' }}>
+            secondary={<Stack component="span" direction="row" spacing={1} sx={{ marginTop: '8px' }}>
                 <Chip
+                    component="span"
                     color="primary"
                     size="small"
                     variant="outlined"
@@ -27,12 +28,14 @@ const VideoItem = (props) => {
                     label={dayjs(video.created * 1000).fromNow()}
                 />
                 <Chip
+                    component="span"
                     size="small"
                     variant="outlined"
                     icon={<PlayCircleFilledIcon />}
                     label={formatNumber10K(video.play)}
                 />
                 <Chip
+                    component="span"
                     size="small"
                     variant="outlined"
                     icon={<ChatIcon />}
@@ -52,11 +55,11 @@ const VideoItem = (props) => {
 }
 
 VideoItem.propTypes = {
-    video: PropTypes.arrayOf(PropTypes.shape({
+    video: PropTypes.shape({
         title: PropTypes.string,
         pic: PropTypes.string,
         created: PropTypes.number,
-    })),
+    }),
     onPlay: PropTypes.func,
     onDirect: PropTypes.func,
 }

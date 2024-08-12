@@ -5,6 +5,7 @@ const preloadedState = {
     play_list: {},                  // 播放列表、歌单列表等
     profile: {},                    // 用户偏好信息
     caches: {},                     // 缓存信息(数据不多的那种)
+    ui: {},
 };
 
 const persistKeys = ['play_list', 'profile', 'caches']
@@ -42,7 +43,7 @@ store.subscribe(() => {
             }
         });
         if (process.env.NODE_ENV === 'development') {
-            console.log(result, 'saved');
+            console.log(storeState, 'saved');
         }
         chromeStorage.set(result, () => {});
     }

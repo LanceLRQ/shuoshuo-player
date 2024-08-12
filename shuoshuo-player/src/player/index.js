@@ -6,6 +6,7 @@ import { Provider } from 'react-redux';
 import '@fontsource/roboto/400.css';
 import PlayerIndex from './player';
 import store from '../store/index';
+import NoticesBox from './components/notices';
 
 dayjs.locale('zh-cn')
 dayjs.extend(require('dayjs/plugin/relativeTime'))
@@ -14,6 +15,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
     <Provider store={store}>
         <PlayerIndex />
+        <NoticesBox />
     </Provider>
 );
 
