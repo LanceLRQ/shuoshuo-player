@@ -53,7 +53,7 @@ export const readUserVideos = async (dispatch, mid, query) => {
         });
         isLoading.loadingUserVideos = false;
         dispatch(BilibiliUserVideoListReducer.actions.updateVideoList({
-            mid, data: videoData
+            mid, data: videoData, updateType: 'default',
         }));
         dispatch(PlayerNoticesReducer.actions.removeNotice({id: 'load_user_videos_tip'}));
         dispatch(PlayerNoticesReducer.actions.sendNotice({
@@ -90,7 +90,7 @@ export const readUserVideosAll = async (dispatch, mid, query) => {
             total = videoData?.page?.count ?? 0;
             pp = Math.ceil(total / ps)
             dispatch(BilibiliUserVideoListReducer.actions.updateVideoList({
-                mid, data: videoData
+                mid, data: videoData, updateType: 'fully',
             }));
             await delayPromise();
             if (pn === pp || total <= 0 || pp === -1) {

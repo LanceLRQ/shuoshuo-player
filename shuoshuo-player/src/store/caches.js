@@ -25,10 +25,12 @@ export const BilibiliUserVideoListReducer = createSlice({
         updateVideoList: (state, action) => {
             const mid = action.payload?.mid;
             const vData = action.payload?.data;
+            const updateType = action.payload?.updateType ?? 'default';
             const uEntity = state[mid] ?? {
                 update_time: 0,      // 上次更新时间
                 video_list: [],      // 视频数据列表(预处理)
                 count: 0,            // 视频数量
+                update_type: '',     // default - 更新前30；fully - 全量
             }
             const videoList = vData?.list?.vlist ?? [];
             const pageCount = vData?.page?.count ?? 0;
@@ -47,6 +49,7 @@ export const BilibiliUserVideoListReducer = createSlice({
             uEntity.video_list.sort((a, b) => a?.created > b?.created ? -1 : 0);
             uEntity.count = pageCount;
             uEntity.update_time = TimeStampNow();
+            uEntity.update_type = updateType;
             state[mid] = uEntity;
         },
     },

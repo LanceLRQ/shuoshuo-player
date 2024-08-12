@@ -17,6 +17,7 @@ const HomePage = () => {
     const [loaded, setLoaded] = useState(false);
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const masterLastUpdateTime = useSelector((state) => state.caches?.user_video_list?.[MasterUpInfo.mid]?.update_time ?? 0);
+    const masterUpdateType = useSelector((state) => state.caches?.user_video_list?.[MasterUpInfo.mid]?.update_type ?? 0);
     const masterVideoList = useSelector((state) => state.caches?.user_video_list?.[MasterUpInfo.mid]?.video_list ?? []);
 
     // 前30更新
@@ -78,7 +79,7 @@ const HomePage = () => {
                     </Tooltip>
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                    更新时间：{dayjs(masterLastUpdateTime * 1000).fromNow()}
+                    更新时间：{dayjs(masterLastUpdateTime * 1000).fromNow()} {masterUpdateType === 'fully' ? '(全量)' : '(前30条)'}
                 </Typography>
                 <Dialog onClose={() => setUpdateDialogOpen(false)} open={updateDialogOpen}>
                     <DialogTitle>请选择更新方式</DialogTitle>
