@@ -1,7 +1,7 @@
-import { combineReducers, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
-export const PlayingListReducer = createSlice({
-    name: 'playing',
+export const PlayingListSlice = createSlice({
+    name: 'playing_list',
     initialState: {
         list: [],            // 播放列表
         current: ''
@@ -14,9 +14,3 @@ export const PlayingListReducer = createSlice({
         },
     },
 });
-
-const PlayListReducerRoot = combineReducers({
-    playing: PlayingListReducer.reducer,   // 正在播放的列表
-});
-
-export default PlayListReducerRoot;

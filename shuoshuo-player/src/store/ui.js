@@ -1,8 +1,8 @@
-import { combineReducers, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import {NoticeTypes} from "@/constants";
 
 export const PlayerNoticesReducer = createSlice({
-    name: 'notices',
+    name: 'ui_notices',
     initialState: {
         list: []
     },
@@ -37,8 +37,8 @@ export const PlayerNoticesReducer = createSlice({
     },
 });
 
-const UIReducerRoot = combineReducers({
-    notices: PlayerNoticesReducer.reducer,   // B站用户信息
-});
+const UIReducerSlices = [
+    PlayerNoticesReducer        // 播放器通知UI
+];
 
-export default UIReducerRoot;
+export default UIReducerSlices;

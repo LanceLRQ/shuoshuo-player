@@ -7,29 +7,34 @@ import {
 } from '@mui/material';
 import VideoAlbumCarousel from "@player/components/carousel";
 import VideoItem from "@player/components/video_item";
-import {readUserVideos, readUserVideosAll} from "@player/utils";
+import {readUserVideosAll} from "@player/utils";
 import {MasterUpInfo} from "@/constants";
 import {TimeStampNow} from "@/utils";
 import RefreshIcon from '@mui/icons-material/Refresh';
+import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 
 const HomePage = () => {
     const dispatch = useDispatch();
-    const [loaded, setLoaded] = useState(false);
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
-    const masterLastUpdateTime = useSelector((state) => state.caches?.user_video_list?.[MasterUpInfo.mid]?.update_time ?? 0);
-    const masterUpdateType = useSelector((state) => state.caches?.user_video_list?.[MasterUpInfo.mid]?.update_type ?? 0);
-    const masterVideoList = useSelector((state) => state.caches?.user_video_list?.[MasterUpInfo.mid]?.video_list ?? []);
+    const isUpdating = useSelector(BilibiliUserVideoListSlice.selectors.loadingStatus);
+    const masterVideoListInfo = useSelector(state => BilibiliUserVideoListSlice.selectors.masterVideoListInfo(state, MasterUpInfo.mid));
+
+    const masterLastUpdateTime = masterVideoListInfo?.update_time ?? 0;
+    const masterUpdateType = masterVideoListInfo?.update_type ?? 0;
+    const masterVideoList = masterVideoListInfo?.video_list ?? [];
 
     // 前30更新
     const updateMasterVideoList = useCallback(() => {
         setUpdateDialogOpen(false);
-        readUserVideos(dispatch, MasterUpInfo.mid, {
-            order: 'pubdate',
-            platform: 'web',
-        }).then(() => {
-            setLoaded(true);
-        });
-    }, [dispatch, setLoaded])
+        if (isUpdating) return;
+        dispatch(BilibiliUserVideoListSlice.actions.readUserVideos({
+            mid: MasterUpInfo.mid,
+            query: {
+                order: 'pubdate',
+                platform: 'web',
+            }
+        }))
+    }, [dispatch, isUpdating])
 
     // 手动触发全量更新
     const updateMasterVideoListAll = useCallback(() => {
@@ -38,18 +43,16 @@ const HomePage = () => {
             order: 'pubdate',
             platform: 'web',
         }).then(() => {
-            setLoaded(true);
+
         });
-    }, [dispatch, setLoaded])
+    }, [dispatch])
 
     useEffect(() => {
         const isOutdated = (masterLastUpdateTime + 86400) < TimeStampNow();   // 一小时更新一次
         if (!masterLastUpdateTime || isOutdated) {
-            updateMasterVideoList();
-        } else {
-            setLoaded(true);
+            // updateMasterVideoList();
         }
-    }, [updateMasterVideoList, masterLastUpdateTime]);
+    }, [updateMasterVideoList]);
 
     const slidesList = useMemo(() => {
         const ret = [];
@@ -64,9 +67,9 @@ const HomePage = () => {
             })
         })
         return ret;
-    }, [masterVideoList])
+    }, [masterVideoList]);
 
-    return loaded ? <Grid container spacing={2} className="player-home-page">
+    return <Grid container spacing={2} className="player-home-page">
         <Grid item xs={12} lg={6} xl={7} className="player-home-page-left">
             <VideoAlbumCarousel slides={slidesList} />
         </Grid>
@@ -112,7 +115,6 @@ const HomePage = () => {
                 </List>
             </section>
         </Grid>
-    </Grid>
-: null;
+    </Grid>;
 }
 export default HomePage;

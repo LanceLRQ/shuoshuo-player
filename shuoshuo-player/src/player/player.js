@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useEffect } from 'react';
+import {useDispatch, useSelector} from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -9,8 +9,8 @@ import NavMenu from "@player/components/nav_menu";
 import TopBar from "@player/components/top_bar";
 import ReactJkMusicPlayer from 'react-jinke-music-player';
 import 'react-jinke-music-player/assets/index.css';
-import { initUserInfo } from "@player/utils";
 import Pages from './pages';
+import {BilibiliUserInfoSlice} from "@/store/bilibili";
 
 const darkTheme = createTheme({
     palette: {
@@ -21,13 +21,9 @@ const darkTheme = createTheme({
 const PlayerIndex = () => {
     const dispatch = useDispatch();
 
-    const [inited, setInited] = useState(false);
+    const inited = useSelector(BilibiliUserInfoSlice.selectors.isInited);
     useEffect( () => {
-        const initPlayer = async () => {
-            await initUserInfo(dispatch);
-            setInited(true);
-        }
-        initPlayer().then();
+        dispatch(BilibiliUserInfoSlice.actions.getLoginUserInfo());
     }, [dispatch]);
 
     const [menuOpen, setMenuOpen] = React.useState(true);
