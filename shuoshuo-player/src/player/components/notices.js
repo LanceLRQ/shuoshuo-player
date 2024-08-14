@@ -25,7 +25,7 @@ const IconColorMap = {
 
 const NoticesBox = () => {
     const dispatch = useDispatch();
-    const noticesList = useSelector(state => state.ui?.notices?.list) ?? [];
+    const noticesList = useSelector(PlayerNoticesSlice.selectors.noticeList) ?? [];
 
     const handleClose = (item) => (e, reason) => {
         if (reason === 'clickaway') return;

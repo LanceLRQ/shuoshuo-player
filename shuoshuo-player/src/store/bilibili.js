@@ -1,11 +1,11 @@
-import { isArray, pick } from 'lodash';
+import {isArray, pick} from 'lodash';
 import {createSlice, createEntityAdapter} from '@reduxjs/toolkit';
 import {BilibiliUserVideoListPickup} from "@/fields";
 import {TimeStampNow} from "@/utils";
 import {PlayerNoticesSlice} from "@/store/ui";
 import {NoticeTypes} from "@/constants";
 import API from "@/api";
-import { createAppSlice } from "@/store/util";
+import { createAppSlice, delayPromise } from "@/store/util";
 
 
 export const BilibiliUserInfoSlice = createAppSlice({
@@ -81,6 +81,7 @@ export const BilibiliUserVideoListSlice = createAppSlice({
     name: 'bili_user_videos',
     initialState: {
         isLoading: false,
+        infos: {},
         // <mid>: {
         //     update_time: 0,      // 上次更新时间
         //     video_list: [],      // 视频数据列表 { bv, created }
@@ -90,34 +91,58 @@ export const BilibiliUserVideoListSlice = createAppSlice({
     },
     selectors: {
         loadingStatus: (state) => state.isLoading,
-        videoListInfo: (state, mid) => state[mid],
-        sliceSelf: (state) => state,
+        videoListInfo: (state) => state.infos,
     },
     reducers: (create) => ({
         readUserVideos: create.asyncThunk(
             async (params, { dispatch }) => {
-                const { mid, query } = params;
-                try {
-                    dispatch(PlayerNoticesSlice.actions.sendNotice({
-                        id: 'load_user_videos_tip',
-                        type: NoticeTypes.INFO,
-                        message: '正在加载投稿列表',
-                        close: false,
-                    }));
-                    const videoData = await API.Bilibili.UserApi.getUserVideoList({
-                        params: {
-                            mid,
-                            ...query,
-                        }
-                    });
-                    dispatch(BilibiliUserVideoListSlice.actions.updateVideoList({
-                        mid, data: videoData, updateType: 'default',
-                    }));
-                    const videoList = videoData?.list?.vlist ?? [];
-                    dispatch(BilibiliVideoEntitiesSlice.actions.upsertMany(videoList))
-                } catch (e) {
-                    console.debug(e)
+                const { mid, query, mode = 'default' } = params;
+                dispatch(PlayerNoticesSlice.actions.sendNotice({
+                    id: 'load_user_videos_tip',
+                    type: NoticeTypes.INFO,
+                    message: '正在加载投稿列表',
+                    close: false,
+                }));
+                const fetchUserVideoList = async (pn = 1, ps = 30) => {
+                    try {
+                        const videoData = await API.Bilibili.UserApi.getUserVideoList({
+                            params: {
+                                mid,
+                                ...query,
+                                pn,
+                                ps,
+                            }
+                        });
+                        dispatch(BilibiliUserVideoListSlice.actions.updateVideoList({
+                            mid, data: videoData, updateType: mode,
+                        }));
+                        const videoList = videoData?.list?.vlist ?? [];
+                        dispatch(BilibiliVideoEntitiesSlice.actions.upsertMany(videoList))
+                        return videoData?.page?.count ?? 0;
+                    } catch (e) {
+                        console.debug(e)
+                        return 0;
+                    }
                 }
+
+                if (mode === 'fully') {
+                    let pn = 1, ps = 30, total = -1, pp = -1;
+                    while (total === -1 || pn <= pp) {
+                        total = await fetchUserVideoList(pn, ps);
+                        pp = Math.ceil(total / ps)
+                        pn++;
+                        await delayPromise();
+                        dispatch(PlayerNoticesSlice.actions.sendNotice({
+                            id: 'load_user_videos_tip',
+                            type: NoticeTypes.INFO,
+                            message: `正在加载投稿列表(${pn}/${pp})`,
+                            close: false,
+                        }));
+                    }
+                } else {
+                   await fetchUserVideoList()
+                }
+
                 dispatch(PlayerNoticesSlice.actions.removeNotice({id: 'load_user_videos_tip'}));
                 dispatch(PlayerNoticesSlice.actions.sendNotice({
                     type: NoticeTypes.SUCCESS,
@@ -141,7 +166,7 @@ export const BilibiliUserVideoListSlice = createAppSlice({
             const mid = action.payload?.mid;
             const vData = action.payload?.data;
             const updateType = action.payload?.updateType ?? 'default';
-            const uEntity = state[mid] ?? {
+            const uEntity = state.infos[mid] ?? {
                 update_time: 0,
                 video_list: [],
                 count: 0,
@@ -165,7 +190,7 @@ export const BilibiliUserVideoListSlice = createAppSlice({
             uEntity.count = pageCount;
             uEntity.update_time = TimeStampNow();
             uEntity.update_type = updateType;
-            state[mid] = uEntity;
+            state.infos[mid] = uEntity;
         })
     }),
 });

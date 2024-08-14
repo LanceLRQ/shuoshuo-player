@@ -7,7 +7,6 @@ import {
 } from '@mui/material';
 import VideoAlbumCarousel from "@player/components/carousel";
 import VideoItem from "@player/components/video_item";
-import {readUserVideosAll} from "@player/utils";
 import {MasterUpInfo} from "@/constants";
 import {TimeStampNow} from "@/utils";
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -19,14 +18,15 @@ const HomePage = () => {
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const isUpdating = useSelector(BilibiliUserVideoListSlice.selectors.loadingStatus);
     const masterVideoListAll = useSelector(MasterVideoListSelector);
+    const masterVideoListInfos = useSelector(BilibiliUserVideoListSlice.selectors.videoListInfo);
     const masterVideoList = useMemo(() => masterVideoListAll[MasterUpInfo.mid] ?? [], [masterVideoListAll]);
-    const masterVideoListInfo = useSelector(state => BilibiliUserVideoListSlice.selectors.videoListInfo(state, MasterUpInfo.mid));
+    const masterVideoListInfo = useMemo(() => masterVideoListInfos[MasterUpInfo.mid] ?? {}, [masterVideoListInfos]);
 
     const masterLastUpdateTime = masterVideoListInfo?.update_time ?? 0;
     const masterUpdateType = masterVideoListInfo?.update_type ?? 0;
 
     // 前30更新
-    const updateMasterVideoList = useCallback(() => {
+    const updateMasterVideoList = useCallback((mode = 'default') => {
         setUpdateDialogOpen(false);
         if (isUpdating) return;
         dispatch(BilibiliUserVideoListSlice.actions.readUserVideos({
@@ -34,20 +34,10 @@ const HomePage = () => {
             query: {
                 order: 'pubdate',
                 platform: 'web',
-            }
+            },
+            mode
         }))
     }, [dispatch, isUpdating])
-
-    // 手动触发全量更新
-    const updateMasterVideoListAll = useCallback(() => {
-        setUpdateDialogOpen(false);
-        readUserVideosAll(dispatch, MasterUpInfo.mid, {
-            order: 'pubdate',
-            platform: 'web',
-        }).then(() => {
-
-        });
-    }, [dispatch])
 
     useEffect(() => {
         const isOutdated = (masterLastUpdateTime + 86400) < TimeStampNow();   // 一小时更新一次
@@ -95,7 +85,7 @@ const HomePage = () => {
                             </ListItemButton>
                         </ListItem>
                         <ListItem disableGutters>
-                            <ListItemButton onClick={() => updateMasterVideoListAll()}>
+                            <ListItemButton onClick={() => updateMasterVideoList('fully')}>
                                 <ListItemText>获取完整列表</ListItemText>
                             </ListItemButton>
                         </ListItem>

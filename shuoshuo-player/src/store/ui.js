@@ -36,6 +36,9 @@ export const PlayerNoticesSlice = createSlice({
             }
         }
     },
+    selectors: {
+        noticeList: (state) => state.list,
+    }
 });
 
 const UIReducerSlices = [
