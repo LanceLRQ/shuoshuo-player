@@ -11,7 +11,7 @@ import {formatNumber10K} from "@player/utils";
 
 
 const VideoItem = (props) => {
-    const { video } = props;
+    const { video, fullCreateTime } = props;
     return <ListItem className="bilibili-video-item">
         <ListItemAvatar className="bilibili-video-item-avatar">
             <img src={video.pic} alt={video.title} style={{ height: 40 }} />
@@ -25,7 +25,7 @@ const VideoItem = (props) => {
                     size="small"
                     variant="outlined"
                     icon={<AccessTimeFilledIcon />}
-                    label={dayjs(video.created * 1000).fromNow()}
+                    label={fullCreateTime ? dayjs(video.created * 1000).format("YYYY年MM月DD日 HH:mm") : dayjs(video.created * 1000).fromNow()}
                 />
                 <Chip
                     component="span"
@@ -60,6 +60,7 @@ VideoItem.propTypes = {
         pic: PropTypes.string,
         created: PropTypes.number,
     }),
+    fullCreateTime: PropTypes.bool,
     onPlay: PropTypes.func,
     onDirect: PropTypes.func,
 }
