@@ -12,6 +12,7 @@ import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import {useNavigate, useMatch} from "react-router";
+import {MasterUpInfo} from "@/constants";
 
 const drawerWidth = 240;
 
@@ -54,7 +55,7 @@ const NavMenu = (props) => {
         { label: '搜索', key: 'search', icon: <ManageSearchIcon /> },
         { label: '最近播放', key: 'recent', icon: <ScheduleIcon /> },
         { type: 'divider' },
-        { label: '说说Crystal', key: 'fav:main', icon: <FavoriteIcon /> },
+        { label: MasterUpInfo.uname, key: 'fav:main', icon: <FavoriteIcon /> },
         { type: 'fav' },
         { label: '创建歌单', key: 'fav:add', icon: <PlaylistAddIcon /> },
     ]

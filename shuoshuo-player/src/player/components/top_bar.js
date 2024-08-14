@@ -4,6 +4,7 @@ import { AppBar as MuiAppBar, Toolbar, IconButton, Typography, Avatar, Tooltip }
 import MenuIcon from '@mui/icons-material/Menu';
 import { useSelector } from 'react-redux';
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
+import {MasterUpInfo} from "@/constants";
 
 const drawerWidth = 240;
 
@@ -56,7 +57,7 @@ const TopBar = (props) => {
                 noWrap
                 sx={{ flexGrow: 1 }}
             >
-                说说Crystal播放器
+                {MasterUpInfo.uname}播放器
             </Typography>
             {biliUser ? <Tooltip title={biliUser.uname}>
                 <Avatar alt={biliUser.uname} src={biliUser.face} />
