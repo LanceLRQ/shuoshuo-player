@@ -139,11 +139,15 @@ body, html, #root {
         }
         .embla__slide__image{
             width: 100%;
-            height: var(--slide-height);
             position: relative;
+            padding-bottom: 62.5%;
             img {
+                position: absolute;
+                top: 0;
+                left: 0;
                 width: 100%;
                 height: 100%;
+                object-fit: cover;
             }
             .embla__slide__image__cover {
                 display: flex;

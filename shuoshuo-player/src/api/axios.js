@@ -5,7 +5,7 @@ import {encWbi} from "@/api/utils";
 const service = axios.create({
     timeout: 30000,
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    baseURL: 'https://api.bilibili.com/',
+    baseURL: '/',
 });
 
 service.interceptors.request.use(function (config) {

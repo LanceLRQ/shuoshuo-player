@@ -45,9 +45,7 @@ export const BilibiliUserInfoSlice = createAppSlice({
                     }
                     state.isInited = true;
                     state.isLogin = userData?.isLogin;
-                    state.current = {
-                        ...pick(userData, ['face', 'uname', 'mid'])
-                    }
+                    state.current = userData;
                 },
             }
         ),
@@ -56,6 +54,9 @@ export const BilibiliUserInfoSlice = createAppSlice({
         currentUser: (state) => state.current,
         isLogin: (state) => state.isLogin,
         isInited: (state) => state.isInited,
+        isBigVip: (state) => ({
+            return state.current?.vipType > 0 && state.current?.vip_pay_type > 0 && state.current?.vipType > 0,
+        })
     }
 });
 
