@@ -7,7 +7,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from '@mui/icons-material/Close';
-import {PlayerNoticesReducer} from "@/store/ui";
+import {PlayerNoticesSlice} from "@/store/ui";
 import {common, yellow, red, green} from '@mui/material/colors';
 
 const IconMap = {
@@ -25,11 +25,11 @@ const IconColorMap = {
 
 const NoticesBox = () => {
     const dispatch = useDispatch();
-    const noticesList = useSelector(state => state.ui?.notices?.list ?? []);
+    const noticesList = useSelector(state => state.ui?.notices?.list) ?? [];
 
     const handleClose = (item) => (e, reason) => {
         if (reason === 'clickaway') return;
-        dispatch(PlayerNoticesReducer.actions.removeNotice({
+        dispatch(PlayerNoticesSlice.actions.removeNotice({
             id: item.id,
         }));
     }

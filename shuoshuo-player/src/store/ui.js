@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import {NoticeTypes} from "@/constants";
 
-export const PlayerNoticesReducer = createSlice({
+export const PlayerNoticesSlice = createSlice({
     name: 'ui_notices',
     initialState: {
         list: []
@@ -9,6 +9,7 @@ export const PlayerNoticesReducer = createSlice({
     reducers: {
         sendNotice: (state, action) => {
             const { payload } = action;
+            if (!state.list) state.list = [];
             const { id = Date.now() + '_' + Math.round(Math.random() * 1000) } = payload;
             const idx = state.list.findIndex(item => item.id === id);
             const obj = {
@@ -38,7 +39,7 @@ export const PlayerNoticesReducer = createSlice({
 });
 
 const UIReducerSlices = [
-    PlayerNoticesReducer        // 播放器通知UI
+    PlayerNoticesSlice        // 播放器通知UI
 ];
 
 export default UIReducerSlices;

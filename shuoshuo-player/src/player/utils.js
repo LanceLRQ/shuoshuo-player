@@ -2,7 +2,7 @@ import API from '../api';
 import { delay } from 'lodash';
 
 import { BilibiliUserVideoListSlice } from "@/store/bilibili";
-import {PlayerNoticesReducer} from "@/store/ui";
+import {PlayerNoticesSlice} from "@/store/ui";
 import { NoticeTypes} from "@/constants";
 
 let isLoading = {
@@ -22,7 +22,7 @@ export const readUserVideosAll = async (dispatch, mid, query) => {
         isLoading.loadingUserVideos = true;
         let pn = 1, ps = 30, total = -1, pp = -1;
         while(total === -1 || pn <= pp) {
-            dispatch(PlayerNoticesReducer.actions.sendNotice({
+            dispatch(PlayerNoticesSlice.actions.sendNotice({
                 id: 'load_full_user_videos_tip',
                 type: NoticeTypes.INFO,
                 message: `正在加载完整投稿列表(${pn}/${pp === -1 ? '-' : pp})`,
@@ -43,8 +43,8 @@ export const readUserVideosAll = async (dispatch, mid, query) => {
             }));
             await delayPromise();
             if (pn === pp || total <= 0 || pp === -1) {
-                dispatch(PlayerNoticesReducer.actions.removeNotice({id: 'load_full_user_videos_tip'}));
-                dispatch(PlayerNoticesReducer.actions.sendNotice({
+                dispatch(PlayerNoticesSlice.actions.removeNotice({id: 'load_full_user_videos_tip'}));
+                dispatch(PlayerNoticesSlice.actions.sendNotice({
                     type: NoticeTypes.SUCCESS,
                     message: '更新完成',
                     duration: 5000,

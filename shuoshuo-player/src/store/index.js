@@ -1,15 +1,16 @@
+import { throttle } from 'lodash';
 import { configureStore } from '@reduxjs/toolkit';
 import { createRootReducer } from './reducers';
 
 const preloadedState = {
-    bili_current_user: {},
-    bili_user_videos: {},
-    bili_videos: {},
-    playing_list: {},
-    ui_notices: {},
+    // bili_current_user: {},
+    // bili_user_videos: {},
+    // bili_videos: {},
+    // playing_list: {},
+    // ui_notices: {},
 };
 
-const persistKeys = ['play_list', 'profile', 'bilibili']
+const persistKeys = ['bili_user_videos', 'bili_videos']
 const chromeStorage = chrome && chrome.storage && chrome.storage.local;
 
 const readStateFromChromeStorage = () => new Promise((resolve, reject) => {
@@ -34,7 +35,7 @@ export const store = configureStore({
     preloadedState,
 });
 
-store.subscribe(() => {
+const persistStore = throttle(() => {
     const storeState = store.getState();
     if (storeState && chromeStorage) {
         const result = {};
@@ -48,6 +49,10 @@ store.subscribe(() => {
         }
         chromeStorage.set(result, () => {});
     }
+}, 1000);
+
+store.subscribe(() => {
+    persistStore();
 });
 
 if (process.env.NODE_ENV !== 'production' && module.hot) {

@@ -12,16 +12,18 @@ import {MasterUpInfo} from "@/constants";
 import {TimeStampNow} from "@/utils";
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
+import {MasterVideoListSelector} from "@/store/selectors/bilibili";
 
 const HomePage = () => {
     const dispatch = useDispatch();
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const isUpdating = useSelector(BilibiliUserVideoListSlice.selectors.loadingStatus);
-    const masterVideoListInfo = useSelector(state => BilibiliUserVideoListSlice.selectors.masterVideoListInfo(state, MasterUpInfo.mid));
+    const masterVideoListAll = useSelector(MasterVideoListSelector);
+    const masterVideoList = useMemo(() => masterVideoListAll[MasterUpInfo.mid] ?? [], [masterVideoListAll]);
+    const masterVideoListInfo = useSelector(state => BilibiliUserVideoListSlice.selectors.videoListInfo(state, MasterUpInfo.mid));
 
     const masterLastUpdateTime = masterVideoListInfo?.update_time ?? 0;
     const masterUpdateType = masterVideoListInfo?.update_type ?? 0;
-    const masterVideoList = masterVideoListInfo?.video_list ?? [];
 
     // 前30更新
     const updateMasterVideoList = useCallback(() => {
@@ -50,9 +52,9 @@ const HomePage = () => {
     useEffect(() => {
         const isOutdated = (masterLastUpdateTime + 86400) < TimeStampNow();   // 一小时更新一次
         if (!masterLastUpdateTime || isOutdated) {
-            // updateMasterVideoList();
+            updateMasterVideoList();
         }
-    }, [updateMasterVideoList]);
+    }, [updateMasterVideoList, masterLastUpdateTime]);
 
     const slidesList = useMemo(() => {
         const ret = [];

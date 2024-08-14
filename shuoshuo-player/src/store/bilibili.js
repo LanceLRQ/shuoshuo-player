@@ -1,8 +1,8 @@
 import { isArray, pick } from 'lodash';
-import { createSlice, createEntityAdapter } from '@reduxjs/toolkit';
+import {createSlice, createEntityAdapter} from '@reduxjs/toolkit';
 import {BilibiliUserVideoListPickup} from "@/fields";
 import {TimeStampNow} from "@/utils";
-import {PlayerNoticesReducer} from "@/store/ui";
+import {PlayerNoticesSlice} from "@/store/ui";
 import {NoticeTypes} from "@/constants";
 import API from "@/api";
 import { createAppSlice } from "@/store/util";
@@ -70,30 +70,40 @@ export const BilibiliVideoEntitiesSlice = createSlice({
     reducers: {
         upsertMany: BVideoAdapter.upsertMany,
     },
+    selectors: {
+        videos: (state) => {
+            return state.entities || {};
+        }
+    }
 });
 
 export const BilibiliUserVideoListSlice = createAppSlice({
     name: 'bili_user_videos',
     initialState: {
         isLoading: false,
-        // <mid>: { <uEntity> }
+        // <mid>: {
+        //     update_time: 0,      // 上次更新时间
+        //     video_list: [],      // 视频数据列表 { bv, created }
+        //     count: 0,            // 视频数量
+        //     update_type: '',     // default - 更新前30；fully - 全量
+        // }
     },
     selectors: {
         loadingStatus: (state) => state.isLoading,
-        masterVideoListInfo:  (state, mid) => state[mid],
+        videoListInfo: (state, mid) => state[mid],
+        sliceSelf: (state) => state,
     },
     reducers: (create) => ({
         readUserVideos: create.asyncThunk(
             async (params, { dispatch }) => {
                 const { mid, query } = params;
-                dispatch(PlayerNoticesReducer.actions.sendNotice({
-                    id: 'load_user_videos_tip',
-                    type: NoticeTypes.INFO,
-                    message: '正在加载投稿列表',
-                    close: false,
-                }));
-                debugger;
                 try {
+                    dispatch(PlayerNoticesSlice.actions.sendNotice({
+                        id: 'load_user_videos_tip',
+                        type: NoticeTypes.INFO,
+                        message: '正在加载投稿列表',
+                        close: false,
+                    }));
                     const videoData = await API.Bilibili.UserApi.getUserVideoList({
                         params: {
                             mid,
@@ -103,10 +113,13 @@ export const BilibiliUserVideoListSlice = createAppSlice({
                     dispatch(BilibiliUserVideoListSlice.actions.updateVideoList({
                         mid, data: videoData, updateType: 'default',
                     }));
-                    dispatch(BilibiliVideoEntitiesSlice.actions.upsertMany(videoData))
-                } catch (e) {}
-                dispatch(PlayerNoticesReducer.actions.removeNotice({id: 'load_user_videos_tip'}));
-                dispatch(PlayerNoticesReducer.actions.sendNotice({
+                    const videoList = videoData?.list?.vlist ?? [];
+                    dispatch(BilibiliVideoEntitiesSlice.actions.upsertMany(videoList))
+                } catch (e) {
+                    console.debug(e)
+                }
+                dispatch(PlayerNoticesSlice.actions.removeNotice({id: 'load_user_videos_tip'}));
+                dispatch(PlayerNoticesSlice.actions.sendNotice({
                     type: NoticeTypes.SUCCESS,
                     message: '更新完成',
                     duration: 5000,
@@ -129,10 +142,10 @@ export const BilibiliUserVideoListSlice = createAppSlice({
             const vData = action.payload?.data;
             const updateType = action.payload?.updateType ?? 'default';
             const uEntity = state[mid] ?? {
-                update_time: 0,      // 上次更新时间
-                video_list: [],      // 视频数据列表 { bv, created }
-                count: 0,            // 视频数量
-                update_type: '',     // default - 更新前30；fully - 全量
+                update_time: 0,
+                video_list: [],
+                count: 0,
+                update_type: '',
             }
             const videoList = vData?.list?.vlist ?? [];
             const pageCount = vData?.page?.count ?? 0;
