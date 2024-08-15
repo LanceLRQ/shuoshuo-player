@@ -10,7 +10,7 @@ import { createRootReducer } from './reducers';
     // ui_notices: {},
 // };
 
-const persistKeys = ['bili_user_videos', 'bili_videos']
+const persistKeys = ['bili_user_videos', 'bili_videos', 'playing_list', 'fav_list']
 const persistFunc = {
     bili_user_videos: (state) => {
         return {

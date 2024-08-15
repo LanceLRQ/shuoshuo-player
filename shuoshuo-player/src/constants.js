@@ -10,3 +10,7 @@ export const NoticeTypes = {
     ERROR: 2,
     SUCCESS: 3,
 }
+export const FavListType = {
+    CUSTOM: 0,
+    UPLOADER: 1,
+}

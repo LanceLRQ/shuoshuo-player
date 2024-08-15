@@ -11,6 +11,8 @@ const UserApi = {
         url: 'https://api.bilibili.com/x/space/wbi/arc/search',
         useWbi: true,
     }),
+}
+const VideoApi = {
     getVideoViewInfo: buildApiCall({
         // https://github.com/SocialSisterYi/bilibili-API-collect/blob/cb4f767d4ee3f4f66b6caff04c9c40164ea4af54/docs/video/info.md
         url: 'https://api.bilibili.com/x/web-interface/view',
@@ -23,7 +25,8 @@ const UserApi = {
 }
 
 const api = {
-    UserApi
+    UserApi,
+    VideoApi
 }
 
 export default api;

@@ -1,12 +1,14 @@
-import React, {useMemo} from 'react';
+import React, {useCallback, useMemo} from 'react';
 import { useParams } from "react-router";
 import {List} from "@mui/material";
 import VideoItem from "@player/components/video_item";
-import {useSelector} from "react-redux";
+import {useDispatch, useSelector} from "react-redux";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";
 import {MasterUpInfo} from "@/constants";
+import {PlayingListSlice} from "@/store/play_list";
 
 export const FavListPage = (props) => {
+    const dispatch = useDispatch();
     const params = useParams();
     let favId =  params?.id ?? 'main';
 
@@ -18,6 +20,13 @@ export const FavListPage = (props) => {
         return [];
     }, [favId, masterVideoListAll]);
 
+    const handlePlayItemClick = useCallback((video) => {
+        dispatch(PlayingListSlice.actions.addSingle({
+            bvId: video.bvid,
+            playNow: false
+        }));
+    }, [dispatch])
+
     return <section className="player-fav-list">
         <List sx={{width: '100%', bgcolor: 'background.paper'}}>
             {masterVideoList.map((video, index) => {
@@ -26,9 +35,11 @@ export const FavListPage = (props) => {
                     fullCreateTime
                     key={video.bvid}
                     video={video}
+                    playNow={false}
                     onDirect={(item) => {
                         window.open('https://bilibili.com/video/' + item.bvid);
                     }}
+                    onPlay={handlePlayItemClick}
                 />
             })}
         </List>

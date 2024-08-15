@@ -96,8 +96,8 @@ export const BilibiliUserVideoListSlice = createAppSlice({
     },
     reducers: (create) => ({
         readUserVideos: create.asyncThunk(
-            async (params, { dispatch }) => {
-                const { mid, query, mode = 'default' } = params;
+            async (actionPayload, { dispatch }) => {
+                const { mid, query, mode = 'default' } = actionPayload;
                 dispatch(PlayerNoticesSlice.actions.sendNotice({
                     id: 'load_user_videos_tip',
                     type: NoticeTypes.INFO,

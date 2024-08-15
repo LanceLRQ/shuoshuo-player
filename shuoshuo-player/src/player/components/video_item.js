@@ -1,12 +1,13 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import dayjs from "dayjs";
-import { Chip, ListItem, ListItemAvatar, ListItemText, IconButton, Stack } from '@mui/material';
+import {Chip, ListItem, ListItemAvatar, ListItemText, IconButton, Stack, Tooltip} from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PlayCircleIcon from '@mui/icons-material/PlayCircleOutline';
 import AccessTimeFilledIcon from '@mui/icons-material/AccessTimeFilled';
 import ChatIcon from '@mui/icons-material/Chat';
 import PlayCircleFilledIcon from '@mui/icons-material/PlayCircleFilled';
+import AddCircleIcon from '@mui/icons-material/AddCircleOutline';
 import {formatNumber10K} from "@player/utils";
 
 
@@ -44,12 +45,16 @@ const VideoItem = (props) => {
             </Stack>}
         />
         <div className="bilibili-video-item-sider">
-            <IconButton onClick={() => props.onDirect(video)}>
-                <OpenInNewIcon />
-            </IconButton>
-            <IconButton onClick={() => props.onPlay(video)}>
-                <PlayCircleIcon />
-            </IconButton>
+            <Tooltip title="去B站看">
+                <IconButton onClick={() => props.onDirect(video)}>
+                    <OpenInNewIcon />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title={props.playNow ? '立即播放' : '添加到播放列表'}>
+                <IconButton onClick={() => props.onPlay(video, !!props.playNow)}>
+                    {props.playNow ? <PlayCircleIcon /> : <AddCircleIcon />}
+                </IconButton>
+            </Tooltip>
         </div>
     </ListItem>;
 }
@@ -61,8 +66,9 @@ VideoItem.propTypes = {
         created: PropTypes.number,
     }),
     fullCreateTime: PropTypes.bool,
-    onPlay: PropTypes.func,
+    onPlay: PropTypes.func,   // () => (videoInfo, playNow)
     onDirect: PropTypes.func,
+    playNow: PropTypes.bool,
 }
 
 export default VideoItem;

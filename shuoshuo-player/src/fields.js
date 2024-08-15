@@ -3,5 +3,5 @@ export const BilibiliUserVideoListPickup = [
 ]
 export const BilibiliUserVideoInfoPickup = [
     'aid', 'bvid', 'created', 'length', 'pic', 'is_union_video',
-    'title', 'sub_title', 'play', 'comment',
+    'title', 'sub_title', 'play', 'comment', 'author',
 ]
