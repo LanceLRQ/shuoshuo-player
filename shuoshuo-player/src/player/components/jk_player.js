@@ -1,62 +1,58 @@
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import ReactJkMusicPlayer from "react-jinke-music-player";
 import {PlayingVideoListSelector} from "@/store/selectors/bilibili";
 import { useDispatch, useSelector } from "react-redux";
 import {PlayingListSlice} from "@/store/play_list";
-import API from "@/api";
+import {fetchMusicUrl} from "@player/utils";
 
 export const CustomJkPlayer = () => {
 
     const [audioInstance, setAudioInstance] = useState(null);
+    const [audioLists, setAudioLists] = useState([]);
     const dispatch = useDispatch();
     const playingList = useSelector(PlayingVideoListSelector);
-    const playingInfo = useSelector(PlayingListSlice.selectors.current);
-    const playIndex = playingInfo.index ?? 0;
-    const playingOptions = {
-        autoPlay: false,
-    }
+    // const playingInfo = useSelector(PlayingListSlice.selectors.current);
+    const gotoIndex = useSelector(PlayingListSlice.selectors.gotoIndex);
+    const [playIndex, setPlayIndex] = useState(0)
+
+    const [playingOptions, setPlayingOptions] =  useState({
+        clearPriorAudioLists: true,
+        autoPlay: true,
+        quietUpdate: true,
+        defaultVolume: 0.5,
+    });
 
     const handlePlayIndexChange = useCallback((playIndex) => {
+        console.log("PIC", playIndex)
         dispatch(PlayingListSlice.actions.updateCurrentPlaying({
             index: playIndex,
         }))
     }, [dispatch])
 
-    const handleAudioListsChange = () => () => {
-        if (!audioInstance) return;
-        audioInstance.playByIndex(playIndex)
-    }
-
-    const audioLists =  useMemo(() => {
-        return playingList.map((vItem) => ({
+    useEffect(() => {
+        const newList = playingList.map((vItem) => ({
             key: vItem.bvid,
             name: vItem.title,
             singer: vItem.author,
             cover: vItem.pic,
-            musicSrc: async () => {
-                const bVideoView = await API.Bilibili.VideoApi.getVideoViewInfo({
-                    params: {
-                        bvid: vItem.bvid
-                    }
-                })
-                const {
-                    cid = 0     // 视频1p的cid
-                } = bVideoView;
-                const bPlayUrl = await API.Bilibili.VideoApi.getVideoPlayurl({
-                    params: {
-                        cid,
-                        fnval: 16,  // 请求DASH格式
-                        bvid: vItem.bvid,
-                    }
-                })
-
-                const audioInfoList = bPlayUrl?.dash?.audio ?? [];
-                const findAutoById = (id) => audioInfoList.find(item => item.id === id);
-                const audioInfo = findAutoById(30280) || findAutoById(30232) || findAutoById(30216); // 优先选择192K，后132K，最后是64K
-                return audioInfo?.base_url || audioInfo?.baseUrl;
-            },
+            musicSrc: fetchMusicUrl(vItem.bvid)
         }))
-    }, [playingList]);
+        setAudioLists(newList);
+    }, [playingList, gotoIndex]);
+
+
+    // -- 我也不知道这玩意为什么可以但是就这么搞就行了.........
+    const handleAudioListsChange = useCallback(() => {
+        if (gotoIndex > -1) {
+            setPlayIndex(gotoIndex)
+        }
+    }, [gotoIndex]);
+
+    useEffect(() => {
+        if (audioInstance && gotoIndex > -1) {
+            audioInstance.playByIndex(gotoIndex)
+        }
+    }, [handleAudioListsChange, audioInstance, gotoIndex]);
 
     return <ReactJkMusicPlayer
         getAudioInstance={(instance) => {
@@ -65,11 +61,10 @@ export const CustomJkPlayer = () => {
         mode="full"
         toggleMode={false}
         responsive={false}
-        clearPriorAudioLists={true}
-        showMediaSession
         playIndex={playIndex}
+        showMediaSession
         onPlayIndexChange={handlePlayIndexChange}
-        onAudioListsChange={handleAudioListsChange()}
+        onAudioListsChange={handleAudioListsChange}
         audioLists={audioLists}
         {...playingOptions}
     />

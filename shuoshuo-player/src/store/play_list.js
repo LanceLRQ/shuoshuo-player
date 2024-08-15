@@ -12,22 +12,24 @@ export const PlayingListSlice = createAppSlice({
         // 如果单个播放，默认是追加到bv_ids列表中
         fav_id: '',             // 当前播放的歌单ID
         bv_ids: [],             // 视频的id列表
-        current: '',            // 当前播放的视频的bvid，方便获取数据
-        currentIndex: 0        // 当前播放的视频的index，用于播放器记忆
+        currentIndex: 0,        // 当前播放的视频的index，用于播放器记忆
+        gotoIndex: 0,
     },
     reducers: (create) => ({
         addSingle: create.reducer((state, action) => {
-            const { bvId, playNow = false } = action.payload;
+            const { bvId, playNew = false } = action.payload;
             const extIdx = state.bv_ids.findIndex((item) => item === bvId);
+            const listLength = state.bv_ids.length;
+            let isAdd = false;
             if (extIdx < 0) {
                 state.bv_ids.push(bvId);
+                isAdd = true;
             }
-            if (playNow) {
-                state.current = bvId;
-                if (extIdx > -1) {
-                    state.currentIndex = extIdx;
+            if (playNew) {
+                if (isAdd) {
+                    state.gotoIndex = listLength;
                 } else {
-                    state.currentIndex = state.bv_ids.length - 1;
+                    state.gotoIndex = extIdx;
                 }
             }
         }),
@@ -60,7 +62,6 @@ export const PlayingListSlice = createAppSlice({
                     const { favId, bvIds } = action.payload;
                     state.fav_id = favId;
                     state.bv_ids = bvIds;
-                    state.current = bvIds[0];
                     state.currentIndex = 0;
                 },
             }
@@ -68,11 +69,14 @@ export const PlayingListSlice = createAppSlice({
         updateCurrentPlaying: create.reducer((state, action) => {
             const { index } = action.payload;
             state.currentIndex = index;
-            state.current = state.bv_ids[index]?.bvid ?? '';
+            if (state.currentIndex === state.gotoIndex) {
+                state.gotoIndex = -1;
+            }
         }),
     }),
     selectors: {
-        current: (state) => ({ bvId: state.current, index: state.currentIndex, favId: state.fav_id }),
+        current: (state) => ({ current: state.bv_ids[state.currentIndex], index: state.currentIndex, favId: state.fav_id }),
+        gotoIndex: (state) => state.gotoIndex,
         videoList: (state) => state.bv_ids,
     }
 });

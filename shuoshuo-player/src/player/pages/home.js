@@ -65,7 +65,7 @@ const HomePage = () => {
     const handlePlayItemClick = useCallback((video) => {
         dispatch(PlayingListSlice.actions.addSingle({
             bvId: video.bvid,
-            playNow: true
+            playNew: true,
         }));
     }, [dispatch])
 
