@@ -53,7 +53,6 @@ export const FavListPage = (props) => {
         <Box className="fav_item_list">
             <List sx={{width: '100%', bgcolor: 'background.paper'}}>
                 {masterVideoList.map((video, index) => {
-                    if (!video || index > 30) return null;
                     return <VideoItem
                         fullCreateTime
                         key={video.bvid}

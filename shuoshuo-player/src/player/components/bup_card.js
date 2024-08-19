@@ -1,14 +1,17 @@
-import React, { useMemo, useState } from "react";
-import {useSelector} from "react-redux";
+import React, {useCallback, useMemo, useState} from "react";
+import {useDispatch, useSelector} from "react-redux";
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import PropTypes from "prop-types";
 import {Box, Grid, Divider, Avatar,  Menu, MenuItem, Typography, IconButton} from "@mui/material";
 import { formatNumber10K } from "@player/utils";
 import MoreIcon from '@mui/icons-material/MoreVert';
 import MusicIcon from '@mui/icons-material/MusicNote';
+import {MasterUpInfo} from "@/constants";
 
 const BilibiliUpSpaceCard = (props) => {
+    const dispatch = useDispatch();
     const { mid, favId, favListInfo } = props;
+    const isUpdating = useSelector(BilibiliUserVideoListSlice.selectors.loadingStatus);
     const spaceInfos = useSelector(BilibiliUserVideoListSlice.selectors.spaceInfo);
     const spaceInfo = useMemo(() => {
         if (!mid) return null;
@@ -25,6 +28,23 @@ const BilibiliUpSpaceCard = (props) => {
     };
 
     const deleteAble = favId !== 'main';
+
+    // 更新视频数据
+    const updateMasterVideoList = useCallback((mode = 'default') => {
+        handleExtraMenuClose();
+        if (isUpdating) return;
+        dispatch(BilibiliUserVideoListSlice.actions.readUserVideos({
+            mid: MasterUpInfo.mid,
+            query: {
+                order: 'pubdate',
+                platform: 'web',
+            },
+            mode
+        }))
+        dispatch(BilibiliUserVideoListSlice.actions.readUserSpaceInfo({
+            mid,
+        }))
+    }, [mid, dispatch, isUpdating])
 
     return <Box className="fav_list_banner_bg" sx={{ background: spaceInfo ? `url(${spaceInfo.top_photo})` : '#91d5ff'}}>
         <Box className="fav_list_banner">
@@ -57,8 +77,8 @@ const BilibiliUpSpaceCard = (props) => {
                         <MenuItem onClick={handleExtraMenuClose}>播放歌单</MenuItem>
                         {mid ? <>
                             <Divider />
-                            <MenuItem onClick={handleExtraMenuClose}>更新前30</MenuItem>
-                            <MenuItem onClick={handleExtraMenuClose}>更新整个列表</MenuItem>
+                            <MenuItem onClick={() => updateMasterVideoList()}>更新前30</MenuItem>
+                            <MenuItem onClick={() => updateMasterVideoList('fully')}>更新整个列表</MenuItem>
                         </> : null}
                         {deleteAble && <>
                             <Divider />
