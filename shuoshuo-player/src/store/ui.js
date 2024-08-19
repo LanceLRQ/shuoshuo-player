@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import {NoticeTypes} from "@/constants";
+import { nanoid } from "nanoid";
 
 export const PlayerNoticesSlice = createSlice({
     name: 'ui_notices',
@@ -10,7 +11,7 @@ export const PlayerNoticesSlice = createSlice({
         sendNotice: (state, action) => {
             const { payload } = action;
             if (!state.list) state.list = [];
-            const { id = Date.now() + '_' + Math.round(Math.random() * 1000) } = payload;
+            const { id = nanoid() } = payload;
             const idx = state.list.findIndex(item => item.id === id);
             const obj = {
                 id,

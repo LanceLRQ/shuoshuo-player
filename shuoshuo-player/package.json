@@ -16,6 +16,7 @@
     "dayjs": "^1.11.12",
     "embla-carousel-autoplay": "^8.1.8",
     "embla-carousel-react": "^8.1.8",
+    "formik": "^2.4.6",
     "lodash": "^4.17.21",
     "md5": "^2.3.0",
     "nanoid": "^5.0.7",
@@ -29,7 +30,8 @@
     "react-router-dom": "^6.26.0",
     "react-scripts": "5.0.1",
     "reselect": "^5.1.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "yup": "^1.4.0"
   },
   "peerDependencies": {
     "react": "^17.0.0 || ^18.0.0",

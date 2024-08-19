@@ -1,6 +1,6 @@
 import {isArray, pick} from 'lodash';
 import {createSlice, createEntityAdapter} from '@reduxjs/toolkit';
-import {BilibiliUserVideoListPickup} from "@/fields";
+import {BilibiliUserSpaceInfoPickup, BilibiliUserVideoListPickup} from "@/fields";
 import {TimeStampNow} from "@/utils";
 import {PlayerNoticesSlice} from "@/store/ui";
 import {NoticeTypes} from "@/constants";
@@ -89,10 +89,12 @@ export const BilibiliUserVideoListSlice = createAppSlice({
         //     count: 0,            // 视频数量
         //     update_type: '',     // default - 更新前30；fully - 全量
         // }
+        space: {},
     },
     selectors: {
         loadingStatus: (state) => state.isLoading,
         videoListInfo: (state) => state.infos,
+        spaceInfo: (state) => state.space,
     },
     reducers: (create) => ({
         readUserVideos: create.asyncThunk(
@@ -122,6 +124,11 @@ export const BilibiliUserVideoListSlice = createAppSlice({
                         return videoData?.page?.count ?? 0;
                     } catch (e) {
                         console.debug(e)
+                        dispatch(PlayerNoticesSlice.actions.sendNotice({
+                            type: NoticeTypes.ERROR,
+                            message: '获取用户信息失败',
+                            duration: 3000,
+                        }));
                         return 0;
                     }
                 }
@@ -148,7 +155,7 @@ export const BilibiliUserVideoListSlice = createAppSlice({
                 dispatch(PlayerNoticesSlice.actions.sendNotice({
                     type: NoticeTypes.SUCCESS,
                     message: '更新完成',
-                    duration: 5000,
+                    duration: 3000,
                 }));
             },
             {
@@ -160,6 +167,47 @@ export const BilibiliUserVideoListSlice = createAppSlice({
                 },
                 fulfilled: (state, action) => {
                     state.isLoading = false;
+                },
+            }
+        ),
+        readUserSpaceInfo: create.asyncThunk(
+            async (actionPayload, {dispatch}) => {
+                const { mid } = actionPayload;
+                try {
+                    const spaceInfoData = await API.Bilibili.UserApi.getUserSpaceInfo({
+                        params: { mid }
+                    });
+                    const statData = await API.Bilibili.UserApi.getUserSpaceStat({
+                        params: { vmid: mid }
+                    })
+                    const upStatData = await API.Bilibili.UserApi.getUserSpaceUpStat({
+                        params: { mid }
+                    })
+                    return {
+                        ...pick(spaceInfoData, BilibiliUserSpaceInfoPickup),
+                        stats: {
+                            follower: statData?.follower ?? 0,
+                            following: statData?.following ?? 0,
+                            view: upStatData?.archive?.view ?? 0,
+                            likes: upStatData?.likes ?? 0,
+                        },
+                    };
+                } catch (e) {
+                    dispatch(PlayerNoticesSlice.actions.sendNotice({
+                        type: NoticeTypes.ERROR,
+                        message: '获取用户信息失败',
+                        duration: 3000,
+                    }));
+                    console.debug(e)
+                    return null;
+                }
+            },
+            {
+                fulfilled: (state, action) => {
+                    if (!action.payload) return;
+                    const { mid = 0 } = action.payload;
+                    if (!state.space) state.space = {};
+                    state.space[mid] = action.payload;
                 },
             }
         ),

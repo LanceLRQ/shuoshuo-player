@@ -11,6 +11,17 @@ const UserApi = {
         url: 'https://api.bilibili.com/x/space/wbi/arc/search',
         useWbi: true,
     }),
+    getUserSpaceInfo: buildApiCall({
+        url: 'https://api.bilibili.com/x/space/wbi/acc/info',
+        useWbi: true,
+    }),
+    getUserSpaceStat: buildApiCall({        // 关注、粉丝数
+        url: 'https://api.bilibili.com/x/relation/stat',
+        useWbi: true,
+    }),
+    getUserSpaceUpStat: buildApiCall({        // 获赞、播放
+        url: 'https://api.bilibili.com/x/space/upstat',
+    })
 }
 const VideoApi = {
     getVideoViewInfo: buildApiCall({

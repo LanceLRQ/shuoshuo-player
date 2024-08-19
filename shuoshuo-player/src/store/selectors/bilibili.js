@@ -1,6 +1,5 @@
 import {createSelector} from "reselect";
 import {BilibiliUserVideoListSlice, BilibiliVideoEntitiesSlice} from "@/store/bilibili";
-import {PlayingListSlice} from "@/store/play_list";
 
 export const MasterVideoListSelector = createSelector(
     [
@@ -17,12 +16,4 @@ export const MasterVideoListSelector = createSelector(
         })
         return ret;
     }
-)
-
-export const PlayingVideoListSelector = createSelector(
-    [
-        PlayingListSlice.selectors.videoList,
-        BilibiliVideoEntitiesSlice.selectors.videos
-    ],
-    (pList, videoEntities) => pList.map((bv) => videoEntities[bv]).filter(item => !!item)
 )

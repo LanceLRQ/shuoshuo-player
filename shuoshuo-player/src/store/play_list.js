@@ -87,6 +87,7 @@ export const FavListSlice = createSlice({
         list: [],
         // 歌单列表， {
         //  id: '',
+        //  name: '‘,           // 歌单名称
         //  type: 0,            // 0 - 自定义列表, 1 - up主投稿列表
         //  mid: '',            // B站up主uid (type == 1时)
         //  bv_ids: [],         // 自定义BV列表 (type == 0时)
@@ -95,7 +96,7 @@ export const FavListSlice = createSlice({
     },
     reducers: {
         addFavList: (state, action) => {
-            const { type = FavListType.CUSTOM, mid } = action.payload;
+            const { type = FavListType.CUSTOM, name = '新建歌单', mid } = action.payload;
             if (type === FavListType.UPLOADER) {
                 if (!mid) return;
                 // 如果mid是主up的，或者是已存在，则跳过
@@ -104,6 +105,7 @@ export const FavListSlice = createSlice({
             state.list.push({
                 id: nanoid(),
                 type,
+                name: name || '未命名歌单',
                 mid: mid ?? '',
                 bv_ids: [],
                 create_time: Date.now(),

@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
     List, ListItem, ListItemIcon, ListItemText, ListItemButton,
     Drawer as MuiDrawer, Toolbar, IconButton, Divider
 } from "@mui/material";
+import { useSelector } from 'react-redux';
+import PropTypes from 'prop-types';
+import { noop } from 'lodash';
 import { styled } from '@mui/material/styles';
 import HomeIcon from '@mui/icons-material/Home';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
@@ -13,6 +16,8 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import {useNavigate, useMatch} from "react-router";
 import {MasterUpInfo} from "@/constants";
+import {FavListSlice} from "@/store/play_list";
+import FavEditDialog from "@player/components/fav_edit";
 
 const drawerWidth = 240;
 
@@ -44,10 +49,13 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
 
 const NavMenu = (props) => {
 
-    const { menuOpen, toggleMenu } = props;
+    const { menuOpen, toggleMenu = noop } = props;
+    const favEditDgRef = useRef();
 
     const match = useMatch("/:key/:p1?");
     const navigate = useNavigate();
+
+    const FavList = useSelector(FavListSlice.selectors.favList);
 
     const ignoreKey = ['fav_list:add']
     const MenuMapping = [
@@ -65,6 +73,10 @@ const NavMenu = (props) => {
         if (!value || ignoreKey.indexOf(value) > -1) return;
         const keys = value.split(':');
         if (keys[0] === 'fav') {
+            if (keys[1] === 'add') {
+                favEditDgRef.current.showDialog({});
+                return;
+            }
             navigate(`/${keys[0]}/${keys[1]}`);
         } else {
             navigate(`/${keys[0]}`);
@@ -78,56 +90,62 @@ const NavMenu = (props) => {
 
     }, [match]);
 
-    return <Drawer variant="permanent" open={menuOpen}>
-        <Toolbar
-            sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                px: [1],
-            }}
-        >
-            <IconButton onClick={toggleMenu}>
-                <ChevronLeftIcon />
-            </IconButton>
-        </Toolbar>
-        <Divider />
-        <List component="nav">
-            {MenuMapping.map((item, index) => {
-                if (item.type === 'divider') {
-                    return <Divider key={`divider_${index}`}></Divider>
-                } else if (item.type === 'fav') {
-                    return [{}].map(mItem => {
-                        // TODO
+    return <>
+        <Drawer variant="permanent" open={menuOpen}>
+            <Toolbar
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    px: [1],
+                }}
+            >
+                <IconButton onClick={toggleMenu}>
+                    <ChevronLeftIcon />
+                </IconButton>
+            </Toolbar>
+            <Divider />
+            <List component="nav">
+                {MenuMapping.map((item, index) => {
+                    if (item.type === 'divider') {
+                        return <Divider key={`divider_${index}`}></Divider>
+                    } else if (item.type === 'fav') {
+                        return FavList.map(favItem => {
+                            return <ListItem
+                                key={favItem.id}
+                                disablePadding
+                            >
+                                <ListItemButton  selected={value === item.key} onClick={handleMenuClick(`fav:${favItem.id}`)}>
+                                    <ListItemIcon>
+                                        <QueueMusicIcon />
+                                    </ListItemIcon>
+                                    <ListItemText primary={favItem.name} />
+                                </ListItemButton>
+                            </ListItem>
+                        })
+                    }
+                    else {
                         return <ListItem
-                            key="test1"
+                            key={item.key}
                             disablePadding
                         >
-                            <ListItemButton>
+                            <ListItemButton selected={value === item.key} onClick={handleMenuClick(item.key)}>
                                 <ListItemIcon>
-                                    <QueueMusicIcon />
+                                    {item.icon}
                                 </ListItemIcon>
-                                <ListItemText primary="自定义歌单1" />
+                                <ListItemText primary={item.label} />
                             </ListItemButton>
                         </ListItem>
-                    })
-                }
-                else {
-                    return <ListItem
-                        key={item.key}
-                        disablePadding
-                    >
-                        <ListItemButton selected={value === item.key} onClick={handleMenuClick(item.key)}>
-                            <ListItemIcon>
-                                {item.icon}
-                            </ListItemIcon>
-                            <ListItemText primary={item.label} />
-                        </ListItemButton>
-                    </ListItem>
-                }
-            })}
-        </List>
-    </Drawer>;
+                    }
+                })}
+            </List>
+        </Drawer>
+        <FavEditDialog ref={favEditDgRef} />
+    </>;
 };
+NavMenu.propTypes = {
+    menuOpen: PropTypes.bool,
+    toggleMenu: PropTypes.func,
+}
 
 export default NavMenu

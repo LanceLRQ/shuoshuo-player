@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import ReactJkMusicPlayer from "react-jinke-music-player";
-import {PlayingVideoListSelector} from "@/store/selectors/bilibili";
+import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import { useDispatch, useSelector } from "react-redux";
 import {PlayingListSlice} from "@/store/play_list";
 import {fetchMusicUrl} from "@player/utils";

@@ -50,11 +50,15 @@ const VideoItem = (props) => {
                     <OpenInNewIcon />
                 </IconButton>
             </Tooltip>
-            <Tooltip title={props.playNow ? '立即播放' : '添加到播放列表'}>
-                <IconButton onClick={() => props.onPlay(video, !!props.playNow)}>
-                    {props.playNow ? <PlayCircleIcon /> : <AddCircleIcon />}
+            {props.playNowBtn ? <Tooltip title="立即播放">
+                <IconButton onClick={() => props.onPlay(video)}>
+                   <PlayCircleIcon />
                 </IconButton>
-            </Tooltip>
+            </Tooltip> : <Tooltip title="添加到">
+                <IconButton onClick={() => props.onAddTo(video, !!props.playNow)}>
+                    <AddCircleIcon />
+                </IconButton>
+            </Tooltip>}
         </div>
     </ListItem>;
 }
@@ -66,9 +70,11 @@ VideoItem.propTypes = {
         created: PropTypes.number,
     }),
     fullCreateTime: PropTypes.bool,
-    onPlay: PropTypes.func,   // () => (videoInfo, playNow)
+    onPlay: PropTypes.func,   // () => (videoInfo)
+    onAddTo: PropTypes.func,   // () => (videoInfo, favId, playNow)
     onDirect: PropTypes.func,
-    playNow: PropTypes.bool,
+    addBtn: PropTypes.bool,
+    playNowBtn: PropTypes.bool,
 }
 
 export default VideoItem;

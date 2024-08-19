@@ -18,8 +18,8 @@ body, html, #root {
         flex-direction: row;
         .player-layout-information {
             width: 100%;
-            padding: $width-11 0 0 $width-4;
             overflow: auto;
+            padding-top: $width-10;
             @include custom-webkit-scroll;
         }
     }
@@ -276,6 +276,7 @@ body, html, #root {
             }
         }
         .bilibili-video-item-sider {
+            display: flex;
             flex: 0 0 $width-11;
             width: $width-11;
             opacity: 0;
@@ -283,6 +284,9 @@ body, html, #root {
         }
     }
 
+    .player-home-page {
+        padding: $width-4 0 0 0;
+    }
     @media screen and (min-width: 1200px) {
         .player-home-page {
             height: 100%;
@@ -308,5 +312,41 @@ body, html, #root {
                 }
             }
         }
+    }
+
+    .player-fav-list {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        .fav_list_banner_bg {
+            flex: 0 0 auto;
+            min-height: 200px;
+            background-size: cover;
+            .fav_list_banner {
+                min-height: 200px;
+                background: rgba(0, 0, 0, .8);
+            }
+        }
+        .fav_item_list {
+            flex: 1 1 auto;
+            overflow: auto;
+            @include custom-webkit-scroll;
+        }
+    }
+
+    .fav_list_user_card {
+        display: flex;
+        flex-direction: row;
+        padding: $width-4 0;
+        .fav_list_user_card_item {
+            padding: $width-4;
+            flex: 0 0 auto;
+            &.content {
+                flex: 1 1 auto;
+            }
+        }
+    }
+    .fav_list_stat_card {
+        padding: 0 $width-8;
     }
 }

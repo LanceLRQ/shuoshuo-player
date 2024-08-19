@@ -26,7 +26,7 @@ const HomePage = () => {
     const masterLastUpdateTime = masterVideoListInfo?.update_time ?? 0;
     const masterUpdateType = masterVideoListInfo?.update_type ?? 0;
 
-    // 前30更新
+    // 更新视频数据
     const updateMasterVideoList = useCallback((mode = 'default') => {
         setUpdateDialogOpen(false);
         if (isUpdating) return;
@@ -37,6 +37,9 @@ const HomePage = () => {
                 platform: 'web',
             },
             mode
+        }))
+        dispatch(BilibiliUserVideoListSlice.actions.readUserSpaceInfo({
+            mid: MasterUpInfo.mid,
         }))
     }, [dispatch, isUpdating])
 
@@ -107,7 +110,7 @@ const HomePage = () => {
                         return <VideoItem
                             key={video.bvid}
                             video={video}
-                            playNow
+                            playNowBtn
                             onDirect={(item) => {
                                 window.open('https://bilibili.com/video/' + item.bvid);
                             }}
