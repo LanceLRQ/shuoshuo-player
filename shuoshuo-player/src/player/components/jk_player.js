@@ -4,20 +4,23 @@ import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import { useDispatch, useSelector } from "react-redux";
 import {PlayingListSlice} from "@/store/play_list";
 import {fetchMusicUrl} from "@player/utils";
+import {BilibiliUserInfoSlice} from "@/store/bilibili";
 
 export const CustomJkPlayer = () => {
+
 
     const [audioInstance, setAudioInstance] = useState(null);
     const [audioLists, setAudioLists] = useState([]);
     const dispatch = useDispatch();
     const playingList = useSelector(PlayingVideoListSelector);
+    const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser)
     // const playingInfo = useSelector(PlayingListSlice.selectors.current);
     const gotoIndex = useSelector(PlayingListSlice.selectors.gotoIndex);
     const [playIndex, setPlayIndex] = useState(0)
 
     const [playingOptions, setPlayingOptions] =  useState({
         clearPriorAudioLists: true,
-        autoPlay: true,
+        autoPlay: false,
         quietUpdate: true,
         defaultVolume: 0.5,
     });
@@ -35,10 +38,10 @@ export const CustomJkPlayer = () => {
             name: vItem.title,
             singer: vItem.author,
             cover: vItem.pic,
-            musicSrc: fetchMusicUrl(vItem.bvid)
+            musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid)
         }))
         setAudioLists(newList);
-    }, [playingList, gotoIndex]);
+    }, [biliUser, playingList, gotoIndex]);
 
 
     // -- 我也不知道这玩意为什么可以但是就这么搞就行了.........

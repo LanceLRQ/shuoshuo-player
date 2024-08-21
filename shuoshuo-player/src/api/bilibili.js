@@ -32,6 +32,11 @@ const VideoApi = {
         // https://github.com/SocialSisterYi/bilibili-API-collect/blob/cb4f767d4ee3f4f66b6caff04c9c40164ea4af54/docs/video/videostream_url.md
         url: 'https://api.bilibili.com/x/player/wbi/playurl',
         useWbi: true,
+    }),
+    doClickStat: buildApiCall({
+        method: 'post',
+        url: 'https://api.bilibili.com/x/click-interface/click/web/h5',
+        useWbi: true,
     })
 }
 

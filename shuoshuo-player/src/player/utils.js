@@ -9,7 +9,8 @@ export const formatNumber10K = (number) => {
 }
 
 window.MUSIC_PLAY_URL_CACHED = {};
-export const fetchMusicUrl = (bvId) => async () => {
+window.MUSIC_PLAY_CLICK_TIME = {};
+export const fetchMusicUrl = (bvId, curUserMid) => async () => {
     const cached = window.MUSIC_PLAY_URL_CACHED[bvId] || {
         loading: false,
         last_update: 0,
@@ -48,7 +49,39 @@ export const fetchMusicUrl = (bvId) => async () => {
         cached.playInfo = bPlayUrl;
         cached.playUrl = audioInfo?.base_url || audioInfo?.baseUrl;
         cached.last_update = Date.now() / 1000;
-        window.MUSIC_PLAY_URL_CACHED[bvId] = cached
+        window.MUSIC_PLAY_URL_CACHED[bvId] = cached;
+
+        setTimeout(() => {
+            const nt = Math.round(Date.now() / 1000);
+            if (window.MUSIC_PLAY_CLICK_TIME[bvId] + 600 > nt) return  // 5分钟生效一次
+            // 模拟B站点击，必须调用
+            API.Bilibili.VideoApi.doClickStat({
+                params: {
+                    'w_aid': bVideoView?.aid,
+                    'w_part': 1,
+                    'w_ftime': nt,
+                    'w_stime': nt,
+                    'w_type': bVideoView?.desc_v2 ? bVideoView?.desc_v2?.[0]?.type : '1',
+                },
+                data: {
+                    'aid': bVideoView?.aid,
+                    'cid': bVideoView?.cid,
+                    'bvid': bvId,
+                    'part': '1',
+                    'ftime': nt,
+                    'stime': nt,
+                    'mid': curUserMid,
+                    'type': bVideoView?.desc_v2 ? bVideoView?.desc_v2?.[0]?.type : '1',
+                    'sub_type': '0'
+                }
+            }).then(() => {
+                // 只有成功才会走到这里
+                window.MUSIC_PLAY_CLICK_TIME[bvId] = Math.round(Date.now() / 1000);
+            }).catch(e => {
+                console.debug('B站模拟点击失败：' + e);
+            })
+        }, 500);
+
         return cached.playUrl;
     } catch (e) {
         cached.loading = false;
