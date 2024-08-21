@@ -81,7 +81,7 @@ export const PlayingListSlice = createAppSlice({
     }
 });
 
-export const FavListSlice = createSlice({
+export const FavListSlice = createAppSlice({
     name: 'fav_list',
     initialState: {
         list: [],
@@ -94,25 +94,44 @@ export const FavListSlice = createSlice({
         //  create_time: 0,     // 列表创建时间
         // }
     },
-    reducers: {
-        addFavList: (state, action) => {
-            const { type = FavListType.CUSTOM, name = '新建歌单', mid } = action.payload;
-            if (type === FavListType.UPLOADER) {
-                if (!mid) return;
-                // 如果mid是主up的，或者是已存在，则跳过
-                if (mid === MasterUpInfo.mid || state.list.findIndex(item => item.mid === mid) > -1) return;
+    reducers: (create) => ({
+        addFavList: create.asyncThunk(
+            async (actionPayload) => {
+                const { type = FavListType.CUSTOM, name = '新建歌单', mid } = actionPayload;
+                if (type === FavListType.UPLOADER) {
+                    if (!mid) return { status: false };
+                    // 如果mid是主up的，或者是已存在，则跳过
+                    if (mid === MasterUpInfo.mid) return { status: false };
+                }
+                return {
+                    status: true,
+                    data: {
+                        id: nanoid(),
+                        type,
+                        name: name || '未命名歌单',
+                        mid: mid ?? '',
+                        bv_ids: [],
+                        create_time: Date.now(),
+                        update_time: 0,
+                    }
+                };
+            },
+            {
+                fulfilled: (state, action) => {
+                    if (action.payload?.status) {
+                        state.list.push(action.payload.data);
+                    }
+                }
             }
-            state.list.push({
-                id: nanoid(),
-                type,
-                name: name || '未命名歌单',
-                mid: mid ?? '',
-                bv_ids: [],
-                create_time: Date.now(),
-                update_time: 0,
-            })
-        },
-        addFavVideo: (state, action) => {
+        ),
+        removeFavList: create.reducer((state, action) => {
+            const { favId } = action.payload;
+            const favItemIndex = state.list.findIndex(item => item.id === favId);
+            if (favItemIndex > -1) {
+                state.list.splice(favItemIndex, 1);
+            }
+        }),
+        addFavVideo: create.reducer((state, action) => {
             const { favId, bvId } = action.payload;
             const favItemIndex = state.list.findIndex(item => item.id === favId);
             if (favItemIndex < 0) return;
@@ -122,8 +141,8 @@ export const FavListSlice = createSlice({
             favItem.bv_ids.push(bvId);
             favItem.update_time = Date.now();
             state.list[favItemIndex] = favItem;
-        }
-    },
+        }),
+    }),
     selectors: {
         favList: (state) => state.list,
     }

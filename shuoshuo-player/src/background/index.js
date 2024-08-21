@@ -51,7 +51,7 @@ const rules = {
                 {
                     header: "Referer",
                     operation: "set",
-                    value: "https://www.bilibili.com/video/BV1QW421975h/"
+                    value: "https://www.bilibili.com/video/BV17x411w7KC/"
                 },
             ],
         }

@@ -6,7 +6,7 @@ import {useDispatch, useSelector} from "react-redux";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";
 import {FavListType, MasterUpInfo} from "@/constants";
 import {PlayingListSlice, FavListSlice} from "@/store/play_list";
-import BilibiliUpSpaceCard from '../components/bup_card';
+import FavBannerCard from '../components/fav_card';
 
 export const FavListPage = (props) => {
     const dispatch = useDispatch();
@@ -49,7 +49,7 @@ export const FavListPage = (props) => {
     }, [dispatch])
 
     return favListInfo ? <section className="player-fav-list">
-        <BilibiliUpSpaceCard favId={favId} mid={biliMid} favListInfo={favListInfo} />
+        <FavBannerCard favId={favId} mid={biliMid} favListInfo={favListInfo} />
         <Box className="fav_item_list">
             <List sx={{width: '100%', bgcolor: 'background.paper'}}>
                 {masterVideoList.map((video, index) => {

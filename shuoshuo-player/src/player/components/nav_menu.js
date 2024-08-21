@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 import { useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
-import { noop } from 'lodash';
+import { noop, flatten } from 'lodash';
 import { styled } from '@mui/material/styles';
 import HomeIcon from '@mui/icons-material/Home';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
@@ -106,7 +106,7 @@ const NavMenu = (props) => {
             </Toolbar>
             <Divider />
             <List component="nav">
-                {MenuMapping.map((item, index) => {
+                {flatten(MenuMapping.map((item, index) => {
                     if (item.type === 'divider') {
                         return <Divider key={`divider_${index}`}></Divider>
                     } else if (item.type === 'fav') {
@@ -115,7 +115,7 @@ const NavMenu = (props) => {
                                 key={favItem.id}
                                 disablePadding
                             >
-                                <ListItemButton  selected={value === item.key} onClick={handleMenuClick(`fav:${favItem.id}`)}>
+                                <ListItemButton selected={value === `fav:${favItem.id}`} onClick={handleMenuClick(`fav:${favItem.id}`)}>
                                     <ListItemIcon>
                                         <QueueMusicIcon />
                                     </ListItemIcon>
@@ -137,7 +137,7 @@ const NavMenu = (props) => {
                             </ListItemButton>
                         </ListItem>
                     }
-                })}
+                }))}
             </List>
         </Drawer>
         <FavEditDialog ref={favEditDgRef} />
