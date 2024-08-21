@@ -10,12 +10,12 @@ import { styled } from '@mui/material/styles';
 import HomeIcon from '@mui/icons-material/Home';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
-import ScheduleIcon from '@mui/icons-material/Schedule';
+import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import {useNavigate, useMatch} from "react-router";
-import {MasterUpInfo} from "@/constants";
+import {FavListType, MasterUpInfo} from "@/constants";
 import {FavListSlice} from "@/store/play_list";
 import FavEditDialog from "@player/components/fav_edit";
 
@@ -60,8 +60,8 @@ const NavMenu = (props) => {
     const ignoreKey = ['fav_list:add']
     const MenuMapping = [
         { label: '首页', key: 'index', icon: <HomeIcon /> },
-        { label: '搜索', key: 'search', icon: <ManageSearchIcon /> },
-        { label: '最近播放', key: 'recent', icon: <ScheduleIcon /> },
+        { label: '搜索&发现', key: 'search', icon: <ManageSearchIcon /> },
+        // { label: '最近播放', key: 'recent', icon: <ScheduleIcon /> },
         { type: 'divider' },
         { label: MasterUpInfo.uname, key: 'fav:main', icon: <FavoriteIcon /> },
         { type: 'fav' },
@@ -117,7 +117,7 @@ const NavMenu = (props) => {
                             >
                                 <ListItemButton selected={value === `fav:${favItem.id}`} onClick={handleMenuClick(`fav:${favItem.id}`)}>
                                     <ListItemIcon>
-                                        <QueueMusicIcon />
+                                        {favItem.type === FavListType.UPLOADER ? <VideoCameraFrontIcon /> : <QueueMusicIcon />}
                                     </ListItemIcon>
                                     <ListItemText primary={favItem.name} />
                                 </ListItemButton>
