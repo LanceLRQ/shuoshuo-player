@@ -1,5 +1,4 @@
 import { nanoid } from 'nanoid';
-import {createSlice} from '@reduxjs/toolkit';
 import {createAppSlice} from "@/store/util";
 import {FavListType, MasterUpInfo} from "@/constants";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";

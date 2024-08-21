@@ -12,7 +12,7 @@ import {formatNumber10K} from "@player/utils";
 
 
 const VideoItem = (props) => {
-    const { video, fullCreateTime } = props;
+    const { video, favId, fullCreateTime } = props;
     return <ListItem className="bilibili-video-item">
         <ListItemAvatar className="bilibili-video-item-avatar">
             <img src={video.pic} alt={video.title} style={{ height: 40 }} />
@@ -51,11 +51,11 @@ const VideoItem = (props) => {
                 </IconButton>
             </Tooltip>
             {props.playNowBtn ? <Tooltip title="立即播放">
-                <IconButton onClick={() => props.onPlay(video)}>
+                <IconButton onClick={() => props.onPlay ? props.onPlay(video) : null}>
                    <PlayCircleIcon />
                 </IconButton>
             </Tooltip> : <Tooltip title="添加到">
-                <IconButton onClick={() => props.onAddTo(video, !!props.playNow)}>
+                <IconButton onClick={() => props.onAddTo ? props.onAddTo(video, favId, false) : null}>
                     <AddCircleIcon />
                 </IconButton>
             </Tooltip>}
@@ -75,6 +75,7 @@ VideoItem.propTypes = {
     onDirect: PropTypes.func,
     addBtn: PropTypes.bool,
     playNowBtn: PropTypes.bool,
+    favId: PropTypes.string,
 }
 
 export default VideoItem;

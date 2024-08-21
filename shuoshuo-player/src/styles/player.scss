@@ -318,6 +318,17 @@ body, html, #root {
         display: flex;
         flex-direction: column;
         height: 100%;
+        .fav_status_bar {
+            padding: $width-4;
+            border-top: 1px solid $grey-8;
+            border-bottom: 1px solid $grey-8;
+            .status_text {
+                line-height: 44px;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+        }
         .fav_list_banner_bg {
             flex: 0 0 auto;
             min-height: 200px;
@@ -331,6 +342,9 @@ body, html, #root {
             flex: 1 1 auto;
             overflow: auto;
             @include custom-webkit-scroll;
+            .fav_item_list_empty {
+                margin: $width-6;
+            }
         }
     }
 

@@ -1,33 +1,36 @@
-import React, {useCallback, useMemo, useState} from "react";
+import React, {forwardRef, useCallback, useImperativeHandle, useMemo, useState} from "react";
 import {useDispatch, useSelector} from "react-redux";
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import dayjs from 'dayjs';
 import PropTypes from "prop-types";
 import {
     Dialog, DialogTitle, DialogActions, DialogContent, Button, DialogContentText,
-    Box, Grid, Divider, Avatar,  Menu, MenuItem, Typography, IconButton
+    Box, Grid, Divider, Avatar, Menu, MenuItem, Typography, IconButton, List, ListItem, ListItemButton, ListItemText
 } from "@mui/material";
 import { formatNumber10K } from "@player/utils";
 import MoreIcon from '@mui/icons-material/MoreVert';
 import MusicIcon from '@mui/icons-material/MusicNote';
-import {MasterUpInfo} from "@/constants";
 import {FavListSlice, PlayingListSlice} from "@/store/play_list";
 import {useNavigate} from "react-router";
 
-const BilibiliUpSpaceCard = (props) => {
-    const dispatch = useDispatch();
+const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const { mid, favId, favListInfo } = props;
+
+    const [delDg, setDelDg] = useState(false);
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+    const extraMenuOpen = Boolean(anchorEl);
+
+    const dispatch = useDispatch();
     const navigate = useNavigate()
     const isUpdating = useSelector(BilibiliUserVideoListSlice.selectors.loadingStatus);
     const spaceInfos = useSelector(BilibiliUserVideoListSlice.selectors.spaceInfo);
+
     const spaceInfo = useMemo(() => {
         if (!mid) return null;
         return spaceInfos[mid];
     }, [spaceInfos, mid])
 
-    const [delDg, setDelDg] = useState(false);
-    const [anchorEl, setAnchorEl] = useState(null);
-    const extraMenuOpen = Boolean(anchorEl);
     const handleExtraMenuClose = () => {
         setAnchorEl(null);
     }
@@ -40,9 +43,10 @@ const BilibiliUpSpaceCard = (props) => {
     // 更新视频数据
     const updateMasterVideoList = useCallback((mode = 'default') => {
         handleExtraMenuClose();
+        setUpdateDialogOpen(false);
         if (isUpdating) return;
         dispatch(BilibiliUserVideoListSlice.actions.readUserVideos({
-            mid: MasterUpInfo.mid,
+            mid,
             query: {
                 order: 'pubdate',
                 platform: 'web',
@@ -72,7 +76,12 @@ const BilibiliUpSpaceCard = (props) => {
         closeDelFavListDg();
         dispatch(FavListSlice.actions.removeFavList({ favId }));
         navigate('/index')
-    }, [dispatch, navigate, favId])
+    }, [dispatch, navigate, favId]);
+
+
+    useImperativeHandle(ref, () => ({
+        openUpdateDialog: () => setUpdateDialogOpen(true),
+    }))
 
     const renderMenu = () => {
         const menus = [
@@ -89,6 +98,7 @@ const BilibiliUpSpaceCard = (props) => {
         }
         return menus;
     }
+
 
     return <Box className="fav_list_banner_bg" sx={{ background: spaceInfo ? `url(${spaceInfo.top_photo})` : '#91d5ff'}}>
         <Box className="fav_list_banner">
@@ -150,8 +160,23 @@ const BilibiliUpSpaceCard = (props) => {
                 <Button onClick={delFavListConfirmed} color="error">确认删除</Button>
             </DialogActions>
         </Dialog>
+        <Dialog onClose={() => setUpdateDialogOpen(false)} open={updateDialogOpen}>
+            <DialogTitle>请选择更新方式</DialogTitle>
+            <List sx={{ pt: 0 }}>
+                <ListItem disableGutters>
+                    <ListItemButton onClick={() => updateMasterVideoList()}>
+                        <ListItemText>获取前30条</ListItemText>
+                    </ListItemButton>
+                </ListItem>
+                <ListItem disableGutters>
+                    <ListItemButton onClick={() => updateMasterVideoList('fully')}>
+                        <ListItemText>获取完整列表</ListItemText>
+                    </ListItemButton>
+                </ListItem>
+            </List>
+        </Dialog>
     </Box>;
-}
+});
 
 BilibiliUpSpaceCard.propTypes = {
     favId: PropTypes.string.isRequired,
