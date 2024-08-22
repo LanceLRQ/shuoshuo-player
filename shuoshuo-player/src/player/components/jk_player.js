@@ -1,14 +1,14 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, {useEffect, useCallback, useState, useMemo} from 'react';
 import ReactJkMusicPlayer from "react-jinke-music-player";
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import { useDispatch, useSelector } from "react-redux";
 import {PlayingListSlice} from "@/store/play_list";
 import {fetchMusicUrl} from "@player/utils";
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
+import {PlayerProfileSlice} from "@/store/ui";
+import 'react-jinke-music-player/lib/styles/index.less';
 
 export const CustomJkPlayer = () => {
-
-
     const [audioInstance, setAudioInstance] = useState(null);
     const [audioLists, setAudioLists] = useState([]);
     const dispatch = useDispatch();
@@ -16,21 +16,30 @@ export const CustomJkPlayer = () => {
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser)
     // const playingInfo = useSelector(PlayingListSlice.selectors.current);
     const gotoIndex = useSelector(PlayingListSlice.selectors.gotoIndex);
-    const [playIndex, setPlayIndex] = useState(0)
+    const [playIndex, setPlayIndex] = useState(0);
+    const theme = useSelector(PlayerProfileSlice.selectors.theme);
 
-    const [playingOptions, setPlayingOptions] =  useState({
-        clearPriorAudioLists: true,
-        autoPlay: false,
-        quietUpdate: true,
-        defaultVolume: 0.5,
-    });
+    const playingOptions = useMemo(() => {
+        return {
+            theme,
+            clearPriorAudioLists: true,
+            autoPlay: false,
+            quietUpdate: true,
+            defaultVolume: 0.5,
+        }
+    }, [theme]);
 
     const handlePlayIndexChange = useCallback((playIndex) => {
-        console.log("PIC", playIndex)
         dispatch(PlayingListSlice.actions.updateCurrentPlaying({
             index: playIndex,
         }))
     }, [dispatch])
+
+    const handleThemeChange = (theme) => {
+        dispatch(PlayerProfileSlice.actions.setTheme({
+            theme
+        }));
+    }
 
     useEffect(() => {
         const newList = playingList.map((vItem) => ({
@@ -68,6 +77,7 @@ export const CustomJkPlayer = () => {
         showMediaSession
         onPlayIndexChange={handlePlayIndexChange}
         onAudioListsChange={handleAudioListsChange}
+        onThemeChange={handleThemeChange}
         audioLists={audioLists}
         {...playingOptions}
     />

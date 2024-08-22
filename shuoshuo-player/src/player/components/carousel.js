@@ -5,6 +5,8 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import useEmblaCarousel from 'embla-carousel-react'
 import Autoplay from 'embla-carousel-autoplay';
 import PropTypes from 'prop-types';
+import {useSelector} from "react-redux";
+import {PlayerProfileSlice} from "@/store/ui";
 
 const usePrevNextButtons = (emblaApi) => {
     const [prevBtnDisabled, setPrevBtnDisabled] = useState(true)
@@ -131,6 +133,7 @@ const VideoAlbumCarousel = (props) => {
 
     const { selectedIndex, scrollSnaps, onDotButtonClick } =
         useDotButton(emblaApi)
+    const theme = useSelector(PlayerProfileSlice.selectors.theme);
 
     const {
         prevBtnDisabled,
@@ -139,7 +142,7 @@ const VideoAlbumCarousel = (props) => {
         onNextButtonClick
     } = usePrevNextButtons(emblaApi)
 
-    return <section className="video-album-carousel embla theme-dark">
+    return <section className={`video-album-carousel embla theme-${theme}`}>
         <div className="embla__viewport" ref={emblaRef}>
             <div className="embla__container">
                 {slides.map((item, index) => (

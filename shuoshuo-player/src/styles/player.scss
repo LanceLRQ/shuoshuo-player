@@ -287,6 +287,11 @@ body, html, #root {
     .player-home-page {
         padding: $width-4 0 0 0;
     }
+
+    .player-home-page-recent-list {
+        @include custom-webkit-scroll;
+    }
+
     @media screen and (min-width: 1200px) {
         .player-home-page {
             height: 100%;
@@ -308,7 +313,6 @@ body, html, #root {
                 .player-home-page-recent-list {
                     flex: 1 1 auto;
                     overflow: auto;
-                    @include custom-webkit-scroll;
                 }
             }
         }
@@ -362,5 +366,37 @@ body, html, #root {
     }
     .fav_list_stat_card {
         padding: 0 $width-8;
+    }
+}
+
+.player-theme-light {
+    .player-layout-content {
+        .player-layout-information {
+            @include custom-webkit-scroll-light;
+        }
+    }
+    .player-home-page-recent-list {
+        @include custom-webkit-scroll-light;
+    }
+    .player-fav-list {
+        .fav_item_list {
+            @include custom-webkit-scroll-light;
+        }
+        .fav_list_banner {
+            background: rgba(255, 255, 255, .6) !important;
+        }
+    }
+    .bilibili-video-item {
+        &:nth-child(2n+1) {
+            background-color: $blue-1 !important;
+        }
+        &:hover {
+            background-color: $blue-4 !important;
+        }
+    }
+}
+.react-jinke-music-player-main.light-theme {
+    .music-player-panel {
+        border-top: 1px solid $grey-4;
     }
 }

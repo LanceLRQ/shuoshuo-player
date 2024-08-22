@@ -7,21 +7,17 @@ import { Outlet } from 'react-router-dom';
 import '@styles/player.scss';
 import NavMenu from "@player/components/nav_menu";
 import TopBar from "@player/components/top_bar";
-import 'react-jinke-music-player/assets/index.css';
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
 import CustomJkPlayer from "@player/components/jk_player";
+import {PlayerProfileSlice} from "@/store/ui";
 
-
-const darkTheme = createTheme({
-    palette: {
-        mode: 'dark',
-    },
-});
 
 const PlayerIndex = () => {
     const dispatch = useDispatch();
 
     const inited = useSelector(BilibiliUserInfoSlice.selectors.isInited);
+    const theme = useSelector(PlayerProfileSlice.selectors.theme);
+
     useEffect( () => {
         dispatch(BilibiliUserInfoSlice.actions.getLoginUserInfo());
     }, [dispatch]);
@@ -31,9 +27,15 @@ const PlayerIndex = () => {
         setMenuOpen(!menuOpen);
     };
 
-    return inited ? <ThemeProvider theme={darkTheme}>
+    const muiTheme = createTheme({
+        palette: {
+            mode: theme ?? 'dark',
+        },
+    });
+
+    return inited ? <ThemeProvider theme={muiTheme}>
         <CssBaseline/>
-        <Box className="player-layout-main">
+        <Box className={`player-layout-main player-theme-${theme}`}>
             <Box className="player-layout-content">
                 <TopBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
                 <NavMenu menuOpen={menuOpen} toggleMenu={toggleMenu} />

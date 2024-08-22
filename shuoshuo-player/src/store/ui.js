@@ -42,8 +42,41 @@ export const PlayerNoticesSlice = createSlice({
     }
 });
 
+
+export const PlayerProfileSlice = createSlice({
+    name: 'ui_profile',
+    initialState: {
+        theme: 'dark'
+    },
+    reducers: {
+        setTheme: (state, action) => {
+            const { theme } = action.payload;
+            if (theme !== 'light' && theme !== 'dark' && theme !== 'auto') {
+                state.theme = 'dark';
+                return;
+            }
+            state.theme = theme;
+        },
+    },
+    selectors: {
+        theme: (state) => {
+            if (state.theme === 'auto') {
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    return 'dark';
+                } else {
+                    return 'light';
+                }
+            }
+            return state.theme;
+        },
+    }
+});
+
+
+
 const UIReducerSlices = [
-    PlayerNoticesSlice        // 播放器通知UI
+    PlayerNoticesSlice,        // 播放器通知UI
+    PlayerProfileSlice
 ];
 
 export default UIReducerSlices;

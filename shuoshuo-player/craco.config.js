@@ -2,13 +2,29 @@ const path = require('path');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const chalk = require("chalk");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
-const CopyWebpackPlugin = require("copy-webpack-plugin");
+const CracoLessPlugin = require('craco-less');
+const { loaderByName } = require("@craco/craco");
 const LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
 const isDev = process.env.NODE_ENV === 'development';
 module.exports = {
     eslint: {
         enable: false,
     },
+    plugins: [
+        {
+            plugin: CracoLessPlugin,
+            options: {
+                lessLoaderOptions: {
+                    lessOptions: {
+                        modifyVars: {
+                            '@primary-color': '#1890ff',
+                        },
+                        javascriptEnabled: true,
+                    }
+                },
+            },
+        },
+    ],
     webpack: {
         configure: (webpackConfig) => {
             webpackConfig.entry = {

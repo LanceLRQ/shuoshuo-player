@@ -267,3 +267,17 @@ $padding-huge: $width-8;
     background: $blue-8;
   }
 }
+@mixin custom-webkit-scroll-light {
+  &::-webkit-scrollbar {
+    width: 12px;
+  }
+  &::-webkit-scrollbar-track {
+    background: $blue-8;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $blue-4;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: $blue-6;
+  }
+}
