@@ -1,22 +1,35 @@
-import React, {useCallback, useMemo, useRef, useState, useEffect} from 'react';
+import React, { useMemo, useRef, useState, useEffect, useCallback} from 'react';
 import { useParams } from "react-router";
 import dayjs from 'dayjs';
 import Fuse from 'fuse.js';
-import {Box, Button, IconButton, InputBase, Paper, List, Grid, Typography, Alert, AlertTitle} from "@mui/material";
+import {
+    Box,
+    Button,
+    IconButton,
+    InputBase,
+    Paper,
+    List,
+    Grid,
+    Typography,
+    Alert,
+    AlertTitle,
+    DialogTitle, DialogContent, DialogContentText, DialogActions, Dialog
+} from "@mui/material";
 import VideoItem from "@player/components/video_item";
 import {useDispatch, useSelector} from "react-redux";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";
-import {FavListType, MasterUpInfo} from "@/constants";
-import {PlayingListSlice, FavListSlice} from "@/store/play_list";
+import {FavListType, MasterUpInfo, NoticeTypes} from "@/constants";
+import { FavListSlice} from "@/store/play_list";
 import FavBannerCard from '../components/fav_card';
 import {BilibiliUserVideoListSlice, BilibiliVideoEntitiesSlice} from "@/store/bilibili";
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import {PlayerNoticesSlice} from "@/store/ui";
 
 export const FavListPage = (props) => {
-    const dispatch = useDispatch();
     const params = useParams();
 
+    const dispatch = useDispatch();
     const favBannerRef = useRef();
     const [searchKey, setSearchKey] = useState('');
 
@@ -42,6 +55,7 @@ export const FavListPage = (props) => {
         return favList.find(item => item.id === favId);
     }, [favId, favList])
     const isTypeUploader = favListInfo?.type === FavListType.UPLOADER;
+    const isTypeCustom = favListInfo?.type === FavListType.CUSTOM;
     const favVideoList = useMemo(() => {
         if (favId === 'main') {
             return biliVideoListAll[MasterUpInfo.mid] ?? []
@@ -72,14 +86,29 @@ export const FavListPage = (props) => {
     }, [favId, favListInfo, isTypeUploader]);
     const biliUpVideoListInfo = useMemo(() => biliUpVideoListInfos[biliMid] ?? null, [biliMid, biliUpVideoListInfos]);
 
-    const handlePlayItemClick = useCallback((video) => {
-        dispatch(PlayingListSlice.actions.addSingle({
-            bvId: video.bvid,
-            playNow: false
-        }));
-    }, [dispatch])
-
     const updateTime = (isTypeUploader ? (biliUpVideoListInfo?.update_time * 1000) : favListInfo?.update_time) || 0
+
+    const [delDg, setDelDg] = useState(false);
+    const [delId, setDelId] = useState('');
+    const handleRemoveSong = (item) => {
+        setDelDg(true);
+        setDelId(item.bvid)
+    };
+    const closeDelDg = () => {
+        setDelDg(false);
+    };
+    const confirmRemoveSong = useCallback(() => {
+        setDelDg(false);
+        dispatch(FavListSlice.actions.removeFavVideo({
+            favId,
+            bvId: delId,
+        }));
+        dispatch(PlayerNoticesSlice.actions.sendNotice({
+            type: NoticeTypes.SUCCESS,
+            message: '移除成功',
+            duration: 3000,
+        }));
+    }, [dispatch, favId, delId]);
 
     return favListInfo ? <section className="player-fav-list" key={favId}>
         <FavBannerCard ref={favBannerRef} favId={favId} mid={biliMid} favListInfo={favListInfo} />
@@ -111,12 +140,11 @@ export const FavListPage = (props) => {
                     return <VideoItem
                         fullCreateTime
                         key={video.bvid}
+                        favId={favId}
                         video={video}
-                        playNowBtn={false}
-                        onDirect={(item) => {
-                            window.open('https://bilibili.com/video/' + item.bvid);
-                        }}
-                        onPlay={handlePlayItemClick}
+                        showAuthor={isTypeCustom}
+                        removeBtn={isTypeCustom}
+                        onRemove={handleRemoveSong}
                     />
                 })}
             </List> : (searchKey ? <Box className="fav_item_list_empty">
@@ -128,12 +156,22 @@ export const FavListPage = (props) => {
                     <AlertTitle>歌单是空的</AlertTitle>
                     {isTypeUploader ? <Button onClick={() => favBannerRef.current.openUpdateDialog()}>
                         点击这里同步歌曲列表
-                    </Button> : <Button>
+                    </Button> : <Button onClick={() => favBannerRef.current.addVideo()}>
                         点击这里添加歌曲
                     </Button>}
                 </Alert>
             </Box>)}
         </Box>
+        <Dialog open={delDg} onClose={closeDelDg}>
+            <DialogTitle>操作提示</DialogTitle>
+            <DialogContent>
+                <DialogContentText>确定要移除这首音乐吗？</DialogContentText>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={closeDelDg}>取消</Button>
+                <Button onClick={confirmRemoveSong} color="error">确认</Button>
+            </DialogActions>
+        </Dialog>
     </section> : <section className="player-fav-list">
         <Typography variant="h4">歌单信息不存在</Typography>
     </section>;

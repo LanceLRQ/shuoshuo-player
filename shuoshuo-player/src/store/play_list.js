@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid';
 import {createAppSlice} from "@/store/util";
 import {FavListType, MasterUpInfo, NoticeTypes} from "@/constants";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";
-import {BilibiliUserVideoListSlice, BilibiliVideoEntitiesSlice} from "@/store/bilibili";
+import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import {PlayerNoticesSlice} from "@/store/ui";
 
 export const PlayingListSlice = createAppSlice({
@@ -18,7 +18,7 @@ export const PlayingListSlice = createAppSlice({
     },
     reducers: (create) => ({
         addSingle: create.reducer((state, action) => {
-            const { bvId, playNew = false } = action.payload;
+            const { bvId, playNow = false } = action.payload;
             const extIdx = state.bv_ids.findIndex((item) => item === bvId);
             const listLength = state.bv_ids.length;
             let isAdd = false;
@@ -26,7 +26,7 @@ export const PlayingListSlice = createAppSlice({
                 state.bv_ids.push(bvId);
                 isAdd = true;
             }
-            if (playNew) {
+            if (playNow) {
                 if (isAdd) {
                     state.gotoIndex = listLength;
                 } else {
@@ -36,7 +36,7 @@ export const PlayingListSlice = createAppSlice({
         }),
         addFromFavList: create.asyncThunk(
             async (actionPayload, { getState }) => {
-                const { favId } = actionPayload;
+                const { favId, bvId, playNow } = actionPayload;
                 let mid = 0, bvIds = [];
                 if (favId === 'main') {
                     mid = MasterUpInfo.mid;
@@ -55,15 +55,17 @@ export const PlayingListSlice = createAppSlice({
                     const masterVideoList = masterVideoListAll[mid];
                     bvIds = masterVideoList.map((item) => item.bvid);
                 }
-                return { favId, bvIds };
+                return { favId, bvIds, bvId, playNow };
             },
             {
                 fulfilled: (state, action) => {
                     if (!action.payload) return;
-                    const { favId, bvIds } = action.payload;
+                    const { favId, bvIds, bvId, playNow } = action.payload;
                     state.fav_id = favId;
                     state.bv_ids = bvIds;
-                    state.currentIndex = 0;
+                    if (playNow) {
+                        state.gotoIndex = bvIds.findIndex((item) => item === bvId) ?? 0;
+                    }
                 },
             }
         ),
@@ -149,6 +151,16 @@ export const FavListSlice = createAppSlice({
             favItem.bv_ids.push(bvId);
             favItem.update_time = Date.now();
             state.list[favItemIndex] = favItem;
+        }),
+        removeFavVideo: create.reducer((state, action) => {
+            const { favId, bvId } = action.payload;
+            const favItemIndex = state.list.findIndex(item => item.id === favId);
+            if (favItemIndex < 0) return;
+            const favItem = state.list[favItemIndex];
+            if (favItem.type === FavListType.UPLOADER) return;
+            const idx = favItem.bv_ids.findIndex(item => item === bvId);
+            if (idx  < 0) return;
+            state.list[favItemIndex].bv_ids.splice(idx, 1);
         }),
         addFavVideoByBvids: create.asyncThunk(async (actionPayload, { getState, dispatch }) => {
             const { favId, bvIds } = actionPayload;

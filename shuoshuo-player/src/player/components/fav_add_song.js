@@ -46,8 +46,6 @@ const AddSongDialog = forwardRef((props, ref) => {
         showDialog,
     }))
 
-    const egText = 'https://www.bilibili.com/video/BV17x411w7KC\n'
-
     return <Dialog
         open={open}
         onClose={handleClose}
@@ -69,7 +67,7 @@ const AddSongDialog = forwardRef((props, ref) => {
                     required
                     value={songText}
                     label="视频地址"
-                    placeholder={`e.g. ${egText}`}
+                    placeholder="e.g. https://www.bilibili.com/video/BV17x411w7KC"
                     onChange={(e) => setSongText(e.target.value)}
                     fullWidth
                     multiline

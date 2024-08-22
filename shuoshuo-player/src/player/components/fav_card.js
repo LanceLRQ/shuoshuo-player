@@ -12,7 +12,7 @@ import MoreIcon from '@mui/icons-material/MoreVert';
 import MusicIcon from '@mui/icons-material/MusicNote';
 import {FavListSlice, PlayingListSlice} from "@/store/play_list";
 import {useNavigate} from "react-router";
-import {FavListType} from "@/constants";
+import {FavListType, NoticeTypes} from "@/constants";
 import FavEditDialog from "@player/components/fav_edit";
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 import AddIcon from '@mui/icons-material/Add';
@@ -20,6 +20,7 @@ import UpdateIcon from '@mui/icons-material/Update';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddSongDialog from "@player/components/fav_add_song";
+import {PlayerNoticesSlice} from "@/store/ui";
 
 const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const { mid, favId, favListInfo } = props;
@@ -85,6 +86,11 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const delFavListConfirmed = useCallback(() => {
         closeDelFavListDg();
         dispatch(FavListSlice.actions.removeFavList({ favId }));
+        dispatch(PlayerNoticesSlice.actions.sendNotice({
+            type: NoticeTypes.SUCCESS,
+            message: '删除成功',
+            duration: 3000,
+        }));
         navigate('/index')
     }, [dispatch, navigate, favId]);
 
@@ -103,6 +109,7 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
 
     useImperativeHandle(ref, () => ({
         openUpdateDialog: () => setUpdateDialogOpen(true),
+        addVideo: () => addVideo(),
     }))
 
     const renderMenu = () => {

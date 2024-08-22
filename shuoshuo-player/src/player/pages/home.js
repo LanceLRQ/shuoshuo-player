@@ -12,7 +12,6 @@ import {TimeStampNow} from "@/utils";
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";
-import {PlayingListSlice} from "@/store/play_list";
 import UpdateIcon from "@mui/icons-material/Update";
 
 const HomePage = () => {
@@ -66,13 +65,6 @@ const HomePage = () => {
         return ret;
     }, [masterVideoList]);
 
-    const handlePlayItemClick = useCallback((video) => {
-        dispatch(PlayingListSlice.actions.addSingle({
-            bvId: video.bvid,
-            playNew: true,
-        }));
-    }, [dispatch])
-
     return <Grid container spacing={2} className="player-home-page">
         <Grid item xs={12} lg={6} xl={7} className="player-home-page-left">
             <VideoAlbumCarousel slides={slidesList} />
@@ -117,11 +109,6 @@ const HomePage = () => {
                         return <VideoItem
                             key={video.bvid}
                             video={video}
-                            playNowBtn
-                            onDirect={(item) => {
-                                window.open('https://bilibili.com/video/' + item.bvid);
-                            }}
-                            onPlay={handlePlayItemClick}
                         />
                     })}
                 </List>
