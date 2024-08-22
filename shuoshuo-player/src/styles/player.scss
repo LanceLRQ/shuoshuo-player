@@ -31,6 +31,7 @@ body, html, #root {
     }
 
     .video-album-carousel {
+        padding: 0 $width-4;
         &.theme-light {
             --brand-primary: rgb(47, 112, 193);
             --brand-secondary: rgb(116, 97, 195);
