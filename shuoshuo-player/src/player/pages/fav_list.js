@@ -9,7 +9,7 @@ import {MasterVideoListSelector} from "@/store/selectors/bilibili";
 import {FavListType, MasterUpInfo} from "@/constants";
 import {PlayingListSlice, FavListSlice} from "@/store/play_list";
 import FavBannerCard from '../components/fav_card';
-import {BilibiliUserVideoListSlice} from "@/store/bilibili";
+import {BilibiliUserVideoListSlice, BilibiliVideoEntitiesSlice} from "@/store/bilibili";
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 
@@ -28,6 +28,7 @@ export const FavListPage = (props) => {
 
     const biliVideoListAll = useSelector(MasterVideoListSelector);
     const biliUpVideoListInfos = useSelector(BilibiliUserVideoListSlice.selectors.videoListInfo);
+    const biliVideoEntities = useSelector(BilibiliVideoEntitiesSlice.selectors.videos);
     const favList = useSelector(FavListSlice.selectors.favList);
     const favListInfo = useMemo(() => {
         if (favId === 'main') {
@@ -47,8 +48,9 @@ export const FavListPage = (props) => {
         } else if (favListInfo?.type === FavListType.UPLOADER) {
             return biliVideoListAll[favListInfo?.mid] ?? []
         }
-        return [];
-    }, [favId, biliVideoListAll, favListInfo]);
+        console.log(biliVideoEntities[favListInfo.bv_ids[0]])
+        return favListInfo.bv_ids.map((bvId) => biliVideoEntities[bvId]).filter(item => !!item);
+    }, [favId, biliVideoListAll, favListInfo, biliVideoEntities]);
     const favVideoListSearched = useMemo(() => {
         if (searchKey) {
             const fuse = new Fuse(favVideoList, {
@@ -69,7 +71,6 @@ export const FavListPage = (props) => {
         return 0;
     }, [favId, favListInfo, isTypeUploader]);
     const biliUpVideoListInfo = useMemo(() => biliUpVideoListInfos[biliMid] ?? null, [biliMid, biliUpVideoListInfos]);
-
 
     const handlePlayItemClick = useCallback((video) => {
         dispatch(PlayingListSlice.actions.addSingle({

@@ -1,7 +1,9 @@
 import { nanoid } from 'nanoid';
 import {createAppSlice} from "@/store/util";
-import {FavListType, MasterUpInfo} from "@/constants";
+import {FavListType, MasterUpInfo, NoticeTypes} from "@/constants";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";
+import {BilibiliUserVideoListSlice, BilibiliVideoEntitiesSlice} from "@/store/bilibili";
+import {PlayerNoticesSlice} from "@/store/ui";
 
 export const PlayingListSlice = createAppSlice({
     name: 'playing_list',
@@ -148,6 +150,27 @@ export const FavListSlice = createAppSlice({
             favItem.update_time = Date.now();
             state.list[favItemIndex] = favItem;
         }),
+        addFavVideoByBvids: create.asyncThunk(async (actionPayload, { getState, dispatch }) => {
+            const { favId, bvIds } = actionPayload;
+            let suc = 0, err = 0;
+            for (let i = 0; i < bvIds.length; i++) {
+                const bvId = bvIds[i];
+                const rel = await dispatch(BilibiliUserVideoListSlice.actions.getVideoByBvid({
+                    bvId, index: i + 1, count: bvIds.length,
+                }))
+                if (rel) {
+                    dispatch(FavListSlice.actions.addFavVideo({ favId, bvId }));
+                    suc++;
+                } else {
+                    err++
+                }
+            }
+            dispatch(PlayerNoticesSlice.actions.sendNotice({
+                type: NoticeTypes.SUCCESS,
+                message: `添加完成(成功:${suc},失败:${err})`,
+                duration: 3000,
+            }));
+        })
     }),
     selectors: {
         favList: (state) => state.list,

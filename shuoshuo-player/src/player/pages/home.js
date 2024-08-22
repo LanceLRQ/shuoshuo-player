@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { useDispatch, useSelector } from 'react-redux';
 import {
     Tooltip, IconButton, Grid, List, Typography,
-    Dialog, DialogTitle, ListItem, ListItemButton, ListItemText
+    Dialog, DialogTitle, ListItem, ListItemButton, ListItemText, ListItemIcon, Badge
 } from '@mui/material';
 import VideoAlbumCarousel from "@player/components/carousel";
 import VideoItem from "@player/components/video_item";
@@ -13,6 +13,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";
 import {PlayingListSlice} from "@/store/play_list";
+import UpdateIcon from "@mui/icons-material/Update";
 
 const HomePage = () => {
     const dispatch = useDispatch();
@@ -92,11 +93,17 @@ const HomePage = () => {
                     <List sx={{ pt: 0 }}>
                         <ListItem disableGutters>
                             <ListItemButton onClick={() => updateMasterVideoList()}>
+                                <ListItemIcon>
+                                    <UpdateIcon fontSize="small" />
+                                </ListItemIcon>
                                 <ListItemText>获取前30条</ListItemText>
                             </ListItemButton>
                         </ListItem>
                         <ListItem disableGutters>
                             <ListItemButton onClick={() => updateMasterVideoList('fully')}>
+                                <ListItemIcon>
+                                    <Badge badgeContent="全" color="primary"><UpdateIcon fontSize="small" /></Badge>
+                                </ListItemIcon>
                                 <ListItemText>获取完整列表</ListItemText>
                             </ListItemButton>
                         </ListItem>

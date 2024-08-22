@@ -5,7 +5,7 @@ import {TimeStampNow} from "@/utils";
 import {PlayerNoticesSlice} from "@/store/ui";
 import {NoticeTypes} from "@/constants";
 import API from "@/api";
-import { createAppSlice, delayPromise } from "@/store/util";
+import {createAppSlice, delayPromise, pickVideosFields} from "@/store/util";
 
 
 export const BilibiliUserInfoSlice = createAppSlice({
@@ -120,7 +120,7 @@ export const BilibiliUserVideoListSlice = createAppSlice({
                             mid, data: videoData, updateType: mode,
                         }));
                         const videoList = videoData?.list?.vlist ?? [];
-                        dispatch(BilibiliVideoEntitiesSlice.actions.upsertMany(videoList))
+                        dispatch(BilibiliVideoEntitiesSlice.actions.upsertMany(pickVideosFields(videoList, 'default')))
                         return videoData?.page?.count ?? 0;
                     } catch (e) {
                         console.debug(e)
@@ -240,7 +240,38 @@ export const BilibiliUserVideoListSlice = createAppSlice({
             uEntity.update_time = TimeStampNow();
             uEntity.update_type = updateType;
             state.infos[mid] = uEntity;
-        })
+        }),
+        getVideoByBvid: create.asyncThunk(
+            async (actionPayload, { dispatch }) => {
+                const { bvId, index, total } = actionPayload;
+                dispatch(PlayerNoticesSlice.actions.sendNotice({
+                    id: 'load_videos_tip',
+                    type: NoticeTypes.INFO,
+                    message: `正在读取加载投稿信息(${bvId}${index ? `,${index}/${total}` : ''})`,
+                    close: false,
+                }));
+
+                try {
+                    const videoData = await API.Bilibili.VideoApi.getVideoViewInfo({
+                        params: {
+                            bvid: bvId
+                        }
+                    });
+                    dispatch(BilibiliVideoEntitiesSlice.actions.upsertMany(pickVideosFields(videoData, 'view')))
+                    return true;
+                } catch (e) {
+                    console.debug(e)
+                    dispatch(PlayerNoticesSlice.actions.sendNotice({
+                        type: NoticeTypes.ERROR,
+                        message: `获取视频(${bvId})信息失败`,
+                        duration: 3000,
+                    }));
+                    return false;
+                } finally {
+                    dispatch(PlayerNoticesSlice.actions.removeNotice({id: 'load_videos_tip'}));
+                }
+            },
+        ),
     }),
 });
 

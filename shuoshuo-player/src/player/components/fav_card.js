@@ -4,7 +4,7 @@ import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import dayjs from 'dayjs';
 import PropTypes from "prop-types";
 import {
-    Dialog, DialogTitle, DialogActions, DialogContent, Button, DialogContentText,
+    Dialog, DialogTitle, DialogActions, DialogContent, Button, DialogContentText, ListItemIcon, Badge,
     Box, Grid, Divider, Avatar, Menu, MenuItem, Typography, IconButton, List, ListItem, ListItemButton, ListItemText
 } from "@mui/material";
 import { formatNumber10K } from "@player/utils";
@@ -14,6 +14,12 @@ import {FavListSlice, PlayingListSlice} from "@/store/play_list";
 import {useNavigate} from "react-router";
 import {FavListType} from "@/constants";
 import FavEditDialog from "@player/components/fav_edit";
+import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
+import AddIcon from '@mui/icons-material/Add';
+import UpdateIcon from '@mui/icons-material/Update';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddSongDialog from "@player/components/fav_add_song";
 
 const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const { mid, favId, favListInfo } = props;
@@ -23,6 +29,7 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const extraMenuOpen = Boolean(anchorEl);
     const favEditDgRef = useRef();
+    const addSongDgRef = useRef();
 
     const dispatch = useDispatch();
     const navigate = useNavigate()
@@ -84,12 +91,14 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
 
     // 编辑歌单
     const editFavList = useCallback(() => {
+        handleExtraMenuClose();
         favEditDgRef.current.showDialog({ id: favId })
     }, [favId])
 
     // 添加歌曲
     const addVideo = () => {
-
+        handleExtraMenuClose();
+        addSongDgRef.current.showDialog();
     }
 
     useImperativeHandle(ref, () => ({
@@ -97,24 +106,29 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     }))
 
     const renderMenu = () => {
+        const isCustom = favListInfo.type === FavListType.CUSTOM;
         const menus = [
-            <MenuItem key="m1" onClick={() => playFavList()}>播放</MenuItem>,
-            <MenuItem key="e1" onClick={() => editFavList()}>编辑歌单</MenuItem>
+            { title: '播放歌单', onClick: () => playFavList(), icon: <PlaylistPlayIcon fontSize="small" />, visible: true },
+            { type: 'divider', visible: isCustom },
+            { title: '添加歌曲', onClick: () => addVideo(), icon: <AddIcon fontSize="small" />, visible: isCustom },
+            { type: 'divider',  visible: !!mid },
+            { title: '更新前30', onClick: () => updateMasterVideoList(), icon: <UpdateIcon fontSize="small" />, visible: !!mid },
+            { title: '更新整个列表', onClick: () => updateMasterVideoList('fully'),
+                icon: <Badge badgeContent="全" color="primary"><UpdateIcon fontSize="small" /></Badge>, visible: !!mid
+            },
+            { type: 'divider', visible: true },
+            { title: '编辑歌单', onClick: () => editFavList(), icon: <EditIcon fontSize="small" />, visible: true },
+            { title: '删除歌单', onClick: () => delFavList(), icon: <DeleteIcon fontSize="small" />, visible: deleteAble },
         ];
-        if (favListInfo.type === FavListType.CUSTOM) {
-            menus.push(<Divider key="d1"/>);
-            menus.push(<MenuItem key="a1" onClick={() => addVideo()}>添加歌曲</MenuItem>);
-        }
-        if (mid) {
-            menus.push(<Divider key="d1"/>);
-            menus.push(<MenuItem key="m2" onClick={() => updateMasterVideoList()}>更新前30</MenuItem>);
-            menus.push(<MenuItem key="m3" onClick={() => updateMasterVideoList('fully')}>更新整个列表</MenuItem>);
-        }
-        if (deleteAble) {
-            menus.push(<Divider key="d2"/>)
-            menus.push(<MenuItem key="m4" onClick={() => delFavList()}>删除歌单</MenuItem>)
-        }
-        return menus;
+
+        return menus.map((item, index) => {
+            if (!item.visible) return null;
+            if (item.type === 'divider') return <Divider key={`d${index}`}/>;
+            return <MenuItem key={`m${index}`} onClick={item.onClick}>
+                {item.icon ? <ListItemIcon>{item.icon}</ListItemIcon> : null}
+                <ListItemText>{item.title}</ListItemText>
+            </MenuItem>
+        });
     }
 
 
@@ -194,6 +208,7 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
             </List>
         </Dialog>
         <FavEditDialog ref={favEditDgRef} />
+        <AddSongDialog favId={favId} ref={addSongDgRef} />
     </Box>;
 });
 

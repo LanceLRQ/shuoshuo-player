@@ -203,7 +203,7 @@ const FavEditDialog = forwardRef((props, ref) => {
                         name="upUrl"
                         value={formik.values.upUrl}
                         label="B站UP主空间链接或UID"
-                        placeholder="例如：https://space.bilibili.com/283886865 或 283886865"
+                        placeholder="e.g. https://space.bilibili.com/283886865 或 283886865"
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
                         error={formik.touched.upUrl && Boolean(formik.errors.upUrl)}
