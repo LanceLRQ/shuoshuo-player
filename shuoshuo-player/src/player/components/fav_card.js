@@ -1,4 +1,4 @@
-import React, {forwardRef, useCallback, useImperativeHandle, useMemo, useState} from "react";
+import React, {forwardRef, useCallback, useImperativeHandle, useMemo, useState, useRef} from "react";
 import {useDispatch, useSelector} from "react-redux";
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import dayjs from 'dayjs';
@@ -12,6 +12,8 @@ import MoreIcon from '@mui/icons-material/MoreVert';
 import MusicIcon from '@mui/icons-material/MusicNote';
 import {FavListSlice, PlayingListSlice} from "@/store/play_list";
 import {useNavigate} from "react-router";
+import {FavListType} from "@/constants";
+import FavEditDialog from "@player/components/fav_edit";
 
 const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const { mid, favId, favListInfo } = props;
@@ -20,6 +22,7 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const extraMenuOpen = Boolean(anchorEl);
+    const favEditDgRef = useRef();
 
     const dispatch = useDispatch();
     const navigate = useNavigate()
@@ -79,14 +82,29 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     }, [dispatch, navigate, favId]);
 
 
+    // 编辑歌单
+    const editFavList = useCallback(() => {
+        favEditDgRef.current.showDialog({ id: favId })
+    }, [favId])
+
+    // 添加歌曲
+    const addVideo = () => {
+
+    }
+
     useImperativeHandle(ref, () => ({
         openUpdateDialog: () => setUpdateDialogOpen(true),
     }))
 
     const renderMenu = () => {
         const menus = [
-            <MenuItem key="m1" onClick={() => playFavList()}>播放歌单</MenuItem>
+            <MenuItem key="m1" onClick={() => playFavList()}>播放</MenuItem>,
+            <MenuItem key="e1" onClick={() => editFavList()}>编辑歌单</MenuItem>
         ];
+        if (favListInfo.type === FavListType.CUSTOM) {
+            menus.push(<Divider key="d1"/>);
+            menus.push(<MenuItem key="a1" onClick={() => addVideo()}>添加歌曲</MenuItem>);
+        }
         if (mid) {
             menus.push(<Divider key="d1"/>);
             menus.push(<MenuItem key="m2" onClick={() => updateMasterVideoList()}>更新前30</MenuItem>);
@@ -175,6 +193,7 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
                 </ListItem>
             </List>
         </Dialog>
+        <FavEditDialog ref={favEditDgRef} />
     </Box>;
 });
 

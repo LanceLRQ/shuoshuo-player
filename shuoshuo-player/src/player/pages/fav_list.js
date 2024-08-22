@@ -80,7 +80,7 @@ export const FavListPage = (props) => {
 
     const updateTime = (isTypeUploader ? (biliUpVideoListInfo?.update_time * 1000) : favListInfo?.update_time) || 0
 
-    return favListInfo ? <section className="player-fav-list">
+    return favListInfo ? <section className="player-fav-list" key={favId}>
         <FavBannerCard ref={favBannerRef} favId={favId} mid={biliMid} favListInfo={favListInfo} />
         {favVideoList.length > 0 ? <Grid container className="fav_status_bar">
             <Grid className="status_text" item xs={6} md={8}>

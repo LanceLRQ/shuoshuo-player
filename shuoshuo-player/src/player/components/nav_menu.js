@@ -1,7 +1,7 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
     List, ListItem, ListItemIcon, ListItemText, ListItemButton,
-    Drawer as MuiDrawer, Toolbar, IconButton, Divider
+    Drawer as MuiDrawer, Toolbar, IconButton, Divider, Avatar
 } from "@mui/material";
 import { useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
@@ -18,6 +18,7 @@ import {useNavigate, useMatch} from "react-router";
 import {FavListType, MasterUpInfo} from "@/constants";
 import {FavListSlice} from "@/store/play_list";
 import FavEditDialog from "@player/components/fav_edit";
+import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 
 const drawerWidth = 240;
 
@@ -56,6 +57,7 @@ const NavMenu = (props) => {
     const navigate = useNavigate();
 
     const FavList = useSelector(FavListSlice.selectors.favList);
+    const spaceInfos = useSelector(BilibiliUserVideoListSlice.selectors.spaceInfo);
 
     const ignoreKey = ['fav_list:add']
     const MenuMapping = [
@@ -90,6 +92,7 @@ const NavMenu = (props) => {
 
     }, [match]);
 
+
     return <>
         <Drawer variant="permanent" open={menuOpen}>
             <Toolbar
@@ -111,13 +114,15 @@ const NavMenu = (props) => {
                         return <Divider key={`divider_${index}`}></Divider>
                     } else if (item.type === 'fav') {
                         return FavList.map(favItem => {
+                            const isUploader = favItem.type === FavListType.UPLOADER;
+                            const spaceInfo = isUploader ? spaceInfos[favItem.mid] : null;
                             return <ListItem
                                 key={favItem.id}
                                 disablePadding
                             >
                                 <ListItemButton selected={value === `fav:${favItem.id}`} onClick={handleMenuClick(`fav:${favItem.id}`)}>
                                     <ListItemIcon>
-                                        {favItem.type === FavListType.UPLOADER ? <VideoCameraFrontIcon /> : <QueueMusicIcon />}
+                                        {isUploader ? (spaceInfo ? <Avatar sx={{ width: 24, height: 24 }} src={spaceInfo.face} /> :  <VideoCameraFrontIcon />) : <QueueMusicIcon />}
                                     </ListItemIcon>
                                     <ListItemText primary={favItem.name} />
                                 </ListItemButton>

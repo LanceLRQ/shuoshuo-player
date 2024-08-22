@@ -130,6 +130,13 @@ export const FavListSlice = createAppSlice({
                 state.list.splice(favItemIndex, 1);
             }
         }),
+        modFavList: create.reducer((state, action) => {
+            const { favId, name } = action.payload;
+            const favItemIndex = state.list.findIndex(item => item.id === favId);
+            if (favItemIndex > -1) {
+                state.list[favItemIndex].name = name;
+            }
+        }),
         addFavVideo: create.reducer((state, action) => {
             const { favId, bvId } = action.payload;
             const favItemIndex = state.list.findIndex(item => item.id === favId);

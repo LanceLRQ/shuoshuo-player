@@ -30,6 +30,7 @@ const FavEditDialog = forwardRef((props, ref) => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const validationSchema = yup.object({
+        id: yup.string(),
         name: yup
             .string()
             .max(16, '歌单名称不能超过16个字符')
@@ -47,6 +48,7 @@ const FavEditDialog = forwardRef((props, ref) => {
         upUrl: yup.string().test({
             name: 'bili-url-test',
             test(value, ctx) {
+                if (ctx.parent?.id) return true;
                 if (Number(ctx.parent?.type) === FavListType.CUSTOM) return true;
                 const upUrl = String(ctx.parent?.upUrl || '').trim();
                 if (!upUrl) {
@@ -62,65 +64,86 @@ const FavEditDialog = forwardRef((props, ref) => {
     });
     const formik = useFormik({
         initialValues: {
+            id: '',
             name: '未命名歌单',
             type: FavListType.CUSTOM,
             upUrl: '',
         },
         validationSchema: validationSchema,
         onSubmit: (values) => {
-            if (Number(values.type) === FavListType.UPLOADER) {
-                const mid = getBilibiliMidByURL(values.upUrl);
-                // 如果mid是主up的，或者是已存在，则跳过
-                if(String(mid) === String(MasterUpInfo.mid) || favList.find(item => item.type === FavListType.UPLOADER &&  Number(item.mid) === Number(mid))) {
-                    dispatch(PlayerNoticesSlice.actions.sendNotice({
-                        type: NoticeTypes.WARN,
-                        message: '该用户的歌单已存在，无法添加',
-                        duration: 3000,
-                    }));
-                    return;
-                }
-                API.Bilibili.UserApi.getUserSpaceInfo({
-                    params: { mid }
-                }).then((res) => {
+            if (values?.id) {
+                dispatch(FavListSlice.actions.modFavList({
+                    favId: values.id,
+                    name: values.name,
+                }))
+                setOpen(false);
+            }
+            else {
+                if (Number(values.type) === FavListType.UPLOADER) {
+                    const mid = getBilibiliMidByURL(values.upUrl);
+                    // 如果mid是主up的，或者是已存在，则跳过
+                    if (String(mid) === String(MasterUpInfo.mid) || favList.find(item => item.type === FavListType.UPLOADER && Number(item.mid) === Number(mid))) {
+                        dispatch(PlayerNoticesSlice.actions.sendNotice({
+                            type: NoticeTypes.WARN,
+                            message: '该用户的歌单已存在，无法添加',
+                            duration: 3000,
+                        }));
+                        return;
+                    }
+                    API.Bilibili.UserApi.getUserSpaceInfo({
+                        params: {mid}
+                    }).then((res) => {
+                        dispatch(FavListSlice.actions.addFavList({
+                            mid,
+                            type: FavListType.UPLOADER,
+                            name: `${res?.name ?? mid}的歌单`
+                        })).then(res => {
+                            if (res?.payload?.status) {
+                                const favId = res?.payload?.data?.id;
+                                navigate(`/fav/${favId}`);
+                            }
+                        });
+                        setOpen(false);
+                    }).catch(e => {
+                        console.log(e);
+                        dispatch(PlayerNoticesSlice.actions.sendNotice({
+                            type: NoticeTypes.WARN,
+                            message: '该B站用户不存在',
+                            duration: 3000,
+                        }));
+                    });
+                } else {
                     dispatch(FavListSlice.actions.addFavList({
-                        mid,
-                        type: FavListType.UPLOADER,
-                        name: `${res?.name??mid}的歌单`
+                        type: FavListType.CUSTOM,
+                        name: values.name,
                     })).then(res => {
                         if (res?.payload?.status) {
                             const favId = res?.payload?.data?.id;
                             navigate(`/fav/${favId}`);
                         }
-                    });
+                    })
                     setOpen(false);
-                }).catch(e => {
-                    console.log(e);
-                    dispatch(PlayerNoticesSlice.actions.sendNotice({
-                        type: NoticeTypes.WARN,
-                        message: '该B站用户不存在',
-                        duration: 3000,
-                    }));
-                });
-            } else {
-                dispatch(FavListSlice.actions.addFavList({
-                    type: FavListType.CUSTOM,
-                    name: values.name,
-                })).then(res => {
-                    if (res?.payload?.status) {
-                        const favId = res?.payload?.data?.id;
-                        navigate(`/fav/${favId}`);
-                    }
-                })
-                setOpen(false);
+                }
             }
         },
     });
     const showDialog = (payload) => {
         const { id = 0 } = payload;
-        setFavId(favId);
+        setFavId(id);
         setOpen(true);
         if (id) {
-            formik.resetForm({})
+            const favInfo = favList.find(item => item.id === id);
+            if (!favInfo) {
+                dispatch(PlayerNoticesSlice.actions.sendNotice({
+                    type: NoticeTypes.ERROR,
+                    message: '歌单不存在',
+                    duration: 3000,
+                }));
+                return;
+            }
+            formik.resetForm({
+                values: favInfo
+            })
         } else {
             formik.resetForm()
         }
@@ -146,7 +169,7 @@ const FavEditDialog = forwardRef((props, ref) => {
                         maxWidth: '100%',
                     }}
                 >
-                    <FormControl>
+                    {!favId ? <FormControl>
                         <FormLabel>歌单类型</FormLabel>
                         <RadioGroup
                             row
@@ -158,8 +181,8 @@ const FavEditDialog = forwardRef((props, ref) => {
                             <FormControlLabel value={FavListType.UPLOADER} control={<Radio />} label="Up主歌单" />
                             <FormControlLabel value={FavListType.CUSTOM} control={<Radio />} label="自定义歌单" />
                         </RadioGroup>
-                    </FormControl>
-                    {Number(formik.values.type) === FavListType.CUSTOM ? <TextField
+                    </FormControl> : null}
+                    {(favId || Number(formik.values.type) === FavListType.CUSTOM) ? <TextField
                         autoFocus
                         required
                         margin="dense"
@@ -173,7 +196,7 @@ const FavEditDialog = forwardRef((props, ref) => {
                         fullWidth
                         variant="standard"
                     /> : null}
-                    {Number(formik.values.type) === FavListType.UPLOADER ? <TextField
+                    {(!favId && Number(formik.values.type) === FavListType.UPLOADER) ? <TextField
                         autoFocus
                         required
                         margin="dense"
