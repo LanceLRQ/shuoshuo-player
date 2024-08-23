@@ -18,6 +18,7 @@ export const CustomJkPlayer = () => {
     const theme = useSelector(PlayerProfileSlice.selectors.theme);
     const playerSetting = useSelector(PlayerProfileSlice.selectors.playerSetting);
     const [playingKey, setPlayingKey] = useState('');
+    const [playIndex, setPlayIndex] = useState(playingInfo?.index);
 
     const playingOptions = useMemo(() => {
         return {
@@ -28,13 +29,13 @@ export const CustomJkPlayer = () => {
         }
     }, [theme, playerSetting]);
 
-    const [playIndex, setPlayIndex] = useState(playingInfo?.index);
 
-    const handlePlayIndexChange = useCallback((playIndex) => {
-        console.debug('ListenPIC', playIndex)
+    const handlePlayIndexChange = useCallback((pi) => {
+        console.debug('ListenPIC', pi)
         dispatch(PlayingListSlice.actions.updateCurrentPlaying({
-            index: playIndex,
+            index: pi,
         }))
+        setPlayIndex(pi);
     }, [dispatch])
 
     const handleThemeChange = (theme) => {
@@ -94,8 +95,6 @@ export const CustomJkPlayer = () => {
             playMode
         }));
     }
-
-    console.log(audioLists)
 
     return <ReactJkMusicPlayer
         key="jk_player"
