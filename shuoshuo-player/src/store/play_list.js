@@ -20,7 +20,7 @@ export const PlayingListSlice = createAppSlice({
         syncPlaylist:  create.reducer((state, action) => {
             const { audioList } = action.payload;
             const keysMap = {};
-            audioList.forEach(item => {keysMap[item.key] = true});
+            audioList.forEach(item => {keysMap[item] = true});
             state.bv_ids = state.bv_ids.filter(item => keysMap[item])
         }),
         addSingle: create.reducer((state, action) => {
@@ -65,11 +65,14 @@ export const PlayingListSlice = createAppSlice({
                 fulfilled: (state, action) => {
                     if (!action.payload) return;
                     const { favId, bvIds, bvId, playNow } = action.payload;
-                    state.fav_id = favId;
-                    state.bv_ids = bvIds;
+                    if (state.fav_id !== favId)
+                    {
+                        state.fav_id = favId;
+                        state.bv_ids = bvIds;
+                    }
                     if (playNow) {
                         state.current = bvId;
-                        // state.playNext = true;
+                        state.playNext = true;
                         // state.gotoIndex = bvIds.findIndex((item) => item === bvId) ?? 0;
                     }
                 },

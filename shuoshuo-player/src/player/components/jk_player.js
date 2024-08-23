@@ -10,13 +10,11 @@ import 'react-jinke-music-player/lib/styles/index.less';
 
 export const CustomJkPlayer = () => {
     const [audioInstance, setAudioInstance] = useState(null);
-    const [audioLists, setAudioLists] = useState([]);
     const dispatch = useDispatch();
     const playingList = useSelector(PlayingVideoListSelector);
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser)
     const playingInfo = useSelector(PlayingListSlice.selectors.current);
     const playNext = useSelector(PlayingListSlice.selectors.playNext);
-    const [playIndex, setPlayIndex] = useState(0);
     const theme = useSelector(PlayerProfileSlice.selectors.theme);
     const playerSetting = useSelector(PlayerProfileSlice.selectors.playerSetting);
     const [playingKey, setPlayingKey] = useState('');
@@ -29,6 +27,8 @@ export const CustomJkPlayer = () => {
             ...playerSetting
         }
     }, [theme, playerSetting]);
+
+    const [playIndex, setPlayIndex] = useState(playingInfo?.index);
 
     const handlePlayIndexChange = useCallback((playIndex) => {
         console.debug('ListenPIC', playIndex)
@@ -43,26 +43,27 @@ export const CustomJkPlayer = () => {
         }));
     }
 
-    useEffect(() => {
-        const newList = playingList.map((vItem) => ({
+    const audioLists = useMemo(() => {
+        console.debug("RAL")
+         return playingList.map((vItem) => ({
             key: vItem.bvid,
             name: vItem.title,
             singer: vItem.author,
             cover: vItem.pic,
             musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid)
         }))
-        setAudioLists(newList);
     }, [biliUser, playingList]);
 
     // 监听列表变化并同步
     const handleAudioListsChange = useCallback((currentPlayId,audioLists) => {
         dispatch(PlayingListSlice.actions.syncPlaylist({
-            audioList: audioLists
+            audioList: audioLists.map(item => item.key)
         }))
         const { index, current } = playingInfo;
         if (playingKey !== current && index > -1) {
             setPlayIndex(index)
         }
+        console.debug('ALI', playingKey, current, index)
     }, [dispatch, playingInfo, playingKey]);
 
     useEffect(() => {
@@ -76,7 +77,7 @@ export const CustomJkPlayer = () => {
     }, [dispatch, playNext, playingInfo]);
 
     useEffect(() => {
-        console.debug('PAI', playIndex);
+        console.debug('PAI', playIndex, !!audioInstance ? 'ready' : 'pending');
         if (audioInstance && playIndex > -1) {
             audioInstance.playByIndex(playIndex)
         }
@@ -93,6 +94,8 @@ export const CustomJkPlayer = () => {
             playMode
         }));
     }
+
+    console.log(audioLists)
 
     return <ReactJkMusicPlayer
         key="jk_player"
