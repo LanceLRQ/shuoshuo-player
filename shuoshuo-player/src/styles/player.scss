@@ -401,3 +401,23 @@ body, html, #root {
         border-top: 1px solid $grey-4;
     }
 }
+
+
+.b-login-require {
+    box-sizing: border-box;
+    width: $width-19;
+    min-height: $width-17;
+    border-radius: 8px;
+    padding: $width-10 $width-12;
+    background-image: url(https://s1.hdslb.com/bfs/seed/jinkela/short/mini-login-v2/img/22_open.4ea5f239.png),url(https://s1.hdslb.com/bfs/seed/jinkela/short/mini-login-v2/img/33_open.f7d7f655.png);
+    background-position: 0 100%,100% 100%;
+    background-repeat: no-repeat,no-repeat;
+    background-size: 14%;
+    position: relative;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    border: 1px solid $grey-4;
+    margin: $width-8 auto;
+}

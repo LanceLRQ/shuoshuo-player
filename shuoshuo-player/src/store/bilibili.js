@@ -25,7 +25,7 @@ export const BilibiliUserInfoSlice = createAppSlice({
                 try {
                     return await API.Bilibili.UserApi.getUserInfo();
                 } catch (e) {
-                    return null;
+                    return e;
                 }
             },
             {
