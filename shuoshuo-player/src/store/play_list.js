@@ -13,10 +13,17 @@ export const PlayingListSlice = createAppSlice({
         // 如果单个播放，默认是追加到bv_ids列表中
         fav_id: '',             // 当前播放的歌单ID
         bv_ids: [],             // 视频的id列表
+        current: '',            // 当前播放的BVID
         currentIndex: 0,        // 当前播放的视频的index，用于播放器记忆
         gotoIndex: 0,
     },
     reducers: (create) => ({
+        syncPlaylist:  create.reducer((state, action) => {
+            const { audioList } = action.payload;
+            const keysMap = {};
+            audioList.forEach(item => {keysMap[item.key] = true});
+            state.bv_ids = state.bv_ids.filter(item => keysMap[item])
+        }),
         addSingle: create.reducer((state, action) => {
             const { bvId, playNow = false } = action.payload;
             const extIdx = state.bv_ids.findIndex((item) => item === bvId);
@@ -27,6 +34,7 @@ export const PlayingListSlice = createAppSlice({
                 isAdd = true;
             }
             if (playNow) {
+                state.current = bvId;
                 if (isAdd) {
                     state.gotoIndex = listLength;
                 } else {

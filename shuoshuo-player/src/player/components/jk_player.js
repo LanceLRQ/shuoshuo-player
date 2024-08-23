@@ -18,16 +18,16 @@ export const CustomJkPlayer = () => {
     const gotoIndex = useSelector(PlayingListSlice.selectors.gotoIndex);
     const [playIndex, setPlayIndex] = useState(0);
     const theme = useSelector(PlayerProfileSlice.selectors.theme);
+    const playerSetting = useSelector(PlayerProfileSlice.selectors.playerSetting);
 
     const playingOptions = useMemo(() => {
         return {
             theme,
             clearPriorAudioLists: true,
-            autoPlay: false,
             quietUpdate: true,
-            defaultVolume: 0.5,
+            ...playerSetting
         }
-    }, [theme]);
+    }, [theme, playerSetting]);
 
     const handlePlayIndexChange = useCallback((playIndex) => {
         dispatch(PlayingListSlice.actions.updateCurrentPlaying({
@@ -54,7 +54,7 @@ export const CustomJkPlayer = () => {
 
 
     // -- 我也不知道这玩意为什么可以但是就这么搞就行了.........
-    const handleAudioListsChange = useCallback(() => {
+    const handleAudioListsChange = useCallback((currentPlayId,audioLists,audioInfo) => {
         if (gotoIndex > -1) {
             setPlayIndex(gotoIndex)
         }
@@ -66,6 +66,18 @@ export const CustomJkPlayer = () => {
         }
     }, [handleAudioListsChange, audioInstance, gotoIndex]);
 
+    const handleAudioVolumeChange = (volume) => {
+        dispatch(PlayerProfileSlice.actions.setPlayerSetting({
+            volume
+        }));
+    }
+
+    const handleAudioPlayModeChange = (playMode) => {
+        dispatch(PlayerProfileSlice.actions.setPlayerSetting({
+            playMode
+        }));
+    }
+
     return <ReactJkMusicPlayer
         getAudioInstance={(instance) => {
             setAudioInstance(instance);
@@ -73,11 +85,15 @@ export const CustomJkPlayer = () => {
         mode="full"
         toggleMode={false}
         responsive={false}
+        showDownload={false}
+        remove={false}
         playIndex={playIndex}
         showMediaSession
         onPlayIndexChange={handlePlayIndexChange}
         onAudioListsChange={handleAudioListsChange}
         onThemeChange={handleThemeChange}
+        onAudioVolumeChange={handleAudioVolumeChange}
+        onAudioPlayModeChange={handleAudioPlayModeChange}
         audioLists={audioLists}
         {...playingOptions}
     />

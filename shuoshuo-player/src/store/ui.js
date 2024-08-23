@@ -1,6 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import {NoticeTypes} from "@/constants";
 import { nanoid } from "nanoid";
+import {isBoolean, isString} from "lodash";
 
 export const PlayerNoticesSlice = createSlice({
     name: 'ui_notices',
@@ -46,7 +47,10 @@ export const PlayerNoticesSlice = createSlice({
 export const PlayerProfileSlice = createSlice({
     name: 'ui_profile',
     initialState: {
-        theme: 'dark'
+        theme: 'dark',
+        volume: 0.5,
+        autoPlay: false,
+        playMode: 'order',
     },
     reducers: {
         setTheme: (state, action) => {
@@ -56,6 +60,24 @@ export const PlayerProfileSlice = createSlice({
                 return;
             }
             state.theme = theme;
+        },
+        setPlayerSetting: (state, action) => {
+            const {
+                volume,
+                autoPlay,
+                playMode
+            } = action.payload;
+
+            if (volume >= 0 && volume <= 1) {
+                state.volume = volume;
+            }
+            if (isBoolean(autoPlay)) {
+                state.autoPlay = autoPlay;
+            }
+            if (isString(playMode)) {
+                state.playMode = playMode;
+            }
+
         },
     },
     selectors: {
@@ -69,6 +91,13 @@ export const PlayerProfileSlice = createSlice({
             }
             return state.theme;
         },
+        playerSetting: (state, action) => {
+            return {
+                defaultVolume: state.volume,
+                defaultPlayMode: state.playMode,
+                autoPlay: state.autoPlay,
+            };
+        }
     }
 });
 
