@@ -94,6 +94,7 @@ export const PlayingListSlice = createAppSlice({
             index: state.bv_ids.findIndex((item) => item === state.current),
             favId: state.fav_id
         }),
+        currentBvID: (state) => state.current,
         videoList: (state) => state.bv_ids,
         playNext: (state) => state.playNext,
     }

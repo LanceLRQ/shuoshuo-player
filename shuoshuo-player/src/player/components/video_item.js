@@ -29,6 +29,7 @@ const VideoItem = (props) => {
 
     const [anchorEl, setAnchorEl] = useState(null);
     const [favListDialogOpen, setFavListDialogOpen] = useState(false);
+    const currentBvID = useSelector(PlayingListSlice.selectors.currentBvID);
     const FavList = useSelector(FavListSlice.selectors.favList);
     const extraMenuOpen = Boolean(anchorEl);
     const handleExtraMenuClose = () => {
@@ -135,9 +136,12 @@ const VideoItem = (props) => {
         return FavList.filter(favItem => favItem.type === FavListType.CUSTOM && favItem.id !== favId)
     }, [favId, FavList])
 
-    return <ListItem className="bilibili-video-item">
+    const isPlaying = currentBvID === video.bvid;
+
+    return <ListItem className={`bilibili-video-item ${isPlaying ? 'playing' : ''}`}>
         <ListItemAvatar className="bilibili-video-item-avatar">
             <img src={video.pic} alt={video.title} style={{ height: 40 }} />
+            <div className="playing-cover"><PlayCircleIcon /></div>
         </ListItemAvatar>
         <ListItemText
             primary={video.title}
