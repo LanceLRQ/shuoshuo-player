@@ -11,7 +11,8 @@ const rules = {
         id: 1,
         priority: 1,
         condition: {
-            urlFilter: '||api.bilibili.com',
+            domainType: 'thirdParty',
+            urlFilter: 'https://api.bilibili.com/x/click-interface/click/web/h5',
         },
         action: {
             type: "modifyHeaders",
@@ -27,6 +28,7 @@ const rules = {
         id: 2,
         priority: 1,
         condition: {
+            domainType: 'thirdParty',
             urlFilter: 'https://api.bilibili.com/x/space/wbi/arc/search',
         },
         action: {
@@ -35,7 +37,7 @@ const rules = {
                 {
                     header: "Referer",
                     operation: "set",
-                    value: "https://space.bilibili.com/283886865/video"
+                    value: "https://space.bilibili.com/283886865"
                 },
             ],
         }
@@ -43,6 +45,7 @@ const rules = {
         id: 3,
         priority: 1,
         condition: {
+            domainType: 'thirdParty',
             urlFilter: 'https://api.bilibili.com/x/click-interface/click/web/h5',
         },
         action: {
