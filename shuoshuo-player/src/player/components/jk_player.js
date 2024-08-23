@@ -14,11 +14,12 @@ export const CustomJkPlayer = () => {
     const dispatch = useDispatch();
     const playingList = useSelector(PlayingVideoListSelector);
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser)
-    // const playingInfo = useSelector(PlayingListSlice.selectors.current);
-    const gotoIndex = useSelector(PlayingListSlice.selectors.gotoIndex);
+    const playingInfo = useSelector(PlayingListSlice.selectors.current);
+    const playNext = useSelector(PlayingListSlice.selectors.playNext);
     const [playIndex, setPlayIndex] = useState(0);
     const theme = useSelector(PlayerProfileSlice.selectors.theme);
     const playerSetting = useSelector(PlayerProfileSlice.selectors.playerSetting);
+    const [playingKey, setPlayingKey] = useState('');
 
     const playingOptions = useMemo(() => {
         return {
@@ -30,6 +31,7 @@ export const CustomJkPlayer = () => {
     }, [theme, playerSetting]);
 
     const handlePlayIndexChange = useCallback((playIndex) => {
+        console.debug('ListenPIC', playIndex)
         dispatch(PlayingListSlice.actions.updateCurrentPlaying({
             index: playIndex,
         }))
@@ -50,21 +52,35 @@ export const CustomJkPlayer = () => {
             musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid)
         }))
         setAudioLists(newList);
-    }, [biliUser, playingList, gotoIndex]);
+    }, [biliUser, playingList]);
 
-
-    // -- 我也不知道这玩意为什么可以但是就这么搞就行了.........
-    const handleAudioListsChange = useCallback((currentPlayId,audioLists,audioInfo) => {
-        if (gotoIndex > -1) {
-            setPlayIndex(gotoIndex)
+    // 监听列表变化并同步
+    const handleAudioListsChange = useCallback((currentPlayId,audioLists) => {
+        dispatch(PlayingListSlice.actions.syncPlaylist({
+            audioList: audioLists
+        }))
+        const { index, current } = playingInfo;
+        if (playingKey !== current && index > -1) {
+            setPlayIndex(index)
         }
-    }, [gotoIndex]);
+    }, [dispatch, playingInfo, playingKey]);
 
     useEffect(() => {
-        if (audioInstance && gotoIndex > -1) {
-            audioInstance.playByIndex(gotoIndex)
+        if (!playNext) return;
+        const { index } = playingInfo;
+        console.debug('PIC-PNEXT', index);
+        if (index > -1) {
+            setPlayIndex(index)
         }
-    }, [handleAudioListsChange, audioInstance, gotoIndex]);
+        dispatch(PlayingListSlice.actions.removePlayNext({}));
+    }, [dispatch, playNext, playingInfo]);
+
+    useEffect(() => {
+        console.debug('PAI', playIndex);
+        if (audioInstance && playIndex > -1) {
+            audioInstance.playByIndex(playIndex)
+        }
+    }, [audioInstance, playIndex]);
 
     const handleAudioVolumeChange = (volume) => {
         dispatch(PlayerProfileSlice.actions.setPlayerSetting({
@@ -79,6 +95,7 @@ export const CustomJkPlayer = () => {
     }
 
     return <ReactJkMusicPlayer
+        key="jk_player"
         getAudioInstance={(instance) => {
             setAudioInstance(instance);
         }}
@@ -86,7 +103,6 @@ export const CustomJkPlayer = () => {
         toggleMode={false}
         responsive={false}
         showDownload={false}
-        remove={false}
         playIndex={playIndex}
         showMediaSession
         onPlayIndexChange={handlePlayIndexChange}
@@ -94,6 +110,8 @@ export const CustomJkPlayer = () => {
         onThemeChange={handleThemeChange}
         onAudioVolumeChange={handleAudioVolumeChange}
         onAudioPlayModeChange={handleAudioPlayModeChange}
+        onAudioPlay={(audioInfo) => {setPlayingKey(audioInfo?.key)}}
+        onAudioEnded={() => {setPlayingKey('')}}
         audioLists={audioLists}
         {...playingOptions}
     />

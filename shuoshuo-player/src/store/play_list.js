@@ -14,8 +14,7 @@ export const PlayingListSlice = createAppSlice({
         fav_id: '',             // 当前播放的歌单ID
         bv_ids: [],             // 视频的id列表
         current: '',            // 当前播放的BVID
-        currentIndex: 0,        // 当前播放的视频的index，用于播放器记忆
-        gotoIndex: 0,
+        playNext: false,
     },
     reducers: (create) => ({
         syncPlaylist:  create.reducer((state, action) => {
@@ -27,7 +26,6 @@ export const PlayingListSlice = createAppSlice({
         addSingle: create.reducer((state, action) => {
             const { bvId, playNow = false } = action.payload;
             const extIdx = state.bv_ids.findIndex((item) => item === bvId);
-            const listLength = state.bv_ids.length;
             let isAdd = false;
             if (extIdx < 0) {
                 state.bv_ids.push(bvId);
@@ -35,10 +33,8 @@ export const PlayingListSlice = createAppSlice({
             }
             if (playNow) {
                 state.current = bvId;
-                if (isAdd) {
-                    state.gotoIndex = listLength;
-                } else {
-                    state.gotoIndex = extIdx;
+                if (!isAdd) {
+                    state.playNext = true;   // 如果列表没有变化，发送一个playNext信号过去
                 }
             }
         }),
@@ -72,23 +68,31 @@ export const PlayingListSlice = createAppSlice({
                     state.fav_id = favId;
                     state.bv_ids = bvIds;
                     if (playNow) {
-                        state.gotoIndex = bvIds.findIndex((item) => item === bvId) ?? 0;
+                        state.current = bvId;
+                        // state.playNext = true;
+                        // state.gotoIndex = bvIds.findIndex((item) => item === bvId) ?? 0;
                     }
                 },
             }
         ),
+        removePlayNext: create.reducer((state, action) => {
+            state.playNext = false;
+        }),
         updateCurrentPlaying: create.reducer((state, action) => {
             const { index } = action.payload;
-            state.currentIndex = index;
-            if (state.currentIndex === state.gotoIndex) {
-                state.gotoIndex = -1;
+            if (state.current !== state.bv_ids[index]) {
+                state.current = state.bv_ids[index];
             }
         }),
     }),
     selectors: {
-        current: (state) => ({ current: state.bv_ids[state.currentIndex], index: state.currentIndex, favId: state.fav_id }),
-        gotoIndex: (state) => state.gotoIndex,
+        current: (state) => ({
+            current: state.current,
+            index: state.bv_ids.findIndex((item) => item === state.current),
+            favId: state.fav_id
+        }),
         videoList: (state) => state.bv_ids,
+        playNext: (state) => state.playNext,
     }
 });
 
