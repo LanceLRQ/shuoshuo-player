@@ -18,6 +18,7 @@ const router = createHashRouter(
         <Route path="/" element={<PlayerIndex />}>
             <Route path="/index" element={<Pages.HomePage />}></Route>
             <Route path="/fav/:id" element={<Pages.FavListPage />}></Route>
+            <Route path="/discovery" element={<Pages.DiscoveryPage />}></Route>
             <Route index element={<Navigate to="/index" replace />} />
         </Route>
     )

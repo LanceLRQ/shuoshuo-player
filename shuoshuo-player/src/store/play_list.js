@@ -22,6 +22,7 @@ export const PlayingListSlice = createAppSlice({
             const keysMap = {};
             audioList.forEach(item => {keysMap[item] = true});
             state.bv_ids = state.bv_ids.filter(item => keysMap[item])
+            if (!state.bv_ids.length) state.fav_id = '';         // 点了清空后，移除掉fav_id
         }),
         addSingle: create.reducer((state, action) => {
             const { bvId, playNow = false } = action.payload;
@@ -65,11 +66,8 @@ export const PlayingListSlice = createAppSlice({
                 fulfilled: (state, action) => {
                     if (!action.payload) return;
                     const { favId, bvIds, bvId, playNow } = action.payload;
-                    if (state.fav_id !== favId)
-                    {
-                        state.fav_id = favId;
-                        state.bv_ids = bvIds;
-                    }
+                    state.fav_id = favId;
+                    state.bv_ids = bvIds;
                     if (playNow) {
                         state.current = bvId;
                         state.playNext = true;

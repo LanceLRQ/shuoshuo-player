@@ -62,7 +62,7 @@ const NavMenu = (props) => {
     const ignoreKey = ['fav_list:add']
     const MenuMapping = [
         { label: '首页', key: 'index', icon: <HomeIcon /> },
-        { label: '搜索&发现', key: 'search', icon: <ManageSearchIcon /> },
+        { label: '搜索&发现', key: 'discovery', icon: <ManageSearchIcon /> },
         // { label: '最近播放', key: 'recent', icon: <ScheduleIcon /> },
         { type: 'divider' },
         { label: MasterUpInfo.uname, key: 'fav:main', icon: <FavoriteIcon /> },
