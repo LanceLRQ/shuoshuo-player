@@ -14,7 +14,7 @@ import PlayCircleFilledIcon from '@mui/icons-material/PlayCircleFilled';
 import AddIcon from '@mui/icons-material/Add';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import DeleteIcon from '@mui/icons-material/Delete';
-import {formatNumber10K} from "@player/utils";
+import { formatNumber10K, urlPrefixFixed } from "@player/utils";
 import MoreIcon from "@mui/icons-material/MoreVert";
 import {FavListSlice, PlayingListSlice} from "@/store/play_list";
 import {useDispatch, useSelector} from "react-redux";
@@ -24,7 +24,7 @@ import {PlayerNoticesSlice} from "@/store/ui";
 
 
 const VideoItem = (props) => {
-    const { video, favId, fullCreateTime, showAuthor } = props;
+    const { video, favId, fullCreateTime, showAuthor, htmlTitle = false } = props;
     const dispatch = useDispatch();
 
     const [anchorEl, setAnchorEl] = useState(null);
@@ -134,17 +134,17 @@ const VideoItem = (props) => {
 
     const canAddFavList = useMemo(() => {
         return FavList.filter(favItem => favItem.type === FavListType.CUSTOM && favItem.id !== favId)
-    }, [favId, FavList])
+    }, [favId, FavList]);
 
     const isPlaying = currentBvID === video.bvid;
 
     return <ListItem className={`bilibili-video-item ${isPlaying ? 'playing' : ''}`}>
         <ListItemAvatar className="bilibili-video-item-avatar">
-            <img src={video.pic} alt={video.title} style={{ height: 40 }} />
+            <img src={urlPrefixFixed(video.pic)} alt={video.title} style={{ height: 40 }} />
             <div className="playing-cover"><PlayCircleIcon /></div>
         </ListItemAvatar>
         <ListItemText
-            primary={video.title}
+            primary={htmlTitle ? <span dangerouslySetInnerHTML={{__html: video.title}}></span> : video.title}
             secondary={<Stack component="span" direction="row" spacing={1} sx={{ marginTop: '8px' }}>
                 {showAuthor ? <Chip
                     component="span"
@@ -229,6 +229,7 @@ VideoItem.propTypes = {
     showAuthor: PropTypes.bool,
     onRemove: PropTypes.func,
     favId: PropTypes.string,
+    htmlTitle: PropTypes.bool,
 }
 
 export default VideoItem;

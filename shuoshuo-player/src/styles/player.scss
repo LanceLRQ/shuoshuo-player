@@ -435,7 +435,12 @@ body, html, #root {
                 border-bottom: 1px solid $grey-8;
             }
         }
-
+        .discovery-search-list {
+            em.keyword {
+                color: $red;
+                font-style:normal
+            }
+        }
     }
 }
 

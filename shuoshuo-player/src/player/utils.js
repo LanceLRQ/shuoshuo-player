@@ -90,3 +90,15 @@ export const fetchMusicUrl = (bvId, curUserMid) => async () => {
         return '';
     }
 };
+
+export const searchResultConverter = (result) => {
+    return result.map(item => {
+        return {
+         ...item,
+        }
+    });
+}
+
+export const urlPrefixFixed = (url) => {
+    return url.replace(/^\/\//, 'https://').replace('http://', 'https://');
+}

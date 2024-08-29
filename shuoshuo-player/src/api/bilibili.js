@@ -37,6 +37,10 @@ const VideoApi = {
         method: 'post',
         url: 'https://api.bilibili.com/x/click-interface/click/web/h5',
         useWbi: true,
+    }),
+    searchVideo: buildApiCall({
+        method: 'get',
+        url: 'https://api.bilibili.com/x/web-interface/search/type',
     })
 }
 
