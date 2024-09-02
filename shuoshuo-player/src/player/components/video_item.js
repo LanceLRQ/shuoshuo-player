@@ -24,7 +24,10 @@ import {PlayerNoticesSlice} from "@/store/ui";
 
 
 const VideoItem = (props) => {
-    const { video, favId, fullCreateTime, showAuthor, htmlTitle = false } = props;
+    const {
+        video, favId, fullCreateTime, showAuthor,
+        htmlTitle = false, fromSearch = false
+    } = props;
     const dispatch = useDispatch();
 
     const [anchorEl, setAnchorEl] = useState(null);
@@ -74,15 +77,22 @@ const VideoItem = (props) => {
 
     const confirmAddToFav = (favId) => {
         setFavListDialogOpen(false);
-        dispatch(FavListSlice.actions.addFavVideo({
-            favId,
-            bvId: video.bvid,
-        }))
-        dispatch(PlayerNoticesSlice.actions.sendNotice({
-            type: NoticeTypes.SUCCESS,
-            message: '添加成功',
-            duration: 3000,
-        }));
+        if (fromSearch) {
+            dispatch(FavListSlice.actions.addFavVideoByBvids({
+                favId,
+                bvIds: [video.bvid],
+            }))
+        } else {
+            dispatch(FavListSlice.actions.addFavVideo({
+                favId,
+                bvId: video.bvid,
+            }))
+            dispatch(PlayerNoticesSlice.actions.sendNotice({
+                type: NoticeTypes.SUCCESS,
+                message: '添加成功',
+                duration: 3000,
+            }));
+        }
     }
 
     const { addBtn = true, addToPlayBtn = true, removeBtn = false } = props;
@@ -178,7 +188,13 @@ const VideoItem = (props) => {
                 />
             </Stack>}
         />
-        <div className="bilibili-video-item-sider">
+        {fromSearch ? <div className="bilibili-video-item-sider">
+            <Tooltip title="添加到收藏">
+                <IconButton onClick={() => handleAddToFavClick()}>
+                    <AddIcon />
+                </IconButton>
+            </Tooltip>
+        </div> : <div className="bilibili-video-item-sider">
             <Tooltip title="立即播放">
                 <IconButton onClick={() => handlePlayClick()}>
                     <PlayCircleIcon />
@@ -197,7 +213,7 @@ const VideoItem = (props) => {
             >
                 {renderMenu()}
             </Menu>
-        </div>
+        </div>}
         {favListDialogOpen ? <Dialog onClose={() => setFavListDialogOpen(false)} open={favListDialogOpen}>
             <DialogTitle>请选择要添加到的歌单</DialogTitle>
             {canAddFavList.length > 0 ? <List sx={{ pt: 0 }}>
@@ -225,6 +241,7 @@ VideoItem.propTypes = {
     fullCreateTime: PropTypes.bool,
     addBtn: PropTypes.bool,
     addToPlayBtn: PropTypes.bool,
+    fromSearch: PropTypes.bool,
     removeBtn: PropTypes.bool,
     showAuthor: PropTypes.bool,
     onRemove: PropTypes.func,

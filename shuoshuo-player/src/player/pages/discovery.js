@@ -1,6 +1,7 @@
 import React, {useCallback, useState, useMemo} from 'react';
 import {Avatar, Box, Paper, IconButton, InputBase, Typography, Stack, Button, List} from "@mui/material";
 import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import {SlicerHuman} from "@/constants";
 import API from '@/api';
 import VideoItem from "@player/components/video_item";
@@ -13,6 +14,10 @@ const DiscoveryPage = () => {
     const [reqPage, setReqPage] = useState(1);
 
     const doSearch = useCallback(() => {
+        if (!keyword) {
+            setMode('index');
+            return;
+        }
         API.Bilibili.VideoApi.searchVideo({
             params: {
                 search_type: 'video',
@@ -51,15 +56,28 @@ const DiscoveryPage = () => {
                     inputProps={{ 'aria-label': '请输入视频关键字' }}
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.keyCode === 13) {
+                            setReqPage(1); 
+                            doSearch();
+                        }
+                    }}
                 />
-                <IconButton
+                {!keyword || mode === 'index' ? <IconButton
                     type="button"
                     sx={{ p: '10px' }}
                     aria-label="search"
                     onClick={() => {setReqPage(1); doSearch(); }}
                 >
                     <SearchIcon />
-                </IconButton>
+                </IconButton> : <IconButton
+                    type="button"
+                    sx={{ p: '10px' }}
+                    aria-label="clear"
+                    onClick={() => {setKeyword(''); setReqPage(1);  setMode('index'); }}
+                >
+                    <ClearIcon />
+                </IconButton>}
             </Paper>
         </Box>
         {mode === 'index' ? <Box className="discovery-slicer-human">
@@ -86,6 +104,7 @@ const DiscoveryPage = () => {
                         key={video.bvid}
                         video={video}
                         htmlTitle
+                        fromSearch
                     />
                 })}
             </List>
