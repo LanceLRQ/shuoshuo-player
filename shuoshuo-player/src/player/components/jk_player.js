@@ -25,7 +25,8 @@ export const CustomJkPlayer = () => {
             theme,
             clearPriorAudioLists: true,
             quietUpdate: true,
-            ...playerSetting
+            ...playerSetting,
+            autoPlay: true,
         }
     }, [theme, playerSetting]);
 
@@ -45,7 +46,7 @@ export const CustomJkPlayer = () => {
     }
 
     const audioLists = useMemo(() => {
-        console.debug("RAL")
+        console.log('AListUPD')
          return playingList.map((vItem) => ({
             key: vItem.bvid,
             name: vItem.title,
@@ -95,9 +96,8 @@ export const CustomJkPlayer = () => {
             playMode
         }));
     }
-
+    console.log(playIndex, 'pl:render');
     return <ReactJkMusicPlayer
-        key="jk_player"
         getAudioInstance={(instance) => {
             setAudioInstance(instance);
         }}

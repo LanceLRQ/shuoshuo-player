@@ -3347,6 +3347,15 @@ axe-core@^4.9.1:
   resolved "https://registry.npmmirror.com/axe-core/-/axe-core-4.10.0.tgz#d9e56ab0147278272739a000880196cdfe113b59"
   integrity sha512-Mr2ZakwQ7XUAjp7pAwQWRhhK8mQQ6JAaNWSjmjxil0R8BPioMtQsTLOolGYkji1rcL++3dCqZA3zWqpT+9Ew6g==
 
+axios@^1.6.0:
+  version "1.7.7"
+  resolved "https://registry.npmmirror.com/axios/-/axios-1.7.7.tgz#2f554296f9892a72ac8d8e4c5b79c14a91d0a47f"
+  integrity sha512-S4kL7XrjgBmvdGut0sN3yJxqYzrDOnivkBiN0OFs6hLiUam3UPvswUo0kqGyhqUZGEOytHyumEdXsAkgCOUf3Q==
+  dependencies:
+    follow-redirects "^1.15.6"
+    form-data "^4.0.0"
+    proxy-from-env "^1.1.0"
+
 axios@^1.7.3:
   version "1.7.3"
   resolved "https://registry.npmmirror.com/axios/-/axios-1.7.3.tgz#a1125f2faf702bc8e8f2104ec3a76fab40257d85"
@@ -9935,7 +9944,7 @@ react-dev-utils@^12.0.1:
     strip-ansi "^6.0.1"
     text-table "^0.2.0"
 
-react-dom@^18.3.1:
+react-dom@^18.2.0, react-dom@^18.3.1:
   version "18.3.1"
   resolved "https://registry.npmmirror.com/react-dom/-/react-dom-18.3.1.tgz#c2265d79511b57d479b3dd3fdfa51536494c5cb4"
   integrity sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==
@@ -9960,6 +9969,26 @@ react-fast-compare@^2.0.1:
   version "2.0.4"
   resolved "https://registry.npmmirror.com/react-fast-compare/-/react-fast-compare-2.0.4.tgz#e84b4d455b0fec113e0402c329352715196f81f9"
   integrity sha512-suNP+J1VU1MWFKcyt7RtjiSWUjvidmQSlqu+eHslq+342xCbGTYmC0mEhPCOHxlW0CywylOC1u2DFAT+bv4dBw==
+
+react-flexible-scroll@^0.1.14:
+  version "0.1.15"
+  resolved "https://registry.npmmirror.com/react-flexible-scroll/-/react-flexible-scroll-0.1.15.tgz#c74aec2ede8e8deebb06f0fc7f9375df8821190c"
+  integrity sha512-UbGY2iWLUKJ7ZFzhXVWs2ZFOfx+kohgJFFWPnTW2xfAEbQN7Oxmf4jHdEGG1s2IThSlZkxPv1m9AcpWSzqmNRw==
+  dependencies:
+    axios "^1.6.0"
+    react "^18.2.0"
+    react-dom "^18.2.0"
+    react-flexible-scroll "^0.1.14"
+
+react-flexible-scroll@^0.2.3:
+  version "0.2.3"
+  resolved "https://registry.npmmirror.com/react-flexible-scroll/-/react-flexible-scroll-0.2.3.tgz#e0a19875e77b37e64c36df98931aaa7ed48124e4"
+  integrity sha512-GfBErbO7d7B/mhwMxCNCZIWTMZHOCyGEd4ux/XyqsE029c+SzE+OhnR7McFJlEPEaT1r2sS5j+D5qo3CTek+kQ==
+  dependencies:
+    axios "^1.6.0"
+    react "^18.2.0"
+    react-dom "^18.2.0"
+    react-flexible-scroll "^0.1.14"
 
 react-is@^16.13.1, react-is@^16.7.0:
   version "16.13.1"
@@ -10084,7 +10113,7 @@ react-transition-group@^4.4.5:
     loose-envify "^1.4.0"
     prop-types "^15.6.2"
 
-react@^18.3.1:
+react@^18.2.0, react@^18.3.1:
   version "18.3.1"
   resolved "https://registry.npmmirror.com/react/-/react-18.3.1.tgz#49ab892009c53933625bd16b2533fc754cab2891"
   integrity sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==
