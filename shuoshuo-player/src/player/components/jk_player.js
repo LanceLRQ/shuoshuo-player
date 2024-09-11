@@ -26,7 +26,7 @@ export const CustomJkPlayer = () => {
             clearPriorAudioLists: true,
             quietUpdate: true,
             ...playerSetting,
-            autoPlay: true,
+            // autoPlay: true,
         }
     }, [theme, playerSetting]);
 
@@ -48,24 +48,25 @@ export const CustomJkPlayer = () => {
     const audioLists = useMemo(() => {
         console.log('AListUPD')
          return playingList.map((vItem) => ({
-            key: vItem.bvid,
+            key: `${playingInfo?.favId}:${vItem.bvid}`,
             name: vItem.title,
             singer: vItem.author,
             cover: vItem.pic,
             musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid)
         }))
-    }, [biliUser, playingList]);
+    }, [biliUser, playingList, playingInfo]);
 
     // 监听列表变化并同步
     const handleAudioListsChange = useCallback((currentPlayId,audioLists) => {
         dispatch(PlayingListSlice.actions.syncPlaylist({
             audioList: audioLists.map(item => item.key)
         }))
-        const { index, current } = playingInfo;
-        if (playingKey !== current && index > -1) {
-            setPlayIndex(index)
+        const { index, current_key } = playingInfo;
+        if (playingKey !== current_key && index > -1) {
+            setPlayIndex(index);
+            setPlayingKey(current_key);
         }
-        console.debug('ALI', playingKey, current, index)
+        console.debug('ALI', playingKey, current_key, index)
     }, [dispatch, playingInfo, playingKey]);
 
     useEffect(() => {
@@ -83,7 +84,7 @@ export const CustomJkPlayer = () => {
         if (audioInstance && playIndex > -1) {
             audioInstance.playByIndex(playIndex)
         }
-    }, [audioInstance, playIndex]);
+    }, [audioInstance, playIndex, playingKey]);
 
     const handleAudioVolumeChange = (volume) => {
         dispatch(PlayerProfileSlice.actions.setPlayerSetting({
@@ -96,7 +97,6 @@ export const CustomJkPlayer = () => {
             playMode
         }));
     }
-    console.log(playIndex, 'pl:render');
     return <ReactJkMusicPlayer
         getAudioInstance={(instance) => {
             setAudioInstance(instance);
@@ -105,7 +105,7 @@ export const CustomJkPlayer = () => {
         toggleMode={false}
         responsive={false}
         showDownload={false}
-        playIndex={playIndex}
+        defaultPlayIndex={playIndex}
         showMediaSession
         onPlayIndexChange={handlePlayIndexChange}
         onAudioListsChange={handleAudioListsChange}

@@ -89,6 +89,7 @@ export const PlayingListSlice = createAppSlice({
     selectors: {
         current: (state) => ({
             current: state.current,
+            current_key: `${state.fav_id}:${state.current}`,
             index: state.bv_ids.findIndex((item) => item === state.current),
             favId: state.fav_id
         }),
