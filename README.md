@@ -1,19 +1,19 @@
-## 说说播放器
+# 说说播放器
 
 B站第三方音乐播放器，可以让粉丝给UP主定制的音乐播放器
 
-### 开发指南(Chrome插件版本)
+## 开发指南(Chrome插件版本)
 
 本地环境要求：`nodejs >= 16`，最好安装一下`yarn`
 
-#### 1. 克隆目录
+### 1. 克隆目录
 ```shell
 git clone git@github.com:LanceLRQ/shuoshuo-player.git
 git submodule update --init
 cd shuoshuo-player
 ```
 
-#### 2. 安装依赖
+### 2. 安装依赖
 ```shell
 cd react-music-player
 yarn
@@ -25,21 +25,21 @@ cd ../shuoshuo-player
 yarn
 yarn link react-jinke-music-player    # 链接播放器组件
 ```
-#### 3.启动开发环境
+### 3.启动开发环境
 ```shell
 cd shuoshuo-player
 yarn build      # 第一次执行的时候要，因为要把manifest.json、background.js复制到chrome插件目录下。以后只要是改播放器，用start命令即可。
 yarn start
 ```
 
-### 技术支持
+## 技术支持
 
 - [react-music-player](https://github.com/lijinke666/react-music-player) ：因播放列表管理方式不同，故对其进行了一些适当的[修改](https://github.com/LanceLRQ/react-music-player)
 - [Chrome Extension](https://developer.chrome.com/docs/extensions/) + [React](https://github.com/facebook/react) + [MUI](https://mui.com/zh/)
 - [react-chrome-extension-MV3](https://github.com/Sirage-t/react-chrome-extension-MV3)
 - 参考：[Azusa-Player](https://github.com/lovegaoshi/NoxPlayer)
 
-### 项目协议
+## 项目协议
 
 本项目基于 [MIT License](https://github.com/LanceLRQ/shuoshuo-player/blob/master/LICENSE) 许可证发行，以下协议是对于 MIT License 的补充，如有冲突，以以下协议为准。
 
