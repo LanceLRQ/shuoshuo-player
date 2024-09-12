@@ -27,6 +27,7 @@ module.exports = {
     ],
     webpack: {
         configure: (webpackConfig) => {
+            webpackConfig.resolve.symlinks = false;
             webpackConfig.entry = {
                 main: path.resolve(__dirname, './src/index.js'),
                 player: path.resolve(__dirname, './src/player/index.js'),

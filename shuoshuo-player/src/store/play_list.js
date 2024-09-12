@@ -17,26 +17,31 @@ export const PlayingListSlice = createAppSlice({
         playNext: false,
     },
     reducers: (create) => ({
-        syncPlaylist:  create.reducer((state, action) => {
-            const { audioList } = action.payload;
-            const keysMap = {};
-            audioList.forEach(item => {keysMap[item] = true});
-            state.bv_ids = state.bv_ids.filter(item => keysMap[item])
-            if (!state.bv_ids.length) state.fav_id = '';         // 点了清空后，移除掉fav_id
+        syncPlaylistDelete:  create.reducer((state, action) => {
+            const { mode, audioKey } = action.payload;
+            if (mode === 'fully') {
+                state.bv_ids = [];
+                state.fav_id = '';
+                state.current = '';
+                return;
+            }
+            const aKeys = audioKey.split(':');
+            const bvId = aKeys[0];
+            state.bv_ids = state.bv_ids.filter(item => item !== bvId)
+            if (!state.bv_ids.length) {
+                state.fav_id = '';
+                state.current = '';
+            }
         }),
         addSingle: create.reducer((state, action) => {
             const { bvId, playNow = false } = action.payload;
             const extIdx = state.bv_ids.findIndex((item) => item === bvId);
-            let isAdd = false;
             if (extIdx < 0) {
                 state.bv_ids.push(bvId);
-                isAdd = true;
             }
             if (playNow) {
                 state.current = bvId;
-                if (!isAdd) {
-                    state.playNext = true;   // 如果列表没有变化，发送一个playNext信号过去
-                }
+                state.playNext = true;   // 如果列表没有变化，发送一个playNext信号过去
             }
         }),
         addFromFavList: create.asyncThunk(
@@ -89,7 +94,7 @@ export const PlayingListSlice = createAppSlice({
     selectors: {
         current: (state) => ({
             current: state.current,
-            current_key: `${state.fav_id}:${state.current}`,
+            current_key: `${state.current}:1`, // 后面的1是p1的意思，为后面如果要播分p的内容预留的
             index: state.bv_ids.findIndex((item) => item === state.current),
             favId: state.fav_id
         }),

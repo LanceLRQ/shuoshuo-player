@@ -23,7 +23,7 @@ export const CustomJkPlayer = () => {
     const playingOptions = useMemo(() => {
         return {
             theme,
-            clearPriorAudioLists: true,
+            clearPriorAudioLists: false,
             quietUpdate: true,
             ...playerSetting,
             // autoPlay: true,
@@ -48,26 +48,32 @@ export const CustomJkPlayer = () => {
     const audioLists = useMemo(() => {
         console.log('AListUPD')
          return playingList.map((vItem) => ({
-            key: `${playingInfo?.favId}:${vItem.bvid}`,
+            key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
             name: vItem.title,
             singer: vItem.author,
             cover: vItem.pic,
             musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid)
         }))
-    }, [biliUser, playingList, playingInfo]);
+    }, [biliUser, playingList]);
 
     // 监听列表变化并同步
-    const handleAudioListsChange = useCallback((currentPlayId,audioLists) => {
-        dispatch(PlayingListSlice.actions.syncPlaylist({
-            audioList: audioLists.map(item => item.key)
+    // const handleAudioListsChange = useCallback((currentPlayId,audioLists) => {
+    //     // dispatch(PlayingListSlice.actions.syncPlaylist({
+    //     //     audioList: audioLists.map(item => item.key)
+    //     // }))
+    //     const { index, current_key } = playingInfo;
+    //     if (playingKey !== current_key && index > -1) {
+    //         setPlayIndex(index);
+    //         setPlayingKey(current_key);
+    //     }
+    //     console.debug('ALI', playingKey, current_key, index)
+    // }, [dispatch, playingInfo, playingKey]);
+
+    const handleAudioListsDelete = (mode, audioKey) => {
+        dispatch(PlayingListSlice.actions.syncPlaylistDelete({
+            mode, audioKey
         }))
-        const { index, current_key } = playingInfo;
-        if (playingKey !== current_key && index > -1) {
-            setPlayIndex(index);
-            setPlayingKey(current_key);
-        }
-        console.debug('ALI', playingKey, current_key, index)
-    }, [dispatch, playingInfo, playingKey]);
+    }
 
     useEffect(() => {
         if (!playNext) return;
@@ -84,7 +90,7 @@ export const CustomJkPlayer = () => {
         if (audioInstance && playIndex > -1) {
             audioInstance.playByIndex(playIndex)
         }
-    }, [audioInstance, playIndex, playingKey]);
+    }, [audioInstance, playIndex]);
 
     const handleAudioVolumeChange = (volume) => {
         dispatch(PlayerProfileSlice.actions.setPlayerSetting({
@@ -108,7 +114,8 @@ export const CustomJkPlayer = () => {
         defaultPlayIndex={playIndex}
         showMediaSession
         onPlayIndexChange={handlePlayIndexChange}
-        onAudioListsChange={handleAudioListsChange}
+        // onAudioListsChange={handleAudioListsChange}
+        onAudioListsDelete={handleAudioListsDelete}
         onThemeChange={handleThemeChange}
         onAudioVolumeChange={handleAudioVolumeChange}
         onAudioPlayModeChange={handleAudioPlayModeChange}
