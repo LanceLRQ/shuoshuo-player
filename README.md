@@ -31,6 +31,11 @@ cd shuoshuo-player
 yarn build      # 第一次执行的时候要，因为要把manifest.json、background.js复制到chrome插件目录下。以后只要是改播放器，用start命令即可。
 yarn start
 ```
+踩坑：
+```shell
+# 播放器组件那边改完，需要在shuoshuo-player下边执行一下这个，不然每次都不更新
+rm -r node_module/.cache 
+```
 
 ## 技术支持
 

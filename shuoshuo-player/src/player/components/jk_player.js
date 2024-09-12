@@ -17,7 +17,6 @@ export const CustomJkPlayer = () => {
     const playNext = useSelector(PlayingListSlice.selectors.playNext);
     const theme = useSelector(PlayerProfileSlice.selectors.theme);
     const playerSetting = useSelector(PlayerProfileSlice.selectors.playerSetting);
-    const [playingKey, setPlayingKey] = useState('');
     const [playIndex, setPlayIndex] = useState(playingInfo?.index);
 
     const playingOptions = useMemo(() => {
@@ -94,7 +93,7 @@ export const CustomJkPlayer = () => {
 
     const handleAudioVolumeChange = (volume) => {
         dispatch(PlayerProfileSlice.actions.setPlayerSetting({
-            volume
+            volume: Math.sqrt(volume)       // 喵的我也不知道为什么要开平方根，但是那个播放器源代码里边就是返回开了方的数值，导致对不上
         }));
     }
 
@@ -119,8 +118,6 @@ export const CustomJkPlayer = () => {
         onThemeChange={handleThemeChange}
         onAudioVolumeChange={handleAudioVolumeChange}
         onAudioPlayModeChange={handleAudioPlayModeChange}
-        onAudioPlay={(audioInfo) => {setPlayingKey(audioInfo?.key)}}
-        onAudioEnded={() => {setPlayingKey('')}}
         audioLists={audioLists}
         {...playingOptions}
     />
