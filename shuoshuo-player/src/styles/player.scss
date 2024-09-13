@@ -398,6 +398,9 @@ body, html, #root {
     }
 
     .player-discovery-main {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         .discovery-search-bar {
             padding: $width-13 0;
         }
@@ -446,6 +449,7 @@ body, html, #root {
             }
         }
         .discovery-search-list {
+            flex: 1 1 auto;
             em.keyword {
                 color: $red;
                 font-style:normal

@@ -128,7 +128,7 @@ const FavEditDialog = forwardRef((props, ref) => {
         },
     });
     const showDialog = (payload) => {
-        const { id = 0 } = payload;
+        const { id = 0, mid = '', name = '' } = payload;
         setFavId(id);
         setOpen(true);
         if (id) {
@@ -145,7 +145,18 @@ const FavEditDialog = forwardRef((props, ref) => {
                 values: favInfo
             })
         } else {
-            formik.resetForm()
+            console.log(mid,'ss')
+            if (mid) {
+                formik.resetForm({
+                    values: {
+                        type: FavListType.UPLOADER,
+                        name: name || '未命名歌单',
+                        upUrl: mid,
+                    }
+                })
+            } else {
+                formik.resetForm()
+            }
         }
     };
     const handleClose = () => {

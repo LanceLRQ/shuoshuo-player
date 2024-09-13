@@ -3,16 +3,7 @@ import { useParams } from "react-router";
 import dayjs from 'dayjs';
 import Fuse from 'fuse.js';
 import {
-    Box,
-    Button,
-    IconButton,
-    InputBase,
-    Paper,
-    List,
-    Grid,
-    Typography,
-    Alert,
-    AlertTitle,
+    Box, Button, IconButton, InputBase, Paper, Grid, Typography, Alert, AlertTitle,
     DialogTitle, DialogContent, DialogContentText, DialogActions, Dialog
 } from "@mui/material";
 import VideoItem from "@player/components/video_item";
