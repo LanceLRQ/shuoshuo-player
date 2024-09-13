@@ -25,6 +25,8 @@ import {BilibiliUserVideoListSlice, BilibiliVideoEntitiesSlice} from "@/store/bi
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import {PlayerNoticesSlice} from "@/store/ui";
+import AutoSizer from 'react-virtualized-auto-sizer';
+import { FixedSizeList } from 'react-window';
 
 export const FavListPage = (props) => {
     const params = useParams();
@@ -110,6 +112,20 @@ export const FavListPage = (props) => {
         }));
     }, [dispatch, favId, delId]);
 
+    const renderListItem = ({ index, style }) => {
+        const video = favVideoListSearched[index];
+        return <VideoItem
+            style={style}
+            fullCreateTime
+            key={video.bvid}
+            favId={favId}
+            video={video}
+            showAuthor={isTypeCustom}
+            removeBtn={isTypeCustom}
+            onRemove={handleRemoveSong}
+        />
+    }
+
     return favListInfo ? <section className="player-fav-list" key={favId}>
         <FavBannerCard ref={favBannerRef} favId={favId} mid={biliMid} favListInfo={favListInfo} />
         {favVideoList.length > 0 ? <Grid container className="fav_status_bar">
@@ -135,19 +151,21 @@ export const FavListPage = (props) => {
             </Grid>
         </Grid> : null}
         <Box className="fav_item_list">
-            {favVideoListSearched.length > 0 ? <List sx={{width: '100%', bgcolor: 'background.paper'}}>
-                {favVideoListSearched.map((video) => {
-                    return <VideoItem
-                        fullCreateTime
-                        key={video.bvid}
-                        favId={favId}
-                        video={video}
-                        showAuthor={isTypeCustom}
-                        removeBtn={isTypeCustom}
-                        onRemove={handleRemoveSong}
-                    />
-                })}
-            </List> : (searchKey ? <Box className="fav_item_list_empty">
+            {favVideoListSearched.length > 0 ? <Box sx={{ width: '100%', height: '100%', bgcolor: 'background.paper' }}>
+                <AutoSizer>
+                    {({height, width}) => {
+                        return <FixedSizeList
+                            height={height}
+                            width={width}
+                            itemSize={108}
+                            itemCount={favVideoListSearched.length}
+                            overscanCount={5}
+                        >
+                            {renderListItem}
+                        </FixedSizeList>
+                    }}
+                </AutoSizer>
+            </Box> : (searchKey ? <Box className="fav_item_list_empty">
                 <Alert severity="warning">
                     <AlertTitle>没有找到关键词为“{searchKey}”的结果</AlertTitle>
                 </Alert>

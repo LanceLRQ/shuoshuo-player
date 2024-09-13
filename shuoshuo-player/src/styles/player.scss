@@ -300,6 +300,16 @@ body, html, #root {
             opacity: 0;
             transition: opacity .2s ease-in-out;
         }
+        .MuiListItemText-primary {
+            overflow: hidden;
+            -webkit-line-clamp: 2;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            text-overflow: ellipsis;
+            white-space: normal;
+            word-break: break-all;
+            min-height: 48px;
+        }
     }
 
     .player-home-page {

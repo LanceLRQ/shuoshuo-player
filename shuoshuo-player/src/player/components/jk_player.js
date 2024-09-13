@@ -45,7 +45,6 @@ export const CustomJkPlayer = () => {
     }
 
     const audioLists = useMemo(() => {
-        console.log('AListUPD')
          return playingList.map((vItem) => ({
             key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
             name: vItem.title,

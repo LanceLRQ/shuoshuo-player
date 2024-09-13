@@ -29,7 +29,7 @@ export const StartupLoadingTip = [
 
 export const SlicerHuman = [
     {
-        name: '快进到什么破游戏',
+        name: 'lcd789',     // 老板天天改名，下次我不更新啦！
         mid: '1679379',
         face: 'https://i0.hdslb.com/bfs/face/444140b8adc15d4f586585b32a6362c8716dc082.jpg@240w_240h_1c_1s_!web-avatar-space-header.avif'
     },

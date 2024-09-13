@@ -25,7 +25,7 @@ import {PlayerNoticesSlice} from "@/store/ui";
 
 const VideoItem = (props) => {
     const {
-        video, favId, fullCreateTime, showAuthor,
+        video, favId, fullCreateTime, showAuthor, style,
         htmlTitle = false, fromSearch = false
     } = props;
     const dispatch = useDispatch();
@@ -148,7 +148,7 @@ const VideoItem = (props) => {
 
     const isPlaying = currentBvID === video.bvid;
 
-    return <ListItem className={`bilibili-video-item ${isPlaying ? 'playing' : ''}`}>
+    return <ListItem style={style} className={`bilibili-video-item ${isPlaying ? 'playing' : ''}`}>
         <ListItemAvatar className="bilibili-video-item-avatar">
             <img src={urlPrefixFixed(video.pic)} alt={video.title} style={{ height: 40 }} />
             <div className="playing-cover"><PlayCircleIcon /></div>
