@@ -4,6 +4,7 @@ import {encWbi} from "@/api/utils";
 
 const service = axios.create({
     timeout: 30000,
+    withCredentials: true, // 启用跨域请求时携带 cookie
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     baseURL: '/',
 });

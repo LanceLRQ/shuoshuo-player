@@ -1,17 +1,21 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import '@fontsource/roboto/300.css';
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/500.css';
-import '@fontsource/roboto/700.css';
 import './index.css';
+import isElectron from 'is-electron';
+import ElectronApp from './electron';
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <div>
-        播放器本体：<a href="/player.html">options.html</a>
-    </div>
-  </React.StrictMode>
-);
+function initPage() {
+    const inElectron = isElectron();
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    if (inElectron) {
+        root.render(<ElectronApp></ElectronApp>)
+        return;
+    }
+    root.render(
+        <div>
+            播放器转到：<a href="/player.html">player.html</a>
+        </div>
+    );
+}
 
+initPage();
