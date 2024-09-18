@@ -1,14 +1,19 @@
-const { app, BrowserWindow, session: ElectronSession } = require('electron');
-const path = require('node:path');
+const { app, BrowserWindow, session: ElectronSession, ipcMain } = require('electron');
+const ElectronStore = require('electron-store').default;
 
-app.commandLine.appendSwitch("disable-gpu");
+if (process.env.NODE_ENV !== 'production') {
+  app.commandLine.appendSwitch("disable-gpu");
+}
+
+// 在此需要注册
+const validStoreKey = ['player_data']
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-const createWindow = () => {
+const createWindow = (store) => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1200,
@@ -19,6 +24,15 @@ const createWindow = () => {
       webSecurity: false, //关闭web权限检查，允许跨域
     },
   });
+
+  ipcMain.on('store:set', (event, key, value) => {
+    if (!validStoreKey.includes(key)) return;
+    store.set(key, value);
+  })
+  ipcMain.handle('store:get', async (event, key) => {
+    if (!validStoreKey.includes(key)) return null;
+    return store.get(key);
+  })
 
   // 获取应用的session
   const session = mainWindow.webContents.session;
@@ -62,14 +76,22 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  const store = new ElectronStore({
+    scheme: {
+      player_data: {
+        type: 'object',
+      }
+    },
+    serialize: value => JSON.stringify(value, null, '  ')
+  });
 
-  createWindow();
+  createWindow(store);
 
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createWindow(store);
     }
   });
 });

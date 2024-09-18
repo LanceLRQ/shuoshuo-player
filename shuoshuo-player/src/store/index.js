@@ -1,6 +1,7 @@
 import { throttle } from 'lodash';
 import { configureStore } from '@reduxjs/toolkit';
 import { createRootReducer } from './reducers';
+import isElectron from 'is-electron';
 
 // const preloadedState = {
     // bili_current_user: {},
@@ -9,6 +10,7 @@ import { createRootReducer } from './reducers';
     // playing_list: {},
     // ui_notices: {},
 // };
+const inElectron = isElectron();
 
 const persistKeys = ['bili_user_videos', 'bili_videos', 'playing_list', 'fav_list', 'ui_profile']
 const persistFunc = {
@@ -24,14 +26,27 @@ const chromeStorage = chrome && chrome.storage && chrome.storage.local;
 const readStateFromChromeStorage = () => new Promise((resolve, reject) => {
     try {
         const ret = {};
-        chromeStorage.get(persistKeys, (result) => {
+        const procData = (result) => {
+            if (!result) {
+                resolve({});
+                return;
+            }
             persistKeys.forEach((key) => {
                 if (result[key]) {
                     ret[key] = result[key] || {};
                 }
             })
             resolve(ret);
-        })
+        }
+        if (inElectron && window.ElectronAPI) {
+            window.ElectronAPI.Store.Get('player_data').then((result) => {
+                procData(result);
+            });
+        } else {
+            chromeStorage.get(persistKeys, (result) => {
+                procData(result);
+            })
+        }
     } catch (e) {
         reject(e);
     }
@@ -51,7 +66,7 @@ export const store = configureStore({
 
 const persistStore = throttle(() => {
     const storeState = store.getState();
-    if (storeState && chromeStorage) {
+    if (storeState) {
         const result = {};
         persistKeys.forEach((key) => {
             if (storeState[key]) {
@@ -65,7 +80,11 @@ const persistStore = throttle(() => {
         if (process.env.NODE_ENV === 'development') {
             console.debug(storeState, 'saved');
         }
-        chromeStorage.set(result, () => {});
+        if (inElectron && window.ElectronAPI) {
+            window.ElectronAPI.Store.Set('player_data', result)
+        } else if (chromeStorage) {
+            chromeStorage.set(result, () => {});
+        }
     }
 }, 1000);
 
