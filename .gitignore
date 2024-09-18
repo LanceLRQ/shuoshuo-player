@@ -130,3 +130,5 @@ dist
 .pnp.*
 
 .idea
+shuoshuo-player-pc/src/build
+publish/build.pem
