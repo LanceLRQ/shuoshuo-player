@@ -132,3 +132,4 @@ dist
 .idea
 shuoshuo-player-pc/src/build
 publish/build.pem
+shuoshuo-player/build

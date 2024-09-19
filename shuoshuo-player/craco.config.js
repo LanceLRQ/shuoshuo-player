@@ -46,6 +46,7 @@ module.exports = {
                     }
                     return 'js/[name].bundle.js';
                 },
+                publicPath: isDev ? '/' : './'
             }
             webpackConfig.plugins.push(
                 new HtmlWebpackPlugin({
