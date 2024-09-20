@@ -133,3 +133,4 @@ dist
 shuoshuo-player-pc/src/build
 publish/build.pem
 shuoshuo-player/build
+.DS_Store

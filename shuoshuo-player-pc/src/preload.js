@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('ElectronAPI', {
     Store: {
         Set: (key, value) => ipcRenderer.send('store:set', key, value),
         Get: (key) => ipcRenderer.invoke('store:get', key),
-    }
+    },
+    Builtin: () => ipcRenderer.invoke('builtin:get')
 })

@@ -1,4 +1,6 @@
 const { app, BrowserWindow, session: ElectronSession, ipcMain } = require('electron');
+const path = require('path');
+const url = require('path');
 const ElectronStore = require('electron-store').default;
 
 if (process.env.NODE_ENV !== 'production') {
@@ -7,13 +9,15 @@ if (process.env.NODE_ENV !== 'production') {
 
 // 在此需要注册
 const validStoreKey = ['player_data']
+const PRODUCTION_FILE_PATH = `file://${require("path").resolve(__dirname,"..","renderer","build","index.html")}`
+const PRODUCTION_PLAYER_PATH = `file://${require("path").resolve(__dirname,"..","renderer","build","player.html")}`
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-const createWindow = (store) => {
+const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1200,
@@ -24,15 +28,6 @@ const createWindow = (store) => {
       webSecurity: false, //关闭web权限检查，允许跨域
     },
   });
-
-  ipcMain.on('store:set', (event, key, value) => {
-    if (!validStoreKey.includes(key)) return;
-    store.set(key, value);
-  })
-  ipcMain.handle('store:get', async (event, key) => {
-    if (!validStoreKey.includes(key)) return null;
-    return store.get(key);
-  })
 
   // 获取应用的session
   const session = mainWindow.webContents.session;
@@ -56,10 +51,8 @@ const createWindow = (store) => {
   });
 
   session.webRequest.onBeforeRequest({ urls: ['*://www.bilibili.com/*'], types: ['mainFrame']}, (details, callback) => {
-    callback({ cancel: false, redirectURL: process.env.NODE_ENV === 'development' ? 'http://localhost:3000/player.html' : MAIN_WINDOW_WEBPACK_ENTRY });
+    callback({ cancel: false, redirectURL: process.env.NODE_ENV === 'development' ? 'http://localhost:3000/player.html' : PRODUCTION_PLAYER_PATH });
   })
-
-  console.log(MAIN_WINDOW_WEBPACK_ENTRY)
 
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL("http://localhost:3000");
@@ -67,7 +60,8 @@ const createWindow = (store) => {
     mainWindow.webContents.openDevTools();
   } else {
     // and load the index.html of the app.
-    mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+    mainWindow.loadURL(PRODUCTION_FILE_PATH);
+    mainWindow.webContents.openDevTools();
   }
 
 };
@@ -85,13 +79,31 @@ app.whenReady().then(() => {
     serialize: value => JSON.stringify(value, null, '  ')
   });
 
-  createWindow(store);
+  ipcMain.on('store:set', (event, key, value) => {
+    if (!validStoreKey.includes(key)) return;
+    store.set(key, value);
+  })
+  ipcMain.handle('store:get', async (event, key) => {
+    if (!validStoreKey.includes(key)) return null;
+    return store.get(key);
+  })
+  ipcMain.handle('builtin:get', async (event, key) => {
+    return process.env.NODE_ENV === 'development' ? {
+      IndexUrl: 'http://localhost:3000',
+      PlayerUrl: 'http://localhost:3000/player.html',
+    } : {
+      IndexUrl: PRODUCTION_FILE_PATH,
+      PlayerUrl: PRODUCTION_PLAYER_PATH,
+    }
+  })
+
+  createWindow();
 
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow(store);
+      createWindow();
     }
   });
 });

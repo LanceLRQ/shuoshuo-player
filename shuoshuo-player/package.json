@@ -2,7 +2,6 @@
   "name": "shuoshuo-player",
   "version": "0.1.0",
   "private": true,
-  "main": "electron/main.mjs",
   "dependencies": {
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
@@ -50,10 +49,6 @@
     "build": "craco build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "electron": "NODE_ENV=production electron-forge start",
-    "package": "NODE_ENV=production electron-forge package",
-    "make": "NODE_ENV=production electron-forge make",
-    "publish": "NODE_ENV=production electron-forge publish"
   },
   "eslintConfig": {
     "extends": [
@@ -78,20 +73,9 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "@electron-forge/cli": "^7.4.0",
-    "@electron-forge/maker-deb": "^7.4.0",
-    "@electron-forge/maker-squirrel": "^7.4.0",
-    "@electron-forge/maker-zip": "^7.4.0",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.4.0",
-    "@electron-forge/plugin-fuses": "^7.4.0",
-    "@electron-forge/plugin-webpack": "^7.4.0",
-    "@electron/fuses": "^1.8.0",
     "chalk": "4",
     "copy-webpack-plugin": "^12.0.2",
     "craco": "^0.0.3",
-    "electron": "31",
-    "electron-squirrel-startup": "^1.0.1",
-    "electron-store": "^10.0.0",
     "eslint-loader": "^4.0.2",
     "html-webpack-plugin": "^5.6.0",
     "lodash-webpack-plugin": "^0.11.6",

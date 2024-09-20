@@ -6,7 +6,9 @@ function App() {
 
     useEffect(() => {
         API.Bilibili.UserApi.getUserInfo({}).then(res => {
-            window.location.href = './player.html';
+            window.ElectronAPI.Builtin().then((path) => {
+                window.location.href = path.PlayerUrl;
+            });
         }).catch(e => {
             if (!e.isLogin) {
                 window.location.href = 'https://passport.bilibili.com/pc/passport/login?goto=https%3A%2F%2Fwww.bilibili.com';
