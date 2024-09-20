@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import {Box, Button, Typography} from '@mui/material';
+import {Box, Button, Typography, Stack} from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Outlet } from 'react-router-dom';
 import '@styles/player.scss';
@@ -54,9 +54,12 @@ const PlayerIndex = () => {
         <CustomJkPlayer />
     </ThemeProvider> : <Box className="b-login-require">
         <Typography variant="h4">请登录B站账号</Typography>
-        <Typography variant="body">为了获得更好的体验，请先前往B站登录自己的账号</Typography>
+        <Typography variant="body">请先前往B站登录自己的账号，然后返回刷新页面即可正常使用</Typography>
         <Box sx={{marginTop: 4}}>
-            <Button variant="contained" onClick={() => window.open('https://www.bilibili.com/')}>去B站</Button>
+            <Stack spacing={2} direction="row" >
+                <Button variant="contained" onClick={() => window.open('https://passport.bilibili.com/pc/passport/login')}>去B站</Button>
+                <Button variant="outlined" onClick={() => window.location.reload()}>刷新</Button>
+            </Stack>
         </Box>
     </Box>) : <Box sx={{ textAlign: 'center'}}>
         <img alt="loading" src={LoadingGif} width={64} height={64} />

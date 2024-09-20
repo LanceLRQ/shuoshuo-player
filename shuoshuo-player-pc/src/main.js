@@ -50,9 +50,9 @@ const createWindow = () => {
     })
   });
 
-  session.webRequest.onBeforeRequest({ urls: ['*://www.bilibili.com/*'], types: ['mainFrame']}, (details, callback) => {
-    callback({ cancel: false, redirectURL: process.env.NODE_ENV === 'development' ? 'http://localhost:3000/player.html' : PRODUCTION_PLAYER_PATH });
-  })
+  // session.webRequest.onBeforeRequest({ urls: ['*://www.bilibili.com/*'], types: ['mainFrame']}, (details, callback) => {
+  //   callback({ cancel: false, redirectURL: process.env.NODE_ENV === 'development' ? 'http://localhost:3000/player.html' : PRODUCTION_PLAYER_PATH });
+  // })
 
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL("http://localhost:3000");
@@ -60,7 +60,7 @@ const createWindow = () => {
     mainWindow.webContents.openDevTools();
   } else {
     // and load the index.html of the app.
-    mainWindow.loadURL(PRODUCTION_FILE_PATH);
+    mainWindow.loadURL(PRODUCTION_PLAYER_PATH);
     mainWindow.webContents.openDevTools();
   }
 
