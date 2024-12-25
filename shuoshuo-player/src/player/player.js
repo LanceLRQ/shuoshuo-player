@@ -12,6 +12,7 @@ import CustomJkPlayer from "@player/components/jk_player";
 import {PlayerProfileSlice} from "@/store/ui";
 import LoadingGif from '@/images/loading.webp';
 import {MasterUpInfo, StartupLoadingTip} from "@/constants";
+import isElectron from "is-electron";
 
 
 const PlayerIndex = () => {
@@ -20,6 +21,17 @@ const PlayerIndex = () => {
     const inited = useSelector(BilibiliUserInfoSlice.selectors.isInited);
     const isLogin = useSelector(BilibiliUserInfoSlice.selectors.isLogin);
     const theme = useSelector(PlayerProfileSlice.selectors.theme);
+    const inElectron = isElectron();
+
+    useEffect(() => {
+        if (inElectron) {
+            console.log("REG")
+            window.ElectronAPI.Bilibili.LoginSuccess(() => {
+                console.log("BB")
+                window.location.reload();
+            })
+        }
+    }, [])
 
     useEffect( () => {
         dispatch(BilibiliUserInfoSlice.actions.getLoginUserInfo());
@@ -57,7 +69,13 @@ const PlayerIndex = () => {
         <Typography variant="body">请先前往B站登录自己的账号，然后返回刷新页面即可正常使用</Typography>
         <Box sx={{marginTop: 4}}>
             <Stack spacing={2} direction="row" >
-                <Button variant="contained" onClick={() => window.open('https://passport.bilibili.com/pc/passport/login')}>去B站</Button>
+                <Button variant="contained" onClick={() => {
+                    if (inElectron) {
+                        window.ElectronAPI.Bilibili.Login();
+                    } else {
+                        window.open('https://passport.bilibili.com/pc/passport/login')
+                    }
+                }}>去B站</Button>
                 <Button variant="outlined" onClick={() => window.location.reload()}>刷新</Button>
             </Stack>
         </Box>

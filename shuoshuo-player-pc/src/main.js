@@ -17,9 +17,30 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+const listenBilibiliCookies = (session) => {
+  // 为session设置webRequest事件监听
+  session.webRequest.onBeforeSendHeaders( { urls: [
+      '*://*.bilibili.com/*',
+      "*://*.acgvideo.com/*",
+      "*://*.bilivideo.com/*",
+      "*://*.bilibili.com/*",
+      "*://*.hdslb.com/*",
+      "*://*.cgvideo.com/*",
+      "*://*.bilivideo.cn/*",
+      "*://*.akamaized.net/*"
+    ] },(details, callback) => {
+    ElectronSession.defaultSession.cookies.get({ url: details.url }).then(cookies => {
+      details.requestHeaders['Referer'] = 'https://www.bilibili.com';
+      details.requestHeaders['Cookie'] =  cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
+      callback({ cancel: false, requestHeaders: details.requestHeaders });
+    })
+  });
+}
+
+let mainWindow = null;
 const createWindow = () => {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 750,
     webPreferences: {
@@ -32,27 +53,14 @@ const createWindow = () => {
   // 获取应用的session
   const session = mainWindow.webContents.session;
 
-  // 为session设置webRequest事件监听
-  session.webRequest.onBeforeSendHeaders( { urls: [
-    '*://*.bilibili.com/*',
-    "*://*.acgvideo.com/*",
-    "*://*.bilivideo.com/*",
-    "*://*.bilibili.com/*",
-    "*://*.hdslb.com/*",
-    "*://*.cgvideo.com/*",
-    "*://*.bilivideo.cn/*",
-    "*://*.akamaized.net/*"
-  ] },(details, callback) => {
-    ElectronSession.defaultSession.cookies.get({ url: details.url }).then(cookies => {
-      details.requestHeaders['Referer'] = 'https://www.bilibili.com';
-      details.requestHeaders['Cookie'] =  cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
-    })
-  });
+  listenBilibiliCookies(session)
 
-  // session.webRequest.onBeforeRequest({ urls: ['*://www.bilibili.com/*'], types: ['mainFrame']}, (details, callback) => {
-  //   callback({ cancel: false, redirectURL: process.env.NODE_ENV === 'development' ? 'http://localhost:3000/player.html' : PRODUCTION_PLAYER_PATH });
-  // })
+  session.webRequest.onBeforeRequest({ urls: ['*://www.bilibili.com/*'], types: ['mainFrame']}, (details, callback) => {
+    if (process.env.NODE_ENV === 'development') {
+      // Dev模式走这个，仅做兼容
+      callback({cancel: false, redirectURL: 'http://localhost:3000/player.html'});
+    }
+  })
 
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL("http://localhost:3000");
@@ -63,8 +71,32 @@ const createWindow = () => {
     mainWindow.loadURL(PRODUCTION_PLAYER_PATH);
     mainWindow.webContents.openDevTools();
   }
-
 };
+
+const createLoginWindow = () => {
+  // Create the browser window.
+  const loginWindow = new BrowserWindow({
+    width: 1000,
+    height: 640,
+    webPreferences: {
+      webSecurity: false, //关闭web权限检查，允许跨域
+    },
+  });
+
+  // 获取应用的session
+  const session = loginWindow.webContents.session;
+
+  listenBilibiliCookies(session)
+
+  session.webRequest.onBeforeRequest({ urls: ['*://www.bilibili.com/*'], types: ['mainFrame']}, (details, callback) => {
+    callback({cancel: true});
+    loginWindow.close()
+    if (mainWindow) {
+      mainWindow.webContents.send('bilibili:login_success');
+    }
+  })
+  loginWindow.loadURL("https://passport.bilibili.com/pc/passport/login");
+}
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -95,6 +127,9 @@ app.whenReady().then(() => {
       IndexUrl: PRODUCTION_FILE_PATH,
       PlayerUrl: PRODUCTION_PLAYER_PATH,
     }
+  })
+  ipcMain.handle('bilibili:login', async (event, key) => {
+    createLoginWindow();
   })
 
   createWindow();
