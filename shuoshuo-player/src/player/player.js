@@ -25,9 +25,7 @@ const PlayerIndex = () => {
 
     useEffect(() => {
         if (inElectron) {
-            console.log("REG")
             window.ElectronAPI.Bilibili.LoginSuccess(() => {
-                console.log("BB")
                 window.location.reload();
             })
         }

@@ -18,6 +18,16 @@ if (require('electron-squirrel-startup')) {
 }
 
 const listenBilibiliCookies = (session) => {
+  // 设置持久化cookie存储
+  session.cookies.on('changed', (event, cookie, cause, removed) => {
+    console.log('cookie changed', cookie, cause, removed);
+    if (!removed) {
+      // 将cookie设置为持久化
+      cookie.session = false;
+      session.cookies.set(cookie);
+    }
+  });
+
   // 为session设置webRequest事件监听
   session.webRequest.onBeforeSendHeaders( { urls: [
       '*://*.bilibili.com/*',
@@ -54,6 +64,17 @@ const createWindow = () => {
   const session = mainWindow.webContents.session;
 
   listenBilibiliCookies(session)
+
+  ipcMain.handle('bilibili:logout', async (event, key) => {
+    // 清除所有cookie
+    await session.clearStorageData({
+      storages: ['cookies']
+    });
+
+    // 关闭主窗口并创建登录窗口
+    mainWindow.close();
+    createLoginWindow();
+  })
 
   session.webRequest.onBeforeRequest({ urls: ['*://www.bilibili.com/*'], types: ['mainFrame']}, (details, callback) => {
     if (process.env.NODE_ENV === 'development') {

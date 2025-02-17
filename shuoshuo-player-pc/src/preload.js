@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('ElectronAPI', {
     Builtin: () => ipcRenderer.invoke('builtin:get'),
     Bilibili: {
         Login: () => ipcRenderer.invoke('bilibili:login'),
+        Logout: () => ipcRenderer.invoke('bilibili:logout'),
         LoginSuccess: (callback) => ipcRenderer.on('bilibili:login_success', (event) => callback(event))
     }
 })
