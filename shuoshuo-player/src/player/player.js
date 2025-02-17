@@ -29,7 +29,7 @@ const PlayerIndex = () => {
                 window.location.reload();
             })
         }
-    }, [])
+    }, [inElectron])
 
     useEffect( () => {
         dispatch(BilibiliUserInfoSlice.actions.getLoginUserInfo());

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { styled } from '@mui/material/styles';
 import { 
     AppBar as MuiAppBar, Toolbar, IconButton, Typography, 
@@ -39,14 +39,15 @@ const TopBar = (props) => {
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser);
     const [anchorEl, setAnchorEl] = React.useState(null);
     const open = Boolean(anchorEl);
+    const inElectron = isElectron();
 
     const handleMenuClick = (event) => {
         setAnchorEl(event.currentTarget);
     };
 
-    const handleMenuClose = () => {
+    const handleMenuClose = useCallback(() => {
         setAnchorEl(null);
-    };
+    }, [setAnchorEl]);
 
     const handleLogout = () => {
         // 处理退出登录逻辑
@@ -54,9 +55,8 @@ const TopBar = (props) => {
         window.ElectronAPI.Bilibili.Logout();
     };
 
-    const handleImport = () => {
+    const handleImport = useCallback(() => {
         // 处理导入逻辑
-        const inElectron = isElectron();
         if (inElectron) {
             const input = document.createElement('input');
             input.type = 'file';
@@ -86,10 +86,10 @@ const TopBar = (props) => {
             alert('暂不支持在浏览器中导入数据');
         }
         handleMenuClose();
-    };
-    const handleExport = () => {
+    }, [inElectron, handleMenuClose]);
+
+    const handleExport = useCallback(() => {
         // 处理导出逻辑
-        const inElectron = isElectron();
         if (inElectron) {
             window.ElectronAPI.Store.Get('player_data').then((result) => {
                 const data = JSON.stringify(result);
@@ -102,7 +102,7 @@ const TopBar = (props) => {
             alert('暂不支持在浏览器中导出数据');
         }
         handleMenuClose();
-    };
+    }, [inElectron, handleMenuClose]);
 
     return <AppBar position="absolute" open={menuOpen}>
         <Toolbar
