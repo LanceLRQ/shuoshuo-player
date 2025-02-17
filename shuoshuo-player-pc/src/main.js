@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session: ElectronSession, ipcMain } = require('electron');
+const { app, BrowserWindow, session: ElectronSession, ipcMain, shell } = require('electron');
 const path = require('path');
 const url = require('path');
 const ElectronStore = require('electron-store').default;
@@ -11,6 +11,11 @@ if (process.env.NODE_ENV !== 'production') {
 const validStoreKey = ['player_data']
 const PRODUCTION_FILE_PATH = `file://${require("path").resolve(__dirname,"..","renderer","build","index.html")}`
 const PRODUCTION_PLAYER_PATH = `file://${require("path").resolve(__dirname,"..","renderer","build","player.html")}`
+// 定义外部浏览器打开的链接
+const externalUrlBase = ['https://bilibili.com/video/', 'https://space.bilibili.com']
+const isExternalUrl = (url) => {
+  return externalUrlBase.some(base => url.startsWith(base))
+}
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -83,6 +88,29 @@ const createWindow = () => {
     }
   })
 
+  // 处理外部链接
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // 允许特定域名的链接在Electron窗口中打开
+    if (isExternalUrl(url)) {
+      // 其他链接在系统浏览器中打开
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
+
+  // 处理a标签点击
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // 允许特定域名的导航
+    if (isExternalUrl(url)) {
+      // 阻止默认导航行为
+      event.preventDefault();
+      // 在系统浏览器中打开
+      shell.openExternal(url);
+      return;
+    }
+  });
+
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL("http://localhost:3000");
     // Open the DevTools.
@@ -90,7 +118,7 @@ const createWindow = () => {
   } else {
     // and load the index.html of the app.
     mainWindow.loadURL(PRODUCTION_PLAYER_PATH);
-    mainWindow.webContents.openDevTools();
+    // mainWindow.webContents.openDevTools();
   }
 };
 
