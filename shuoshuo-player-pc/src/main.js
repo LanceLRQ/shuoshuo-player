@@ -66,8 +66,7 @@ const createWindow = () => {
     },
   });
 
-  // 完全移除菜单
-  Menu.setApplicationMenu(null);
+
   mainWindow.setMenuBarVisibility(false);
 
   // 获取应用的session
@@ -126,8 +125,7 @@ const createLoginWindow = () => {
       webSecurity: false, //关闭web权限检查，允许跨域
     },
   });
-  // 完全移除菜单
-  Menu.setApplicationMenu(null);
+
   loginWindow.setMenuBarVisibility(false);
 
   // 获取应用的session
@@ -149,6 +147,9 @@ const createLoginWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // 完全移除菜单
+  Menu.setApplicationMenu(null);
+
   const store = new ElectronStore({
     scheme: {
       player_data: {
