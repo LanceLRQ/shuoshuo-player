@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session: ElectronSession, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, session: ElectronSession, ipcMain, shell, Menu } = require('electron');
 const path = require('path');
 const url = require('path');
 const ElectronStore = require('electron-store').default;
@@ -56,8 +56,9 @@ let mainWindow = null;
 const createWindow = () => {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 750,
+    width: 1280,
+    height: 800,
+    autoHideMenuBar: true,  // 自动隐藏菜单栏
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       nodeIntegration: true, // 使渲染进程拥有node环境
@@ -65,21 +66,14 @@ const createWindow = () => {
     },
   });
 
+  // 完全移除菜单
+  Menu.setApplicationMenu(null);
+  mainWindow.setMenuBarVisibility(false);
+
   // 获取应用的session
   const session = mainWindow.webContents.session;
 
   listenBilibiliCookies(session)
-
-  ipcMain.handle('bilibili:logout', async (event, key) => {
-    // 清除所有cookie
-    await session.clearStorageData({
-      storages: ['cookies']
-    });
-
-    // 关闭主窗口并创建登录窗口
-    mainWindow.close();
-    createLoginWindow();
-  })
 
   session.webRequest.onBeforeRequest({ urls: ['*://www.bilibili.com/*'], types: ['mainFrame']}, (details, callback) => {
     if (process.env.NODE_ENV === 'development') {
@@ -127,10 +121,14 @@ const createLoginWindow = () => {
   const loginWindow = new BrowserWindow({
     width: 1000,
     height: 640,
+    autoHideMenuBar: true,  // 自动隐藏菜单栏
     webPreferences: {
       webSecurity: false, //关闭web权限检查，允许跨域
     },
   });
+  // 完全移除菜单
+  Menu.setApplicationMenu(null);
+  loginWindow.setMenuBarVisibility(false);
 
   // 获取应用的session
   const session = loginWindow.webContents.session;
@@ -178,6 +176,19 @@ app.whenReady().then(() => {
     }
   })
   ipcMain.handle('bilibili:login', async (event, key) => {
+    createLoginWindow();
+  })
+  ipcMain.handle('bilibili:logout', async (event, key) => {
+    if (!mainWindow) return;
+      // 获取应用的session
+    const session = mainWindow.webContents.session;
+    // 清除所有cookie
+    await session.clearStorageData({
+      storages: ['cookies']
+    });
+
+    // 关闭主窗口并创建登录窗口
+    mainWindow.close();
     createLoginWindow();
   })
 
