@@ -2,7 +2,7 @@
 
 B站第三方音乐播放器，可以让粉丝给UP主定制的音乐播放器
 
-## 开发指南(Chrome插件版本)
+## 开发指南 (Electron版本)
 
 本地环境要求：`nodejs >= 20`，最好安装一下`yarn`
 
@@ -16,22 +16,49 @@ git submodule update --init
 ### 2. 安装依赖
 ```shell
 cd react-music-player
-yarn
+yarn          # 安装依赖
 rm -r node_modules/react node_modules/react-dom  # 删除子项目里边的react，防止冲突
 yarn link     # 注册播放器组件项目
 yarn build    # 构建代码
 
 cd ../shuoshuo-player
-yarn
+yarn                                  # 安装依赖
 yarn link react-jinke-music-player    # 链接播放器组件
 ```
-### 3.启动开发环境
+### 3. 启动环境
+```shell
+cd shuoshuo-player
+yarn start  # 启动开发环境
+# 此时访问 http://localhost:3000/player.html 即可看到播放器
+```
+
+### 4. 启动Electron环境
+```shell
+cd shuoshuo-player-pc
+yarn                # 安装依赖
+yarn start          # 启动Electron环境  
+```
+
+### 5. 打包
+```shell
+cd shuoshuo-player-pc
+yarn package                       # 构建生产包（和下面的命令二选一即可）
+# 或者 yarn make                   
+```
+
+## 开发指南 (Chrome插件版本，不建议，自己编译玩可以)
+
+### 1、编译代码
 ```shell
 cd shuoshuo-player
 yarn build      # 第一次执行的时候要，因为要把manifest.json、background.js复制到chrome插件目录下。以后只要是改播放器，用start命令即可。
-yarn start
+yarn start      # 启动开发环境(默认会自动同步文件到build目录下)
 ```
-踩坑：
+### 2、在Chrome浏览器插件页面加载`build`目录
+
+请自行探索
+
+## 踩坑：
 ```shell
 # 播放器组件那边改完，需要在shuoshuo-player下边执行一下这个，不然每次都不更新
 rm -r node_module/.cache 
