@@ -9,8 +9,8 @@ B站第三方音乐播放器，可以让粉丝给UP主定制的音乐播放器
 ### 1. 克隆目录
 ```shell
 git clone git@github.com:LanceLRQ/shuoshuo-player.git
-git submodule update --init
 cd shuoshuo-player
+git submodule update --init
 ```
 
 ### 2. 安装依赖
