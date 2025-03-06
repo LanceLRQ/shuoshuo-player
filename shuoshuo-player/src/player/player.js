@@ -14,7 +14,6 @@ import LoadingGif from '@/images/loading.webp';
 import {MasterUpInfo, StartupLoadingTip} from "@/constants";
 import isElectron from "is-electron";
 
-
 const PlayerIndex = () => {
     const dispatch = useDispatch();
 

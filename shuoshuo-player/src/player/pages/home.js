@@ -44,11 +44,13 @@ const HomePage = () => {
     }, [dispatch, isUpdating])
 
     useEffect(() => {
-        const isOutdated = (masterLastUpdateTime + 86400) < TimeStampNow();   // 一小时更新一次
+        const isOutdated = (masterLastUpdateTime + 86400) < TimeStampNow(); 
         if (!masterLastUpdateTime || isOutdated) {
-            updateMasterVideoList();
+            // 如果更新时间超过一小时，则重新获取视频数据
+            // 如果列表为空，则全量更新
+            updateMasterVideoList(masterVideoList.length == 0 ? 'fully' : 'default');
         }
-    }, [updateMasterVideoList, masterLastUpdateTime]);
+    }, [updateMasterVideoList, masterLastUpdateTime, masterVideoList]);
 
     const slidesList = useMemo(() => {
         const ret = [];
@@ -109,6 +111,7 @@ const HomePage = () => {
                         return <VideoItem
                             key={video.bvid}
                             video={video}
+                            favId="main"
                         />
                     })}
                 </List>
