@@ -46,6 +46,7 @@ const listenBilibiliCookies = (session) => {
     ] },(details, callback) => {
     ElectronSession.defaultSession.cookies.get({ url: details.url }).then(cookies => {
       details.requestHeaders['Referer'] = 'https://www.bilibili.com';
+      details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36';
       details.requestHeaders['Cookie'] =  cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
       callback({ cancel: false, requestHeaders: details.requestHeaders });
     })

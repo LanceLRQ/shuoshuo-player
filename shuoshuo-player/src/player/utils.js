@@ -10,6 +10,17 @@ export const formatNumber10K = (number) => {
 
 window.MUSIC_PLAY_URL_CACHED = {};
 window.MUSIC_PLAY_CLICK_TIME = {};
+
+// 参考：https://github.com/Cteros/eno-music/blob/52b324ffd3f426555e82dfe0ad837588d6cf0abf/src/options/components/Play/Play.vue#L41
+const getBVideoMusicURL = (obj) => {
+    const url1 = obj.baseUrl || ''
+    const url2 = obj.backup_url?.[0] || ''
+    const url3 = obj.backup_url?.[1] || ''
+    // 找到第一个不是https://xy 开头的url
+    const urlList = [url1, url2, url3].filter(url => !url.startsWith('https://xy'))
+    return urlList[0] || url1
+}
+
 export const fetchMusicUrl = (bvId, curUserMid) => async () => {
     const cached = window.MUSIC_PLAY_URL_CACHED[bvId] || {
         loading: false,
@@ -47,7 +58,7 @@ export const fetchMusicUrl = (bvId, curUserMid) => async () => {
         cached.loading = false;
         cached.viewInfo = bVideoView;
         cached.playInfo = bPlayUrl;
-        cached.playUrl = audioInfo?.base_url || audioInfo?.baseUrl;
+        cached.playUrl = getBVideoMusicURL(audioInfo)
         cached.last_update = Date.now() / 1000;
         window.MUSIC_PLAY_URL_CACHED[bvId] = cached;
 
