@@ -25,7 +25,7 @@ if (require('electron-squirrel-startup')) {
 const listenBilibiliCookies = (session) => {
   // 设置持久化cookie存储
   session.cookies.on('changed', (event, cookie, cause, removed) => {
-    console.log('cookie changed', cookie, cause, removed);
+    // console.log('cookie changed', cookie, cause, removed);
     if (!removed) {
       // 将cookie设置为持久化
       cookie.session = false;

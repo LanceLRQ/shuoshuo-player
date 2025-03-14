@@ -85,9 +85,12 @@ export const PlayingListSlice = createAppSlice({
             state.playNext = false;
         }),
         updateCurrentPlaying: create.reducer((state, action) => {
-            const { index } = action.payload;
+            const { index, playNext } = action.payload;
             if (state.current !== state.bv_ids[index]) {
                 state.current = state.bv_ids[index];
+            }
+            if (playNext) {
+                state.playNext = true;
             }
         }),
     }),

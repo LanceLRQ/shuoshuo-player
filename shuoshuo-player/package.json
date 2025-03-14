@@ -19,6 +19,7 @@
     "embla-carousel-react": "^8.1.8",
     "formik": "^2.4.6",
     "fuse.js": "^7.0.0",
+    "howler": "^2.2.4",
     "is-electron": "^2.2.2",
     "lodash": "^4.17.21",
     "md5": "^2.3.0",

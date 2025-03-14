@@ -48,7 +48,7 @@ const HomePage = () => {
         if (!masterLastUpdateTime || isOutdated) {
             // 如果更新时间超过一小时，则重新获取视频数据
             // 如果列表为空，则全量更新
-            updateMasterVideoList(masterVideoList.length == 0 ? 'fully' : 'default');
+            updateMasterVideoList(masterVideoList.length === 0 ? 'fully' : 'default');
         }
     }, [updateMasterVideoList, masterLastUpdateTime, masterVideoList]);
 
