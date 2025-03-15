@@ -23,6 +23,7 @@ function SPlayer() {
     const dispatch = useDispatch();
     // Howl相关
     const howlInstance = useRef(null);
+    const howlLoopInstance = useRef('loop');
     const [howlPlaying, setHowlPlaying] = useState(false);
     const [howlPausing, setHowlPausing] = useState(false);
     const [howlProcess, setHowlProcess] = useState(0);
@@ -95,20 +96,23 @@ function SPlayer() {
         }))
     }, [audioLists, playingInfo, dispatch])
 
+    useEffect(() => {
+        howlLoopInstance.current = playerLoopMode
+    }, [playerLoopMode]);
+
     const handlePlayEnd = useCallback(() => {
         setHowlPausing(false);
         setHowlPlaying(false)
-        console.log(playerLoopMode)
-        // TODO 想办法更新当前播放循环方式
-        if (playerLoopMode === 'single') {
+        if (!howlInstance.current) return;
+        if (howlLoopInstance.current === 'single') {
             howlInstance.current.seek(0);
             howlInstance.current.play();
-        } else if (playerLoopMode === 'loop') {
+        } else if (howlLoopInstance.current === 'loop') {
             playNextItem('next')
-        } else if (playerLoopMode === 'random') {
+        } else if (howlLoopInstance.current === 'random') {
             playNextItem('random')
         }
-    }, [playNextItem, playerLoopMode]);
+    }, [playNextItem, howlLoopInstance, howlInstance]);
 
     const initHowl = useCallback((curMusic) => {
         // 释放原有播放资源
@@ -281,7 +285,7 @@ function SPlayer() {
                             </IconButton>
                         </div>
                         <div className="controller-bar-button">
-                            <IconButton size="small" onClick={() => playNextItem('next')}>
+                            <IconButton size="small" onClick={() => playNextItem(playerLoopMode === 'random' ? 'random' : 'next')}>
                                 <SkipNextIcon/>
                             </IconButton>
                         </div>
