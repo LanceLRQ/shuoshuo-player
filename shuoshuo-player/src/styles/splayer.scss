@@ -1,0 +1,59 @@
+@import 'common';
+
+.splayer-main {
+    width: 100%;
+    height: 80px;
+    position: relative;
+    border-top: 1px solid $grey-012;
+    .splayer-slider-box {
+        position: fixed;
+        margin-top: -14px;
+        z-index: 1000000;
+        width: 100%;
+        .splayer-slider {
+            & .MuiSlider-thumb {
+                width: 8px;
+                height: 8px;
+                transition: 0.1s cubic-bezier(.47, 1.64, .41, .8);
+                &::before {
+                    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.4);
+                }
+                &:hover, & .Mui-focusVisible {
+                    box-Shadow: 0 0 0 8 rgb(255 255 255 / 16%);
+                }
+                & .Mui-active {
+                    width: 20px;
+                    height: 20px;
+                }
+            }
+            & .MuiSlider-rail {
+                opacity: 0.28;
+            }
+        }
+        .splayer-slider-current {
+            position: absolute;
+            left: 4px;
+            top: 16px;
+            font-size: 12px;
+        }
+        .splayer-slider-duration {
+            position: absolute;
+            right: 4px;
+            top: 16px;
+            font-size: 12px;
+        }
+    }
+    .splayer-layout, .splayer-controller-bar {
+        height: 100%;
+        .controller-bar-button {
+            line-height: 56px;
+        }
+    }
+}
+#volume-popover{
+    z-index: 1000099;
+}
+.splayer-volume-box {
+    height: $width-14;
+    padding:  $width-4 $width-2;
+}

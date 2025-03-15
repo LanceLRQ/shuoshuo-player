@@ -1,27 +1,51 @@
 import React, {useEffect, useState, useCallback, useMemo, useRef} from 'react';
 import {Howl} from 'howler';
+import "@styles/splayer.scss";
+import { useTheme } from '@mui/material/styles';
+import {Grid, IconButton, Stack, Slider, Popover} from '@mui/material';
 import {useDispatch, useSelector} from "react-redux";
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
 import {PlayingListSlice} from "@/store/play_list";
 import {PlayerProfileSlice} from "@/store/ui";
 import {fetchMusicUrl} from "@player/utils";
-import {swap} from "formik";
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PauseIcon from '@mui/icons-material/Pause';
+import RepeatIcon from '@mui/icons-material/Repeat';
+import RepeatOneIcon from '@mui/icons-material/RepeatOne';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 
 function SPlayer() {
+    const theme = useTheme();
     const dispatch = useDispatch();
     // Howl相关
     const howlInstance = useRef(null);
     const [howlPlaying, setHowlPlaying] = useState(false);
+    const [howlPausing, setHowlPausing] = useState(false);
     const [howlProcess, setHowlProcess] = useState(0);
     const [howlDuration, setHowlDuration] = useState(0);
-    const [playerLoopMode, setPlayerLoopMode] = useState('random');
     // 播放列表相关
     const playingList = useSelector(PlayingVideoListSelector);
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser)
     const playingInfo = useSelector(PlayingListSlice.selectors.current);
     const playNext = useSelector(PlayingListSlice.selectors.playNext);
     const playerSetting = useSelector(PlayerProfileSlice.selectors.playerSetting);
+    const playerLoopMode = useMemo(() => {
+        return playerSetting.loopMode;
+    }, [playerSetting])
+    // == 弹层相关
+    const [volumeEl, setVolumeEl] = useState(null);
+    const handleVolumePopoverOpen = (event) => {
+        setVolumeEl(event.currentTarget);
+    };
+    const handleVolumePopoverClose = () => {
+        setVolumeEl(null);
+    };
+    const openVolumeBar = Boolean(volumeEl);
+    // ==
 
     const audioLists = useMemo(() => {
         return playingList.map((vItem) => ({
@@ -36,15 +60,16 @@ function SPlayer() {
         return audioLists[playingInfo.index]
     }, [audioLists, playingInfo.index]);
 
-    const updateProcess = () => {
+    const updateProcess = useRef(() => {
         if (howlInstance.current) {
             setHowlProcess(howlInstance.current.seek())
         }
-        requestAnimationFrame(updateProcess)
-    }
+        requestAnimationFrame(updateProcess.current)
+    })
 
     const howlPercentage = useMemo(() => {
-        return (howlProcess / howlDuration) * 100
+        if (!howlDuration) return 0;
+        return parseFloat(((howlProcess / howlDuration) * 100).toFixed(2));
     }, [howlProcess, howlDuration]);
 
     const playNextItem = useCallback((type) => {
@@ -60,14 +85,32 @@ function SPlayer() {
             case 'random':
                 nextIndex = Math.floor(Math.random() * audioLists.length)
                 break;
+            default:
+                nextIndex = playIndex;
+                break;
         }
         dispatch(PlayingListSlice.actions.updateCurrentPlaying({
             index: nextIndex,
             playNext: true,
         }))
-    }, [audioLists, playingInfo])
+    }, [audioLists, playingInfo, dispatch])
 
-    const initHowl = (curMusic) => {
+    const handlePlayEnd = useCallback(() => {
+        setHowlPausing(false);
+        setHowlPlaying(false)
+        console.log(playerLoopMode)
+        // TODO 想办法更新当前播放循环方式
+        if (playerLoopMode === 'single') {
+            howlInstance.current.seek(0);
+            howlInstance.current.play();
+        } else if (playerLoopMode === 'loop') {
+            playNextItem('next')
+        } else if (playerLoopMode === 'random') {
+            playNextItem('random')
+        }
+    }, [playNextItem, playerLoopMode]);
+
+    const initHowl = useCallback((curMusic) => {
         // 释放原有播放资源
         if (howlInstance.current) {
             howlInstance.current.stop()
@@ -80,7 +123,7 @@ function SPlayer() {
                 title: curMusic.name,
                 artist: curMusic.singer,
                 album: curMusic.cover,
-                artwork: [{ src:  curMusic.cover }],
+                artwork: [{src: curMusic.cover}],
             })
         }
         curMusic.musicSrc().then((url) => {
@@ -90,34 +133,33 @@ function SPlayer() {
                 volume: 1,
                 mute: false,
                 onplay: () => {
+                    setHowlPausing(false);
                     setHowlPlaying(true)
                     setHowlDuration(howlInstance.current.duration())
-                    requestAnimationFrame(updateProcess)
+                    requestAnimationFrame(updateProcess.current)
                 },
                 onpause: () => {
-                    setHowlPlaying(false)
+                    setHowlPausing(true);
                 },
-                onend: () => {
-                    if (playerLoopMode === 'single') {
-                        initHowl(currentMusic)
-                    } else if (playerLoopMode === 'loop') {
-                        playNextItem('next')
-                    } else if (playerLoopMode === 'random') {
-                        playNextItem('random')
-                    }
-                },
+                onend: handlePlayEnd,
             });
             howlInstance.current.play();
             howlInstance.current.volume((playerSetting.volume !== undefined) ? playerSetting.volume : 1)
         })
-    };
+    }, [howlInstance, playerSetting, handlePlayEnd, updateProcess]);
 
     // 播放控制相关
-    const handleAudioVolumeChange = (volume) => {
+    const handleAudioVolumeChange = (event, volume) => {
         dispatch(PlayerProfileSlice.actions.setPlayerSetting({
-            volume: Math.sqrt(volume)       // 喵的我也不知道为什么要开平方根，但是那个播放器源代码里边就是返回开了方的数值，导致对不上
+            volume: volume
         }));
     }
+
+    useEffect(() => {
+        if (howlInstance.current) {
+            howlInstance.current.volume((playerSetting.volume!== undefined) ? playerSetting.volume : 1)
+        }
+    }, [playerSetting, howlInstance])
 
     useEffect(() => {
         if (playNext) {
@@ -125,20 +167,163 @@ function SPlayer() {
             initHowl(currentMusic)
             dispatch(PlayingListSlice.actions.removePlayNext({}));
         }
-        return () => {
-            if (howlPlaying && howlInstance.current) {
-                howlInstance.current.stop()
+    }, [dispatch, initHowl, howlPlaying, playNext, currentMusic])
+
+    const handlePlayClick = useCallback(() => {
+        if (howlPausing) {
+            howlInstance.current.play()
+            setHowlPausing(false);
+        } else {
+            if (howlPlaying) {
+                howlInstance.current.pause()
+                setHowlPausing(true);
+            } else {
+                initHowl(currentMusic);
             }
         }
-    }, [howlPlaying, playNext, currentMusic])
+    }, [howlPausing, howlPlaying, initHowl, currentMusic, setHowlPausing])
 
-    return <div style={{ zIndex: 100, position: "absolute", inset: "100px 300px", width: 400, height:200, background: 'white', color: 'black'}}>
-        <div>Player Test Bar</div>
-        <a onClick={() => initHowl(currentMusic)}>Play</a> |
-        <a onClick={() => howlInstance.current.stop()}>Stop</a> |
-        <a onClick={() => { howlInstance.current.seek(howlDuration - 1) }}>Seek End</a>
-        <br />
-        current: {howlPercentage}% ({howlProcess}/{howlDuration})
+    const handleSeekChange = useCallback((event, value) => {
+        if (howlInstance.current) {
+            howlInstance.current.seek(howlDuration * (value / 100));
+        }
+    }, [howlDuration])
+
+    const handlePlayLoopModeClick = useCallback(() => {
+        let loopMode = playerLoopMode;
+        if (playerLoopMode ==='single') {
+            loopMode = 'loop';
+        } else if (playerLoopMode === 'loop') {
+            loopMode = 'random';
+        } else if (playerLoopMode === 'random') {
+            loopMode = 'single';
+        }
+        dispatch(PlayerProfileSlice.actions.setPlayerSetting({
+            loopMode: loopMode
+        }))
+    }, [dispatch, playerLoopMode])
+
+    const durationToTime = (duration) => {
+        if (isNaN(duration)|| !duration) return '0:00';
+        const minutes = Math.floor(duration / 60);
+        const seconds = Math.floor(duration % 60);
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // return <div style={{ zIndex: 100, position: "absolute", inset: "100px 300px", width: 400, height:200, background: 'white', color: 'black'}}>
+    //     <div>Player Test Bar</div>
+    //     <a onClick={() => {
+    //         if (howlPausing) {
+    //             howlInstance.current.play()
+    //         } else {
+    //             initHowl(currentMusic);
+    //         }
+    //     }}>Play</a> |
+    //     <a onClick={() => howlInstance.current.pause()}>Pause</a> |
+    //     <a onClick={() => howlInstance.current.stop()}>Stop</a> |
+    //     <a onClick={() => { howlInstance.current.seek(howlDuration - 1) }}>Seek End</a>
+    //     <br />
+    //     current: {howlPercentage}% ({howlProcess}/{howlDuration})
+    // </div>
+    return <div className="splayer-main">
+        <div className="splayer-slider-box">
+            <Slider
+                className="splayer-slider"
+                size="small"
+                step={0.01}
+                min={0}
+                max={100}
+                value={howlPercentage}
+                onChange={handleSeekChange}
+                aria-label="time-indicator"
+                valueLabelDisplay="off"
+                sx={{
+                    color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0,0,0,0.87)',
+                }}
+            />
+            <div className="splayer-slider-current">
+                {durationToTime(howlProcess)}
+            </div>
+            <div className="splayer-slider-duration">
+                {durationToTime(howlDuration)}
+            </div>
+        </div>
+        <Grid container className="splayer-layout">
+            <Grid item md={4}>
+                <div className="splayer-left-side">
+
+                </div>
+            </Grid>
+            <Grid item md={4}>
+                <Grid
+                    container
+                    direction="row"
+                    justifyContent="center"
+                    alignItems="center"
+                    className="splayer-controller-bar"
+                >
+                    <Stack direction="row" spacing={2}>
+                        <div className="controller-bar-button">
+                            <IconButton size="small" onClick={handlePlayLoopModeClick}>
+                                {playerLoopMode === 'single' && <RepeatOneIcon/>}
+                                {playerLoopMode === 'loop' && <RepeatIcon/>}
+                                {playerLoopMode === 'random' && <ShuffleIcon/>}
+                            </IconButton>
+                        </div>
+                        <div className="controller-bar-button">
+                            <IconButton size="small" onClick={() => playNextItem('prev')}>
+                                <SkipPreviousIcon/>
+                            </IconButton>
+                        </div>
+                        <div className="controller-bar-button">
+                            <IconButton size="large" aria-label="play" onClick={handlePlayClick}>
+                                {(howlPausing || !howlPlaying) ? <PlayArrowIcon fontSize="large"/> : <PauseIcon fontSize="large"/>}
+                            </IconButton>
+                        </div>
+                        <div className="controller-bar-button">
+                            <IconButton size="small" onClick={() => playNextItem('next')}>
+                                <SkipNextIcon/>
+                            </IconButton>
+                        </div>
+                        <div className="controller-bar-button">
+                            <Popover
+                                id="volume-popover"
+                                open={openVolumeBar}
+                                anchorEl={volumeEl}
+                                anchorOrigin={{
+                                    vertical: 'top',
+                                    horizontal: 'center',
+                                }}
+                                transformOrigin={{
+                                    vertical: 'bottom',
+                                    horizontal: 'center',
+                                }}
+                                onClose={handleVolumePopoverClose}
+                            >
+                                <div className="splayer-volume-box">
+                                    <Slider
+                                        aria-label="volume"
+                                        orientation="vertical"
+                                        min={0}
+                                        max={1}
+                                        step={0.01}
+                                        value={playerSetting.volume}
+                                        valueLabelDisplay="off"
+                                        onChange={handleAudioVolumeChange}
+                                    />
+                                </div>
+                            </Popover>
+                            <IconButton onClick={handleVolumePopoverOpen}>
+                                <VolumeUpIcon/>
+                            </IconButton>
+                        </div>
+                    </Stack>
+                </Grid>
+            </Grid>
+            <Grid item md={4}>
+                <div className="splayer-right-side"></div>
+            </Grid>
+        </Grid>
     </div>
 }
 

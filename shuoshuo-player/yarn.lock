@@ -1132,6 +1132,13 @@
   dependencies:
     regenerator-runtime "^0.14.0"
 
+"@babel/runtime@^7.20.6":
+  version "7.26.10"
+  resolved "https://registry.npmmirror.com/@babel/runtime/-/runtime-7.26.10.tgz#a07b4d8fa27af131a633d7b3524db803eb4764c2"
+  integrity sha512-2WJMeRQPHKSPemqk/awGrAiuFfzBmOIPXKizAsVhWH9YJqLZ0H+HS4c8loHGgW6utJ3E/ejXQUsiGaQy2NZ9Fw==
+  dependencies:
+    regenerator-runtime "^0.14.0"
+
 "@babel/template@^7.24.7", "@babel/template@^7.25.0", "@babel/template@^7.3.3":
   version "7.25.0"
   resolved "https://registry.npmmirror.com/@babel/template/-/template-7.25.0.tgz#e733dc3134b4fede528c15bc95e89cb98c52592a"
@@ -2374,6 +2381,11 @@
   version "15.7.12"
   resolved "https://registry.npmmirror.com/@types/prop-types/-/prop-types-15.7.12.tgz#12bb1e2be27293c1406acb6af1c3f3a1481d98c6"
   integrity sha512-5zvhXYtRNRluoE/jAp4GVsSduVUzNWKkOZrCDBWYtE7biZywwdC2AcEzg+cSMLFRfVgeAFqpfNabiPjxFddV1Q==
+
+"@types/prop-types@^15.7.3":
+  version "15.7.14"
+  resolved "https://registry.npmmirror.com/@types/prop-types/-/prop-types-15.7.14.tgz#1433419d73b2a7ebfc6918dcefd2ec0d5cd698f2"
+  integrity sha512-gNMvNH49DJ7OJYv+KAKn0Xp45p8PLl6zo2YnvDIbTd4J6MER2BmWN49TG7n9LvkyihINxeKW8+3bfS2yDC9dzQ==
 
 "@types/q@^1.5.1":
   version "1.5.8"
@@ -8163,6 +8175,16 @@ map-visit@^1.0.0:
   integrity sha512-4y7uGv8bd2WdM9vpQsiQNo41Ln1NvhvDRuVt0k2JZQ+ezN2uaQes7lZeZ+QQUHOLQAtDaBJ+7wCbi+ab/KFs+w==
   dependencies:
     object-visit "^1.0.0"
+
+material-ui-popup-state@^5.3.3:
+  version "5.3.3"
+  resolved "https://registry.npmmirror.com/material-ui-popup-state/-/material-ui-popup-state-5.3.3.tgz#b4a3c22edd78d0f03a75440e39153d747f096452"
+  integrity sha512-eaoA4y965neZw1/iPYZ7haCGO369m5QXJT35e0RStzHd4lgrd6PC+UYkYTIRGTrNt+8Vbx8qtYUFDzRjjAGwnw==
+  dependencies:
+    "@babel/runtime" "^7.20.6"
+    "@types/prop-types" "^15.7.3"
+    classnames "^2.2.6"
+    prop-types "^15.7.2"
 
 md5.js@^1.3.4:
   version "1.3.5"
