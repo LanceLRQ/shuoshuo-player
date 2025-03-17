@@ -5,6 +5,17 @@
     height: 80px;
     position: relative;
     border-top: 1px solid $grey-012;
+    .splayer-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position-y: 50%;
+        filter: brightness(0.3) blur(5px);
+        z-index: -1;
+    }
     .splayer-slider-box {
         position: fixed;
         margin-top: -14px;
@@ -19,7 +30,7 @@
                 height: 8px;
                 transition: 0.1s cubic-bezier(.47, 1.64, .41, .8);
                 &::before {
-                    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.4);
+                    box-shadow: 0 2px 12px 0 $grey-4;
                 }
                 &:hover, & .Mui-focusVisible {
                     box-Shadow: 0 0 0 8 rgb(255 255 255 / 16%);
@@ -50,6 +61,84 @@
         height: 100%;
         .controller-bar-button {
             line-height: 56px;
+        }
+    }
+    .splayer-left-side {
+        height: 100%;
+        padding: $width-2 $width-7;
+    }
+    .splayer-music-card {
+        border-radius: $width-3;
+        width: 100%;
+        height: 100%;
+        padding: $width-2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid $grey-012;
+        background: rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+        .splayer-music-card-cover {
+            flex: 0 0 66px;
+            display: flex;
+            img {
+                border-radius: $width-2;
+                width: 66px;
+                height: 44px;
+                object-fit: cover;
+            }
+        }
+        .splayer-music-card-info {
+            flex: 1;
+            margin-left: $width-2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+            .splayer-music-card-title {
+                font-size: 12px;
+                font-weight: $font-weight-medium;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                width: 100%;
+            }
+            .splayer-music-card-desc {
+                margin-top: $width-1;
+                height: 14px;
+                font-size: 10px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+        }
+        .splayer-music-card-extra {
+            flex: 0 0 60px;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-end;
+            justify-content: center;
+            .splayer-music-card-extra-item {
+
+            }
+        }
+    }
+
+    .splayer-right-side {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        padding: $width-2 $width-7;
+    }
+    .splayer-operator-bar {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-end;
+        justify-content: center;
+        .splayer-operator-bar-item {
+
         }
     }
 }

@@ -4,6 +4,7 @@ import "@styles/splayer.scss";
 import { useTheme } from '@mui/material/styles';
 import {Grid, IconButton, Stack, Slider, Popover} from '@mui/material';
 import {useDispatch, useSelector} from "react-redux";
+import Marquee from './marquee';
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
 import {PlayingListSlice} from "@/store/play_list";
@@ -17,6 +18,10 @@ import ShuffleIcon from '@mui/icons-material/Shuffle';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
+import AddIcon from '@mui/icons-material/Add';
+import InfoIcon from '@mui/icons-material/Info';
+import ShareIcon from '@mui/icons-material/Share';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 
 function SPlayer() {
     const theme = useTheme();
@@ -52,6 +57,7 @@ function SPlayer() {
         return playingList.map((vItem) => ({
             key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
             name: vItem.title,
+            desc: String(vItem.description).replace(/<[^>]+>/g, ''),
             singer: vItem.author,
             cover: vItem.pic,
             musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid)
@@ -230,6 +236,7 @@ function SPlayer() {
     //     current: {howlPercentage}% ({howlProcess}/{howlDuration})
     // </div>
     return <div className="splayer-main">
+        <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>
         <div className="splayer-slider-box">
             <Slider
                 className="splayer-slider"
@@ -255,7 +262,29 @@ function SPlayer() {
         <Grid container className="splayer-layout">
             <Grid item md={4}>
                 <div className="splayer-left-side">
-
+                    <div className="splayer-music-card">
+                        <div className="splayer-music-card-cover">
+                            <img src={currentMusic.cover} alt="cover"/>
+                        </div>
+                        <div className="splayer-music-card-info">
+                            <div className="splayer-music-card-title">{currentMusic.name}</div>
+                            <div className="splayer-music-card-desc">
+                                <Marquee text={currentMusic.desc} speed={0.2} />
+                            </div>
+                        </div>
+                        <div className="splayer-music-card-extra">
+                            <div className="splayer-music-card-extra-item">
+                                <IconButton size="small">
+                                    <InfoIcon  fontSize="12px" />
+                                </IconButton>
+                            </div>
+                            <div className="splayer-music-card-extra-item">
+                                <IconButton size="small">
+                                    <ShareIcon  fontSize="12px"/>
+                                </IconButton>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </Grid>
             <Grid item md={4}>
@@ -325,7 +354,20 @@ function SPlayer() {
                 </Grid>
             </Grid>
             <Grid item md={4}>
-                <div className="splayer-right-side"></div>
+                <div className="splayer-right-side">
+                    <div className="splayer-operator-bar">
+                        <div className="splayer-operator-bar-item">
+                            <IconButton>
+                                <AddIcon />
+                            </IconButton>
+                        </div>
+                        <div className="splayer-operator-bar-item">
+                            <IconButton>
+                                <QueueMusicIcon />
+                            </IconButton>
+                        </div>
+                    </div>
+                </div>
             </Grid>
         </Grid>
     </div>
