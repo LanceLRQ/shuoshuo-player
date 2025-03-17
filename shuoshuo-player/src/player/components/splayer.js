@@ -2,7 +2,7 @@ import React, {useEffect, useState, useCallback, useMemo, useRef} from 'react';
 import {Howl} from 'howler';
 import "@styles/splayer.scss";
 import { useTheme } from '@mui/material/styles';
-import {Grid, IconButton, Stack, Slider, Popover} from '@mui/material';
+import {Grid, IconButton, Stack, Slider, Popover, CircularProgress } from '@mui/material';
 import {useDispatch, useSelector} from "react-redux";
 import Marquee from './marquee';
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
@@ -22,6 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import InfoIcon from '@mui/icons-material/Info';
 import ShareIcon from '@mui/icons-material/Share';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import AddFavDialog from "@player/components/add_fav_dialog";
 
 function SPlayer() {
     const theme = useTheme();
@@ -34,6 +35,8 @@ function SPlayer() {
     const [howlProcess, setHowlProcess] = useState(0);
     const [howlDuration, setHowlDuration] = useState(0);
     // 播放列表相关
+    const [isMusicLoading, setIsMusicLoading] = useState(false);
+    const [favListDialogOpen, setFavListDialogOpen] = useState(false);
     const playingList = useSelector(PlayingVideoListSelector);
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser)
     const playingInfo = useSelector(PlayingListSlice.selectors.current);
@@ -56,11 +59,13 @@ function SPlayer() {
     const audioLists = useMemo(() => {
         return playingList.map((vItem) => ({
             key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
+            bvid: vItem.bvid,
             name: vItem.title,
             desc: String(vItem.description).replace(/<[^>]+>/g, ''),
             singer: vItem.author,
             cover: vItem.pic,
-            musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid)
+            musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid),
+            payload: vItem,
         }))
     }, [biliUser, playingList]);
     const currentMusic = useMemo(() => {
@@ -136,6 +141,7 @@ function SPlayer() {
                 artwork: [{src: curMusic.cover}],
             })
         }
+        setIsMusicLoading(true)
         curMusic.musicSrc().then((url) => {
             howlInstance.current = new Howl({
                 src: [url],
@@ -153,8 +159,9 @@ function SPlayer() {
                 },
                 onend: handlePlayEnd,
             });
+            setIsMusicLoading(false);
             howlInstance.current.play();
-            howlInstance.current.volume((playerSetting.volume !== undefined) ? playerSetting.volume : 1)
+            howlInstance.current.volume((playerSetting.volume !== undefined) ? playerSetting.volume : 1);
         })
     }, [howlInstance, playerSetting, handlePlayEnd, updateProcess]);
 
@@ -180,6 +187,7 @@ function SPlayer() {
     }, [dispatch, initHowl, howlPlaying, playNext, currentMusic])
 
     const handlePlayClick = useCallback(() => {
+        if (isMusicLoading) return;
         if (howlPausing) {
             howlInstance.current.play()
             setHowlPausing(false);
@@ -191,7 +199,7 @@ function SPlayer() {
                 initHowl(currentMusic);
             }
         }
-    }, [howlPausing, howlPlaying, initHowl, currentMusic, setHowlPausing])
+    }, [howlPausing, howlPlaying, initHowl, currentMusic, setHowlPausing, isMusicLoading])
 
     const handleSeekChange = useCallback((event, value) => {
         if (howlInstance.current) {
@@ -213,6 +221,12 @@ function SPlayer() {
         }))
     }, [dispatch, playerLoopMode])
 
+    const handleGotoBilibili = useCallback(() => {
+        if (currentMusic) {
+            window.open('https://bilibili.com/video/' + currentMusic.bvid);
+        }
+    }, [currentMusic])
+
     const durationToTime = (duration) => {
         if (isNaN(duration)|| !duration) return '0:00';
         const minutes = Math.floor(duration / 60);
@@ -220,21 +234,6 @@ function SPlayer() {
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    // return <div style={{ zIndex: 100, position: "absolute", inset: "100px 300px", width: 400, height:200, background: 'white', color: 'black'}}>
-    //     <div>Player Test Bar</div>
-    //     <a onClick={() => {
-    //         if (howlPausing) {
-    //             howlInstance.current.play()
-    //         } else {
-    //             initHowl(currentMusic);
-    //         }
-    //     }}>Play</a> |
-    //     <a onClick={() => howlInstance.current.pause()}>Pause</a> |
-    //     <a onClick={() => howlInstance.current.stop()}>Stop</a> |
-    //     <a onClick={() => { howlInstance.current.seek(howlDuration - 1) }}>Seek End</a>
-    //     <br />
-    //     current: {howlPercentage}% ({howlProcess}/{howlDuration})
-    // </div>
     return <div className="splayer-main">
         <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>
         <div className="splayer-slider-box">
@@ -261,7 +260,7 @@ function SPlayer() {
         </div>
         <Grid container className="splayer-layout">
             <Grid item md={4}>
-                <div className="splayer-left-side">
+                {currentMusic && <div className="splayer-left-side">
                     <div className="splayer-music-card">
                         <div className="splayer-music-card-cover">
                             <img src={currentMusic.cover} alt="cover"/>
@@ -274,18 +273,18 @@ function SPlayer() {
                         </div>
                         <div className="splayer-music-card-extra">
                             <div className="splayer-music-card-extra-item">
-                                <IconButton size="small">
+                                <IconButton size="small" onClick={handleGotoBilibili}>
                                     <InfoIcon  fontSize="12px" />
                                 </IconButton>
                             </div>
                             <div className="splayer-music-card-extra-item">
                                 <IconButton size="small">
-                                    <ShareIcon  fontSize="12px"/>
+                                    <ShareIcon fontSize="12px"/>
                                 </IconButton>
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>}
             </Grid>
             <Grid item md={4}>
                 <Grid
@@ -310,7 +309,10 @@ function SPlayer() {
                         </div>
                         <div className="controller-bar-button">
                             <IconButton size="large" aria-label="play" onClick={handlePlayClick}>
-                                {(howlPausing || !howlPlaying) ? <PlayArrowIcon fontSize="large"/> : <PauseIcon fontSize="large"/>}
+                                {isMusicLoading ?
+                                    <CircularProgress /> :
+                                    ((howlPausing || !howlPlaying) ? <PlayArrowIcon fontSize="large"/> : <PauseIcon fontSize="large"/>)
+                                }
                             </IconButton>
                         </div>
                         <div className="controller-bar-button">
@@ -357,7 +359,7 @@ function SPlayer() {
                 <div className="splayer-right-side">
                     <div className="splayer-operator-bar">
                         <div className="splayer-operator-bar-item">
-                            <IconButton>
+                            <IconButton onClick={() => setFavListDialogOpen(true)}>
                                 <AddIcon />
                             </IconButton>
                         </div>
@@ -370,6 +372,13 @@ function SPlayer() {
                 </div>
             </Grid>
         </Grid>
+        <AddFavDialog
+            open={favListDialogOpen}
+            onClose={() => setFavListDialogOpen(false)}
+            excludeFavId=""
+            video={currentMusic.payload}
+            formSearch={false}
+        />
     </div>
 }
 

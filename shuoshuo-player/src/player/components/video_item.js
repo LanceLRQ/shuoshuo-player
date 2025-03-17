@@ -1,9 +1,9 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useState} from 'react';
 import PropTypes from 'prop-types';
 import dayjs from "dayjs";
 import {
-    Chip, ListItem, ListItemAvatar, ListItemText, IconButton, Stack, Tooltip, Menu,
-    Divider, MenuItem, ListItemIcon, DialogTitle, List, ListItemButton, Dialog, Typography, Box,
+    Chip, ListItem, ListItemAvatar, ListItemText, IconButton,
+    Stack, Tooltip, Menu, Divider, MenuItem, ListItemIcon
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PlayCircleIcon from '@mui/icons-material/PlayCircleOutline';
@@ -16,11 +16,11 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { formatNumber10K, urlPrefixFixed } from "@player/utils";
 import MoreIcon from "@mui/icons-material/MoreVert";
-import {FavListSlice, PlayingListSlice} from "@/store/play_list";
+import { PlayingListSlice } from "@/store/play_list";
 import {useDispatch, useSelector} from "react-redux";
-import QueueMusicIcon from "@mui/icons-material/QueueMusic";
-import {FavListType, NoticeTypes} from "@/constants";
+import { NoticeTypes} from "@/constants";
 import {PlayerNoticesSlice} from "@/store/ui";
+import AddFavDialog from "@player/components/add_fav_dialog";
 
 
 const VideoItem = (props) => {
@@ -33,7 +33,6 @@ const VideoItem = (props) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [favListDialogOpen, setFavListDialogOpen] = useState(false);
     const currentBvID = useSelector(PlayingListSlice.selectors.currentBvID);
-    const FavList = useSelector(FavListSlice.selectors.favList);
     const extraMenuOpen = Boolean(anchorEl);
     const handleExtraMenuClose = () => {
         setAnchorEl(null);
@@ -75,25 +74,7 @@ const VideoItem = (props) => {
         }));
     }, [dispatch, video]);
 
-    const confirmAddToFav = (favId) => {
-        setFavListDialogOpen(false);
-        if (fromSearch) {
-            dispatch(FavListSlice.actions.addFavVideoByBvids({
-                favId,
-                bvIds: [video.bvid],
-            }))
-        } else {
-            dispatch(FavListSlice.actions.addFavVideo({
-                favId,
-                bvId: video.bvid,
-            }))
-            dispatch(PlayerNoticesSlice.actions.sendNotice({
-                type: NoticeTypes.SUCCESS,
-                message: '添加成功',
-                duration: 3000,
-            }));
-        }
-    }
+
 
     const { addBtn = true, addToPlayBtn = true, removeBtn = false } = props;
     const renderMenu = () => {
@@ -142,9 +123,6 @@ const VideoItem = (props) => {
         });
     }
 
-    const canAddFavList = useMemo(() => {
-        return FavList.filter(favItem => favItem.type === FavListType.CUSTOM && favItem.id !== favId)
-    }, [favId, FavList]);
 
     const isPlaying = currentBvID === video.bvid;
 
@@ -214,21 +192,13 @@ const VideoItem = (props) => {
                 {renderMenu()}
             </Menu>
         </div>}
-        {favListDialogOpen ? <Dialog onClose={() => setFavListDialogOpen(false)} open={favListDialogOpen}>
-            <DialogTitle>请选择要添加到的歌单</DialogTitle>
-            {canAddFavList.length > 0 ? <List sx={{ pt: 0 }}>
-                {canAddFavList.map((favItem) => {
-                    return <ListItem disableGutters key={favItem.id}>
-                        <ListItemButton onClick={() => confirmAddToFav(favItem.id)}>
-                            <ListItemIcon><QueueMusicIcon /></ListItemIcon>
-                            <ListItemText>{favItem.name}</ListItemText>
-                        </ListItemButton>
-                    </ListItem>;
-                })}
-            </List> : <Box sx={{margin: 2}}>
-                <Typography variant="body2" color="text.secondary">暂时没有可以添加的歌单</Typography>
-            </Box>}
-        </Dialog> : null}
+        <AddFavDialog
+            open={favListDialogOpen}
+            onClose={() => setFavListDialogOpen(false)}
+            excludeFavId={favId}
+            video={video}
+            formSearch={fromSearch}
+        />
     </ListItem>;
 }
 
