@@ -23,6 +23,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import ShareIcon from '@mui/icons-material/Share';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import AddFavDialog from "@player/components/add_fav_dialog";
+import PlayingList from "@player/components/playing_list";
 
 function SPlayer() {
     const theme = useTheme();
@@ -69,6 +70,7 @@ function SPlayer() {
             payload: vItem,
         }))
     }, [biliUser, playingList]);
+
     const currentMusic = useMemo(() => {
         return audioLists[playingInfo.index]
     }, [audioLists, playingInfo.index]);
@@ -365,9 +367,13 @@ function SPlayer() {
                             </IconButton>
                         </div>
                         <div className="splayer-operator-bar-item">
-                            <IconButton>
-                                <QueueMusicIcon />
-                            </IconButton>
+                            <PlayingList>
+                                {({ open }) => {
+                                    return <IconButton onClick={open}>
+                                        <QueueMusicIcon />
+                                    </IconButton>
+                                }}
+                            </PlayingList>
                         </div>
                     </div>
                 </div>

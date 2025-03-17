@@ -158,8 +158,25 @@
             background: rgba(0, 0, 0, 0.1);
         }
     }
-
 }
+
+#splayer-playing-list-popover {
+    z-index: 1000099;
+    .splayer-playing-list {
+        width: $width-17;
+        height: $width-18;
+        .splayer-playing-item-title {
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+            font-size: 12px;
+            &-active {
+                color: $blue-6
+            }
+        }
+    }
+}
+
 #volume-popover{
     z-index: 1000099;
 }
