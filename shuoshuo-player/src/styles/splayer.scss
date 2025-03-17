@@ -5,6 +5,7 @@
     height: 80px;
     position: relative;
     border-top: 1px solid $grey-012;
+    overflow: hidden;
     .splayer-background {
         position: absolute;
         top: 0;
@@ -141,6 +142,17 @@
 
         }
     }
+
+    &.splayer-theme-light {
+        .splayer-background{
+            opacity: 0.3;
+            filter: brightness(1) blur(5px);
+        }
+        .splayer-music-card {
+            background: rgba(0, 0, 0, 0.1);
+        }
+    }
+
 }
 #volume-popover{
     z-index: 1000099;

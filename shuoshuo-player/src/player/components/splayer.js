@@ -37,6 +37,7 @@ function SPlayer() {
     // 播放列表相关
     const [isMusicLoading, setIsMusicLoading] = useState(false);
     const [favListDialogOpen, setFavListDialogOpen] = useState(false);
+    const themeMode = useSelector(PlayerProfileSlice.selectors.theme);
     const playingList = useSelector(PlayingVideoListSelector);
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser)
     const playingInfo = useSelector(PlayingListSlice.selectors.current);
@@ -234,7 +235,7 @@ function SPlayer() {
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    return <div className="splayer-main">
+    return <div className={`splayer-main splayer-theme-${themeMode}`}>
         <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>
         <div className="splayer-slider-box">
             <Slider
