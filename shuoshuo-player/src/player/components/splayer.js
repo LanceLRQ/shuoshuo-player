@@ -260,34 +260,7 @@ function SPlayer() {
             </div>
         </div>
         <Grid container className="splayer-layout">
-            <Grid item md={4}>
-                {currentMusic && <div className="splayer-left-side">
-                    <div className="splayer-music-card">
-                        <div className="splayer-music-card-cover">
-                            <img src={currentMusic.cover} alt="cover"/>
-                        </div>
-                        <div className="splayer-music-card-info">
-                            <div className="splayer-music-card-title">{currentMusic.name}</div>
-                            <div className="splayer-music-card-desc">
-                                <Marquee text={currentMusic.desc} speed={0.2} />
-                            </div>
-                        </div>
-                        <div className="splayer-music-card-extra">
-                            <div className="splayer-music-card-extra-item">
-                                <IconButton size="small" onClick={handleGotoBilibili}>
-                                    <InfoIcon  fontSize="12px" />
-                                </IconButton>
-                            </div>
-                            <div className="splayer-music-card-extra-item">
-                                <IconButton size="small">
-                                    <ShareIcon fontSize="12px"/>
-                                </IconButton>
-                            </div>
-                        </div>
-                    </div>
-                </div>}
-            </Grid>
-            <Grid item md={4}>
+            <Grid item md={4} lg={3} xs={12}>
                 <Grid
                     container
                     direction="row"
@@ -356,7 +329,34 @@ function SPlayer() {
                     </Stack>
                 </Grid>
             </Grid>
-            <Grid item md={4}>
+            <Grid item md={6} lg={6} xs={12}>
+                {currentMusic && <div className="splayer-middle-side">
+                    <div className="splayer-music-card">
+                        <div className="splayer-music-card-cover">
+                            <img src={currentMusic.cover} alt="cover"/>
+                        </div>
+                        <div className="splayer-music-card-info">
+                            <div className="splayer-music-card-title">{currentMusic.name}</div>
+                            <div className="splayer-music-card-desc">
+                                <Marquee text={currentMusic.desc} speed={0.2} />
+                            </div>
+                        </div>
+                        <div className="splayer-music-card-extra">
+                            <div className="splayer-music-card-extra-item">
+                                <IconButton size="small" onClick={handleGotoBilibili}>
+                                    <InfoIcon  fontSize="12px" />
+                                </IconButton>
+                            </div>
+                            <div className="splayer-music-card-extra-item">
+                                <IconButton size="small">
+                                    <ShareIcon fontSize="12px"/>
+                                </IconButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>}
+            </Grid>
+            <Grid item md={2} lg={3} xs={12}>
                 <div className="splayer-right-side">
                     <div className="splayer-operator-bar">
                         <div className="splayer-operator-bar-item">

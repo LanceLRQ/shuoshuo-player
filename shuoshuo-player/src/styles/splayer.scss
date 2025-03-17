@@ -64,7 +64,7 @@
             line-height: 56px;
         }
     }
-    .splayer-left-side {
+    .splayer-middle-side {
         height: 100%;
         padding: $width-2 $width-7;
     }
@@ -141,6 +141,12 @@
         .splayer-operator-bar-item {
 
         }
+    }
+
+    @media(max-width: 900px) {
+       .splayer-middle-side, .splayer-right-side{
+           display: none;
+       }
     }
 
     &.splayer-theme-light {
