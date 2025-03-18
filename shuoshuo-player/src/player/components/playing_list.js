@@ -1,16 +1,17 @@
-import { useSelector} from "react-redux";
-import React, {useState} from "react";
+import { useSelector, useDispatch} from "react-redux";
+import React, {useCallback, useState} from "react";
 import {
     Popover, List, ListSubheader, Avatar, IconButton,
-    ListItem, ListItemIcon, ListItemAvatar, ListItemText
+    ListItem, ListItemIcon, ListItemAvatar, Grid,
 } from '@mui/material';
 import {urlPrefixFixed} from "@player/utils";
 import ClearIcon from '@mui/icons-material/Clear';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import {PlayingListSlice} from "@/store/play_list";
 
 const PlayingList = (props) => {
-    // const dispatch = useDispatch();
+    const dispatch = useDispatch();
     const [popEl, setPopEl] = useState(null);
     const openPopover = Boolean(popEl);
     const playingList = useSelector(PlayingVideoListSelector);
@@ -21,6 +22,13 @@ const PlayingList = (props) => {
     const handleClosePopover = () => {
         setPopEl(null);
     }
+
+    const handleDbClickMusic = useCallback((index) => {
+        dispatch(PlayingListSlice.actions.updateCurrentPlaying({
+            index: index,
+            playNext: true,
+        }))
+    }, [dispatch]);
 
     return <>
         <Popover
@@ -42,15 +50,33 @@ const PlayingList = (props) => {
                     component="nav"
                     subheader={
                         <ListSubheader component="div">
-                            播放列表({playingList.length})
+                            <Grid
+                                container
+                                direction="row"
+                                sx={{
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                }}
+                            >
+                                <Grid item>
+                                    播放列表({playingList.length})
+                                </Grid>
+                                <Grid item>
+                                    <IconButton edge="end" size="small">
+                                        <DeleteIcon fontSize="10px"/>
+                                    </IconButton>
+                                </Grid>
+                            </Grid>
                         </ListSubheader>
                     }
                 >
-                    {playingList.map((video) => {
+                    {playingList.map((video, index) => {
                         return <ListItem
+                            className={playingInfo?.current === video.bvid  ? 'splayer-playing-item-active' : ''}
+                            key={video.bvid}
                             secondaryAction={
-                                <IconButton edge="end">
-                                    <ClearIcon />
+                                <IconButton edge="end" size="small">
+                                    <ClearIcon fontSize="10px"/>
                                 </IconButton>
                             }
                         >
@@ -60,8 +86,9 @@ const PlayingList = (props) => {
                                 </ListItemAvatar>
                             </ListItemIcon>
                             <div
-                                className={`splayer-playing-item-title splayer-playing-item-title-${playingInfo?.current === video.bvid ? 'active' : ''}`}
+                                className="splayer-playing-item-title"
                                 title={video.title}
+                                onClick={() => handleDbClickMusic(index)}
                             >
                                 {video.title}
                             </div>

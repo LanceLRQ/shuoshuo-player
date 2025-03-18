@@ -165,14 +165,25 @@
     .splayer-playing-list {
         width: $width-17;
         height: $width-18;
+        .splayer-playing-item-active {
+            background-color: $blue-7;
+            .splayer-playing-item-title {
+                font-weight: $font-weight-semibold;
+                color: white;
+            }
+        }
+        .MuiListItem-root:hover {
+            background-color: $blue-6;
+            .splayer-playing-item-title {
+                color: white;
+            }
+        }
         .splayer-playing-item-title {
+            cursor: pointer;
             text-overflow: ellipsis;
             overflow: hidden;
             white-space: nowrap;
             font-size: 12px;
-            &-active {
-                color: $blue-6
-            }
         }
     }
 }
