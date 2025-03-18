@@ -1,5 +1,5 @@
 import { useSelector, useDispatch} from "react-redux";
-import React, {useCallback, useState} from "react";
+import React, {useCallback, useState, useRef, useEffect} from "react";
 import {
     Popover, List, ListSubheader, Avatar, IconButton,
     ListItem, ListItemIcon, ListItemAvatar, Grid,
@@ -16,6 +16,7 @@ const PlayingList = (props) => {
     const openPopover = Boolean(popEl);
     const playingList = useSelector(PlayingVideoListSelector);
     const playingInfo = useSelector(PlayingListSlice.selectors.current);
+    const targetItemRef = useRef(null);
     const handleOpenPopover = (event) => {
         setPopEl(event.currentTarget);
     };
@@ -29,6 +30,18 @@ const PlayingList = (props) => {
             playNext: true,
         }))
     }, [dispatch]);
+
+    // 在 Popover 打开后，滚动到目标列表项
+    useEffect(() => {
+        if (openPopover) {
+            // 延迟 100ms，确保 List 组件完全渲染
+            setTimeout(() => {
+                if (targetItemRef.current) {
+                    targetItemRef.current.scrollIntoView({behavior: 'auto', block: 'center'});
+                }
+            }, 100);
+        }
+    }, [openPopover]);
 
     return <>
         <Popover
@@ -72,6 +85,7 @@ const PlayingList = (props) => {
                 >
                     {playingList.map((video, index) => {
                         return <ListItem
+                            ref={playingInfo?.current === video.bvid  ? targetItemRef : null}
                             className={playingInfo?.current === video.bvid  ? 'splayer-playing-item-active' : ''}
                             key={video.bvid}
                             secondaryAction={

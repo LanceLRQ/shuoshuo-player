@@ -60,6 +60,7 @@ const createWindow = () => {
     width: 1280,
     height: 800,
     autoHideMenuBar: true,  // 自动隐藏菜单栏
+    icon: path.join(__dirname, 'assets', 'logo.png'),
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       nodeIntegration: true, // 使渲染进程拥有node环境
@@ -122,6 +123,7 @@ const createLoginWindow = () => {
     width: 1000,
     height: 640,
     autoHideMenuBar: true,  // 自动隐藏菜单栏
+    icon: path.join(__dirname, 'assets', 'logo.png'),
     webPreferences: {
       webSecurity: false, //关闭web权限检查，允许跨域
     },
