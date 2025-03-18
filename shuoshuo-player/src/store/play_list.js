@@ -17,20 +17,30 @@ export const PlayingListSlice = createAppSlice({
         playNext: false,
     },
     reducers: (create) => ({
+        // 移除播放列表中的某个视频
+        // 当mode为'fully'时，将移除整个播放列表
+        // 当mode为其他值，将移除bv_id指定的视频，由audioKey指定
         syncPlaylistDelete:  create.reducer((state, action) => {
             const { mode, audioKey } = action.payload;
             if (mode === 'fully') {
                 state.bv_ids = [];
                 state.fav_id = '';
                 state.current = '';
+                state.playNext = true;
                 return;
             }
-            const aKeys = audioKey.split(':');
+            const aKeys = audioKey.split(',');
             const bvId = aKeys[0];
             state.bv_ids = state.bv_ids.filter(item => item !== bvId)
+            // 如果当前视频正在播放，则移除。注意发送playNext指令，播放器会判断是否要停下
+            if (state.current === bvId) {
+                state.current = '';
+                state.playNext = true;
+            }
             if (!state.bv_ids.length) {
                 state.fav_id = '';
                 state.current = '';
+                state.playNext = true;
             }
         }),
         addSingle: create.reducer((state, action) => {

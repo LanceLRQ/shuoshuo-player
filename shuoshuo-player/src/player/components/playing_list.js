@@ -24,10 +24,23 @@ const PlayingList = (props) => {
         setPopEl(null);
     }
 
-    const handleDbClickMusic = useCallback((index) => {
+    const handleMusicClick = useCallback((index) => {
         dispatch(PlayingListSlice.actions.updateCurrentPlaying({
             index: index,
             playNext: true,
+        }))
+    }, [dispatch]);
+
+    const handleRemoveClick = useCallback((bvId) => {
+        dispatch(PlayingListSlice.actions.syncPlaylistDelete({
+            mode: 'single',
+            audioKey: bvId,
+        }))
+    }, [dispatch]);
+
+    const handleEmptyPlaylistClick = useCallback(() => {
+        dispatch(PlayingListSlice.actions.syncPlaylistDelete({
+            mode: 'fully',
         }))
     }, [dispatch]);
 
@@ -75,7 +88,7 @@ const PlayingList = (props) => {
                                     播放列表({playingList.length})
                                 </Grid>
                                 <Grid item>
-                                    <IconButton edge="end" size="small">
+                                    <IconButton edge="end" size="small" onClick={handleEmptyPlaylistClick}>
                                         <DeleteIcon fontSize="10px"/>
                                     </IconButton>
                                 </Grid>
@@ -89,7 +102,7 @@ const PlayingList = (props) => {
                             className={playingInfo?.current === video.bvid  ? 'splayer-playing-item-active' : ''}
                             key={video.bvid}
                             secondaryAction={
-                                <IconButton edge="end" size="small">
+                                <IconButton edge="end" size="small" onClick={() => handleRemoveClick(video.bvid)}>
                                     <ClearIcon fontSize="10px"/>
                                 </IconButton>
                             }
@@ -102,7 +115,7 @@ const PlayingList = (props) => {
                             <div
                                 className="splayer-playing-item-title"
                                 title={video.title}
-                                onClick={() => handleDbClickMusic(index)}
+                                onClick={() => handleMusicClick(index)}
                             >
                                 {video.title}
                             </div>

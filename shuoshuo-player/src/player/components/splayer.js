@@ -20,7 +20,7 @@ import SkipNextIcon from '@mui/icons-material/SkipNext';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import AddIcon from '@mui/icons-material/Add';
 import InfoIcon from '@mui/icons-material/Info';
-import ShareIcon from '@mui/icons-material/Share';
+// import ShareIcon from '@mui/icons-material/Share';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import AddFavDialog from "@player/components/add_fav_dialog";
 import PlayingList from "@player/components/playing_list";
@@ -63,7 +63,7 @@ function SPlayer() {
             key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
             bvid: vItem.bvid,
             name: vItem.title,
-            desc: String(vItem.description).replace(/<[^>]+>/g, ''),
+            desc: String(vItem.description || '').replace(/<[^>]+>/g, ''),
             singer: vItem.author,
             cover: vItem.pic,
             musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid),
@@ -184,13 +184,24 @@ function SPlayer() {
     useEffect(() => {
         if (playNext) {
             console.log(currentMusic, 'currentMusic')
-            initHowl(currentMusic)
+            if (!currentMusic && howlPlaying) {
+                // 如果当前播放的音乐被移除，则停止播放
+                howlInstance.current.stop();
+                setHowlPausing(false);
+                setHowlPlaying(false);
+                return;
+            } else if (currentMusic) {
+                initHowl(currentMusic)
+            }
             dispatch(PlayingListSlice.actions.removePlayNext({}));
         }
-    }, [dispatch, initHowl, howlPlaying, playNext, currentMusic])
+    }, [
+        dispatch, initHowl, howlPlaying, playNext, howlInstance,
+        currentMusic, setHowlPausing ,setHowlPlaying
+    ])
 
     const handlePlayClick = useCallback(() => {
-        if (isMusicLoading) return;
+        if (isMusicLoading || !currentMusic) return;
         if (howlPausing) {
             howlInstance.current.play()
             setHowlPausing(false);
@@ -238,7 +249,7 @@ function SPlayer() {
     }
 
     return <div className={`splayer-main splayer-theme-${themeMode}`}>
-        <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>
+        {currentMusic && <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>}
         <div className="splayer-slider-box">
             <Slider
                 className="splayer-slider"
@@ -349,11 +360,11 @@ function SPlayer() {
                                     <InfoIcon  fontSize="12px" />
                                 </IconButton>
                             </div>
-                            <div className="splayer-music-card-extra-item">
-                                <IconButton size="small">
-                                    <ShareIcon fontSize="12px"/>
-                                </IconButton>
-                            </div>
+                            {/*<div className="splayer-music-card-extra-item">*/}
+                            {/*    <IconButton size="small">*/}
+                            {/*        <ShareIcon fontSize="12px"/>*/}
+                            {/*    </IconButton>*/}
+                            {/*</div>*/}
                         </div>
                     </div>
                 </div>}
@@ -379,13 +390,13 @@ function SPlayer() {
                 </div>
             </Grid>
         </Grid>
-        <AddFavDialog
+        {currentMusic && <AddFavDialog
             open={favListDialogOpen}
             onClose={() => setFavListDialogOpen(false)}
             excludeFavId=""
             video={currentMusic.payload}
             formSearch={false}
-        />
+        />}
     </div>
 }
 
