@@ -48,7 +48,7 @@ const HomePage = () => {
         if (!masterLastUpdateTime || isOutdated) {
             // 如果更新时间超过一小时，则重新获取视频数据
             // 如果列表为空，则全量更新
-            updateMasterVideoList(masterVideoList.length == 0 ? 'fully' : 'default');
+            updateMasterVideoList(masterVideoList.length === 0 ? 'fully' : 'default');
         }
     }, [updateMasterVideoList, masterLastUpdateTime, masterVideoList]);
 
@@ -67,7 +67,7 @@ const HomePage = () => {
         return ret;
     }, [masterVideoList]);
 
-    return <Grid container spacing={2} className="player-home-page">
+    return <Grid container className="player-home-page">
         <Grid item xs={12} lg={6} xl={7} className="player-home-page-left">
             <VideoAlbumCarousel slides={slidesList} />
         </Grid>

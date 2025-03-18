@@ -50,7 +50,7 @@ export const PlayerProfileSlice = createSlice({
         theme: 'dark',
         volume: 0.5,
         autoPlay: false,
-        playMode: 'order',
+        loopMode: 'loop',
     },
     reducers: {
         setTheme: (state, action) => {
@@ -65,7 +65,7 @@ export const PlayerProfileSlice = createSlice({
             const {
                 volume,
                 autoPlay,
-                playMode
+                loopMode
             } = action.payload;
 
             if (volume >= 0 && volume <= 1) {
@@ -74,8 +74,12 @@ export const PlayerProfileSlice = createSlice({
             if (isBoolean(autoPlay)) {
                 state.autoPlay = autoPlay;
             }
-            if (isString(playMode)) {
-                state.playMode = playMode;
+            if (isString(loopMode)) {
+                if (['single', 'loop', 'random'].includes(loopMode)) {
+                    state.loopMode = loopMode;
+                } else {
+                    state.loopMode = 'loop';
+                }
             }
 
         },
@@ -92,9 +96,13 @@ export const PlayerProfileSlice = createSlice({
             return state.theme;
         },
         playerSetting: (state, action) => {
+            let loopMode = state.loopMode;
+            if (!['single', 'loop', 'random'].includes(state.loopMode)) {
+                loopMode = 'loop';
+            }
             return {
-                defaultVolume: state.volume,
-                defaultPlayMode: state.playMode,
+                volume: state.volume,
+                loopMode: loopMode,
                 autoPlay: state.autoPlay,
             };
         }

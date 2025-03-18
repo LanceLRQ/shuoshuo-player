@@ -16,6 +16,13 @@ module.exports = [
       },
     },
   },
+  {
+    test: /\.(ico|icns|png)$/, // 匹配图标文件
+    type: 'asset/resource', // 将文件作为资源输出
+    generator: {
+      filename: 'assets/[name][ext]' // 输出到 assets 目录
+    }
+  }
   // Put your webpack loader rules in this array.  This is where you would put
   // your ts-loader configuration for instance:
   /**

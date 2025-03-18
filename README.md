@@ -9,32 +9,22 @@ B站第三方音乐播放器，可以让粉丝给UP主定制的音乐播放器
 ### 1. 克隆目录
 ```shell
 git clone git@github.com:LanceLRQ/shuoshuo-player.git
-cd shuoshuo-player
-git submodule update --init
 ```
 
 ### 2. 安装依赖
 ```shell
-cd react-music-player
-yarn          # 安装依赖
-rm -r node_modules/react node_modules/react-dom  # 删除子项目里边的react，防止冲突
-yarn link     # 注册播放器组件项目
-yarn build    # 构建代码
-
-cd ../shuoshuo-player
+cd shuoshuo-player
 yarn                                  # 安装依赖
-yarn link react-jinke-music-player    # 链接播放器组件
 ```
 ### 3. 启动环境
 ```shell
-cd shuoshuo-player
 yarn start  # 启动开发环境
 # 此时访问 http://localhost:3000/player.html 即可看到播放器
 ```
 
 ### 4. 启动Electron环境
 ```shell
-cd shuoshuo-player-pc
+cd ../shuoshuo-player-pc
 yarn                # 安装依赖
 yarn start          # 启动Electron环境  
 ```
@@ -59,17 +49,15 @@ yarn start      # 启动开发环境(默认会自动同步文件到build目录�
 请自行探索
 
 ## 踩坑：
-```shell
-# 播放器组件那边改完，需要在shuoshuo-player下边执行一下这个，不然每次都不更新
-rm -r node_module/.cache 
-```
+`react-music-player`自己管理了一套播放列表机制，和本播放器的列表机制冲突了，故最后还是使用howler.js重新实现了一个播放器组件。
 
 ## 技术支持
-
-- [react-music-player](https://github.com/lijinke666/react-music-player) ：因播放列表管理方式不同，故对其进行了一些适当的[修改](https://github.com/LanceLRQ/react-music-player)
+- [howler.js](https://github.com/goldfire/howler.js)
+- [ElectronJS](https://www.electronjs.org/)
 - [Chrome Extension](https://developer.chrome.com/docs/extensions/) + [React](https://github.com/facebook/react) + [MUI](https://mui.com/zh/)
 - [react-chrome-extension-MV3](https://github.com/Sirage-t/react-chrome-extension-MV3)
 - 参考：[Azusa-Player](https://github.com/lovegaoshi/NoxPlayer)
+- [react-music-player](https://github.com/lijinke666/react-music-player) （虽然把我折腾的死去活来，但还是表达一下感谢陪伴，已经移除了相关模块。）
 
 ## 项目协议
 

@@ -1,18 +1,21 @@
 import React, { useCallback } from 'react';
 import { styled } from '@mui/material/styles';
 import { 
-    AppBar as MuiAppBar, Toolbar, IconButton, Typography, 
+    AppBar as MuiAppBar, Toolbar, IconButton, Typography,  Box,
     Avatar, Tooltip, Menu, MenuItem, ListItemIcon, Divider
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
 import {MasterUpInfo} from "@/constants";
 import LogoutIcon from '@mui/icons-material/Logout';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import dayjs from 'dayjs';
 import isElectron from 'is-electron';
+import {PlayerProfileSlice} from "@/store/ui";
 
 const drawerWidth = 240;
 
@@ -36,7 +39,9 @@ const AppBar = styled(MuiAppBar, {
 
 const TopBar = (props) => {
     const { menuOpen, toggleMenu } = props;
+    const dispatch = useDispatch();
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser);
+    const themeMode = useSelector(PlayerProfileSlice.selectors.theme);
     const [anchorEl, setAnchorEl] = React.useState(null);
     const open = Boolean(anchorEl);
     const inElectron = isElectron();
@@ -104,6 +109,12 @@ const TopBar = (props) => {
         handleMenuClose();
     }, [inElectron, handleMenuClose]);
 
+    const handleThemeChange = useCallback(() => {
+        dispatch(PlayerProfileSlice.actions.setTheme({
+            theme: themeMode === 'light' ? 'dark': 'light',
+        }));
+    }, [themeMode, dispatch]);
+
     return <AppBar position="absolute" open={menuOpen}>
         <Toolbar
             sx={{
@@ -132,11 +143,16 @@ const TopBar = (props) => {
                 {MasterUpInfo.uname}播放器
             </Typography>
             {biliUser ? <>
-                <Tooltip title={biliUser.uname}>
-                    <IconButton onClick={handleMenuClick}>
-                        <Avatar alt={biliUser.uname} src={biliUser.face} />
+                <Box>
+                    <IconButton onClick={handleThemeChange}>
+                        {themeMode === 'light' ? <LightModeIcon />:<DarkModeIcon />}
                     </IconButton>
-                </Tooltip>
+                    <Tooltip title={biliUser.uname}>
+                        <IconButton onClick={handleMenuClick}>
+                            <Avatar sx={{ width: 24, height: 24 }} alt={biliUser.uname} src={biliUser.face} />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
                 <Menu
                     anchorEl={anchorEl}
                     open={open}

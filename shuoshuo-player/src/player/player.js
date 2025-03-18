@@ -8,7 +8,7 @@ import '@styles/player.scss';
 import NavMenu from "@player/components/nav_menu";
 import TopBar from "@player/components/top_bar";
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
-import CustomJkPlayer from "@player/components/jk_player";
+import SPlayer from "@player/components/splayer";
 import {PlayerProfileSlice} from "@/store/ui";
 import LoadingGif from '@/images/loading.webp';
 import {MasterUpInfo, StartupLoadingTip} from "@/constants";
@@ -60,7 +60,7 @@ const PlayerIndex = () => {
                 </section>
             </Box>
         </Box>
-        <CustomJkPlayer />
+        <SPlayer />
     </ThemeProvider> : <Box className="b-login-require">
         <Typography variant="h4">请登录B站账号</Typography>
         <Typography variant="body">请先前往B站登录自己的账号，然后返回刷新页面即可正常使用</Typography>

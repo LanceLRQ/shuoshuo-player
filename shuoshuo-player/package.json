@@ -1,6 +1,6 @@
 {
   "name": "shuoshuo-player",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.13.0",
@@ -19,8 +19,10 @@
     "embla-carousel-react": "^8.1.8",
     "formik": "^2.4.6",
     "fuse.js": "^7.0.0",
+    "howler": "^2.2.4",
     "is-electron": "^2.2.2",
     "lodash": "^4.17.21",
+    "material-ui-popup-state": "^5.3.3",
     "md5": "^2.3.0",
     "nanoid": "^5.0.7",
     "prop-types": "^15.8.1",
@@ -28,7 +30,6 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-flexible-scroll": "^0.2.3",
-    "react-jinke-music-player": "^4.24.2",
     "react-redux": "^9.1.2",
     "react-router": "^6.26.0",
     "react-router-dom": "^6.26.0",
