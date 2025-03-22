@@ -94,7 +94,7 @@ const NavMenu = (props) => {
 
 
     return <>
-        <Drawer variant="permanent" open={menuOpen}>
+        <Drawer className="player-left-nav-menu" variant="permanent" open={menuOpen}>
             <Toolbar
                 sx={{
                     display: 'flex',

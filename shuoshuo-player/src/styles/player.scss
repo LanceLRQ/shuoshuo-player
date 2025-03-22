@@ -458,7 +458,18 @@ body, html, #root {
     }
 }
 
+.player-left-nav-menu {
+    .MuiPaper-root {
+        background: $grey-11;
+    }
+}
+
 .player-theme-light {
+    .player-left-nav-menu {
+        .MuiPaper-root {
+            background: $grey-2 !important;
+        }
+    }
     .player-layout-content {
         .player-layout-information {
             @include custom-webkit-scroll-light;
