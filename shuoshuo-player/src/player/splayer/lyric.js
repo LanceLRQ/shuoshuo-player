@@ -5,9 +5,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import {useSelector} from "react-redux";
 import {PlayingListSlice} from "@/store/play_list";
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
+import PropTypes from "prop-types";
 
 function LyricViewer(props) {
-    const { height } = props;
+    const { height, onToggleLyricView } = props;
     const playingList = useSelector(PlayingVideoListSelector);
     const playingInfo = useSelector(PlayingListSlice.selectors.current);
     const audioLists = useMemo(() => {
@@ -36,7 +37,7 @@ function LyricViewer(props) {
         </div>
         <Box sx={{flexGrow: 1}}>
             <Toolbar>
-                <IconButton size="large" aria-label="close lyric" sx={{mr: 2}}>
+                <IconButton size="large" aria-label="close lyric" sx={{mr: 2}} onClick={() => onToggleLyricView(false)}>
                     <CloseFullscreenIcon/>
                 </IconButton>
                 <Typography variant="h6" component="div" sx={{flexGrow: 1}}>
@@ -50,6 +51,11 @@ function LyricViewer(props) {
             </Toolbar>
         </Box>
     </div>
+}
+
+LyricViewer.propTypes = {
+    onToggleLyricView: PropTypes.func,
+    height: PropTypes.number,
 }
 
 export default LyricViewer

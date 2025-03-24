@@ -94,10 +94,10 @@ const PlayerIndex = () => {
                         </section>
                     </Box>
                 </Box>
-                {lyricView ? <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
-                    <LyricViewer height={windowHeight - 80} />
-                    <SPlayerIndex onToggleLyricView={setLyricView} LyricView={lyricView} />
-                </Drawer> : <SPlayerIndex onToggleLyricView={setLyricView} LyricView={lyricView} />}
+                <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
+                    <LyricViewer height={windowHeight} onToggleLyricView={setLyricView} />
+                </Drawer>
+                <SPlayerIndex onToggleLyricView={setLyricView} LyricView={lyricView} />
             </ThemeProvider>;
         } else {
             return <Box className="b-login-require">

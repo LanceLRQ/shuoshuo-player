@@ -253,7 +253,7 @@ function Index(props) {
     }
 
     return <div className={`splayer-main splayer-theme-${themeMode}`}>
-        {currentMusic && <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>}
+        {currentMusic && !LyricView && <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>}
         <div className="splayer-slider-box">
             <Slider
                 className="splayer-slider"
