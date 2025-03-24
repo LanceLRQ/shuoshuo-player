@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import {Box, Button, Typography, Stack, Drawer} from '@mui/material';
+import {Box, Button, Typography, Stack} from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Outlet } from 'react-router-dom';
 import '@styles/player.scss';
@@ -12,7 +12,6 @@ import SPlayerIndex from "@player/splayer";
 import {PlayerProfileSlice} from "@/store/ui";
 import LoadingGif from '@/images/loading.webp';
 import {MasterUpInfo, StartupLoadingTip} from "@/constants";
-import LyricViewer from './splayer/lyric';
 import isElectron from "is-electron";
 
 const PlayerIndex = () => {
@@ -21,21 +20,7 @@ const PlayerIndex = () => {
     const inited = useSelector(BilibiliUserInfoSlice.selectors.isInited);
     const isLogin = useSelector(BilibiliUserInfoSlice.selectors.isLogin);
     const theme = useSelector(PlayerProfileSlice.selectors.theme);
-    const [ lyricView, setLyricView] = useState(false);
     const inElectron = isElectron();
-
-    const [windowHeight, setWindowHeight] = useState(window.innerHeight);
-    useEffect(() => {
-        const handleResize = () => {
-            setWindowHeight(window.innerHeight);
-        };
-        // 监听窗口大小变化
-        window.addEventListener('resize', handleResize);
-        // 清除事件监听
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    });
 
     useEffect(() => {
         const htmlElement = document.documentElement;
@@ -94,10 +79,7 @@ const PlayerIndex = () => {
                         </section>
                     </Box>
                 </Box>
-                <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
-                    <LyricViewer height={windowHeight} onToggleLyricView={setLyricView} />
-                </Drawer>
-                <SPlayerIndex onToggleLyricView={setLyricView} LyricView={lyricView} />
+                <SPlayerIndex />
             </ThemeProvider>;
         } else {
             return <Box className="b-login-require">

@@ -469,6 +469,7 @@ body, html, #root {
         inset: 0;
         background: rgba(0,0,0,0.5);
         filter: brightness(0.8) blur(5px);
+        z-index: -1;
         img {
             width: 100%;
             height: 100%;
@@ -479,7 +480,37 @@ body, html, #root {
     }
 }
 .player-lyric-main {
-
+    height:100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    .player-lyric-top-bar {
+        flex: 0 0 auto;
+    }
+    .player-lyric-content {
+        flex: 1 1 auto;
+        padding-bottom: 80px;
+        overflow: hidden;
+        text-align: center;
+        & > div {
+            height: 100%;
+            &::-webkit-scrollbar {
+                width: 0;
+                height: 0;
+            }
+        }
+        .lrc-line {
+            display: inline-block;
+            line-height: $width-9;
+            font-size: $width-6;
+            opacity: 0.8;
+            &.lrc-line-active {
+                opacity: 1;
+                font-size: $width-7;
+                font-weight: bold;
+            }
+        }
+    }
 }
 
 .player-left-nav-menu {

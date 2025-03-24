@@ -5,10 +5,11 @@ import SearchIcon from '@mui/icons-material/Search';
 import {useSelector} from "react-redux";
 import {PlayingListSlice} from "@/store/play_list";
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
+import { Lrc as ReactLRC } from "react-lrc";
 import PropTypes from "prop-types";
 
 function LyricViewer(props) {
-    const { height, onToggleLyricView } = props;
+    const { height, onToggleLyricView, duration } = props;
     const playingList = useSelector(PlayingVideoListSelector);
     const playingInfo = useSelector(PlayingListSlice.selectors.current);
     const audioLists = useMemo(() => {
@@ -35,7 +36,7 @@ function LyricViewer(props) {
         <div className="player-lyric-background-mask">
             <img src={coverImg} alt="cover" />
         </div>
-        <Box sx={{flexGrow: 1}}>
+        <Box className="player-lyric-top-bar" sx={{flexGrow: 1}}>
             <Toolbar>
                 <IconButton size="large" aria-label="close lyric" sx={{mr: 2}} onClick={() => onToggleLyricView(false)}>
                     <CloseFullscreenIcon/>
@@ -50,12 +51,23 @@ function LyricViewer(props) {
                 </Box>
             </Toolbar>
         </Box>
+        <Box className="player-lyric-content">
+            <ReactLRC
+                lrc={'[00:00]暂无歌词，请欣赏'}
+                currentMillisecond={duration * 1000}
+                verticalSpace={true}
+                lineRenderer={({ active, line: { content } }) => (
+                    active ? <span className="lrc-line lrc-line-active">{content}</span> : <span className="lrc-line">{content}</span>
+                )}
+            />
+        </Box>
     </div>
 }
 
 LyricViewer.propTypes = {
     onToggleLyricView: PropTypes.func,
     height: PropTypes.number,
+    duration: PropTypes.number,
 }
 
 export default LyricViewer
