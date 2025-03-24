@@ -60,7 +60,7 @@ function SPlayer() {
     };
     const openVolumeBar = Boolean(volumeEl);
     // == 歌词窗口相关
-    const [ lyricView, setLyricView] = useState(true);
+    const [ lyricView, setLyricView] = useState(false);
     const [windowHeight, setWindowHeight] = useState(window.innerHeight);
     useEffect(() => {
         const handleResize = () => {
