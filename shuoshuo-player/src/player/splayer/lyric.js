@@ -2,30 +2,21 @@ import React, {useMemo} from 'react';
 import { Typography, Box, Toolbar, IconButton } from '@mui/material';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import SearchIcon from '@mui/icons-material/Search';
-import {useSelector} from "react-redux";
-import {PlayingListSlice} from "@/store/play_list";
-import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import { Lrc as ReactLRC } from "react-lrc";
 import PropTypes from "prop-types";
+import LRCSearchDialog from "@player/dialogs/lrc_search";
+import isElectron from "is-electron";
+import {useSelector} from "react-redux";
+import {LyricSlice} from "@/store/lyric";
 
 function LyricViewer(props) {
-    const { height, onToggleLyricView, duration } = props;
-    const playingList = useSelector(PlayingVideoListSelector);
-    const playingInfo = useSelector(PlayingListSlice.selectors.current);
-    const audioLists = useMemo(() => {
-        return playingList.map((vItem) => ({
-            key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
-            bvid: vItem.bvid,
-            name: vItem.title,
-            desc: String(vItem.description || '').replace(/<[^>]+>/g, ''),
-            singer: vItem.author,
-            cover: vItem.pic,
-            payload: vItem,
-        }))
-    }, [playingList]);
-    const currentMusic = useMemo(() => {
-        return audioLists[playingInfo.index]
-    }, [audioLists, playingInfo.index]);
+    const { height, onToggleLyricView, duration, currentMusic } = props;
+    const inElectron = isElectron();
+    const LrcInfos = useSelector(LyricSlice.selectors.lyricMaps)
+    const LrcInfo = useMemo(() => {
+        if (!currentMusic) return '';
+        return LrcInfos[currentMusic.bvid]?? '';
+    }, [currentMusic, LrcInfos]);
 
     const coverImg = useMemo(() => {
         if (!currentMusic) return '';
@@ -45,15 +36,19 @@ function LyricViewer(props) {
 
                 </Typography>
                 <Box sx={{display: {xs: 'none', md: 'flex'}}}>
-                    <IconButton>
-                        <SearchIcon/>
-                    </IconButton>
+                    {inElectron && <LRCSearchDialog bvid={currentMusic.bvid}>
+                        {(slot) => {
+                            return <IconButton onClick={() => slot.handleOpen(currentMusic?.name ?? '')}>
+                                <SearchIcon/>
+                            </IconButton>
+                        }}
+                    </LRCSearchDialog>}
                 </Box>
             </Toolbar>
         </Box>
         <Box className="player-lyric-content">
             <ReactLRC
-                lrc={'[00:00]暂无歌词，请欣赏'}
+                lrc={LrcInfo?.lrc || '[00:00]暂无歌词，请欣赏'}
                 currentMillisecond={duration * 1000}
                 verticalSpace={true}
                 lineRenderer={({ active, line: { content } }) => (

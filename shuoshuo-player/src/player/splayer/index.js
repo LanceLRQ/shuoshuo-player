@@ -266,9 +266,14 @@ function SPlayer() {
     }
 
     return <>
-        <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
-            <LyricViewer height={windowHeight} onToggleLyricView={setLyricView} duration={howlProcess} />
-        </Drawer>
+        {currentMusic && <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
+            <LyricViewer
+                currentMusic={currentMusic}
+                height={windowHeight}
+                onToggleLyricView={setLyricView}
+                duration={howlProcess}
+            />
+        </Drawer>}
         <div className={`splayer-main splayer-theme-${themeMode}`}>
             {currentMusic && !lyricView && <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>}
             <div className="splayer-slider-box">

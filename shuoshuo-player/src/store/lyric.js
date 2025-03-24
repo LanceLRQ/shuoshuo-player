@@ -8,11 +8,11 @@ export const LyricSlice = createSlice({
     reducers: {
         updateLyric: (state, action) => {
             const { payload } = action;
-            const { lyricMap } = state;
             const { bvid = '' } = payload;
             if (!bvid) return;
-            lyricMap[bvid] = {
-                ...lyricMap[bvid],
+            if (!state.lyricMaps) state.lyricMaps = {};
+            state.lyricMaps[bvid] = {
+                ...state.lyricMaps[bvid],
                 ...payload,
             };
         },
