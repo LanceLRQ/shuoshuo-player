@@ -2,9 +2,9 @@ import React, {useEffect, useState, useCallback, useMemo, useRef} from 'react';
 import {Howl} from 'howler';
 import "@styles/splayer.scss";
 import { useTheme } from '@mui/material/styles';
-import {Grid, IconButton, Stack, Slider, Popover, CircularProgress } from '@mui/material';
+import {Grid, IconButton, Stack, Slider, Popover, CircularProgress, Drawer} from '@mui/material';
 import {useDispatch, useSelector} from "react-redux";
-import Marquee from './marquee';
+import Marquee from '../components/marquee';
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
 import {PlayingListSlice} from "@/store/play_list";
@@ -22,20 +22,23 @@ import AddIcon from '@mui/icons-material/Add';
 import InfoIcon from '@mui/icons-material/Info';
 // import ShareIcon from '@mui/icons-material/Share';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
-import AddFavDialog from "@player/components/add_fav_dialog";
-import PlayingList from "@player/components/playing_list";
+import AddFavDialog from "@player/dialogs/add_fav_dialog";
+import PlayingList from "@player/splayer/playing_list";
+import LyricsIcon from '@mui/icons-material/Lyrics';
+import { blue } from '@mui/material/colors';
+import LyricViewer from "@player/splayer/lyric";
 
 function SPlayer() {
     const theme = useTheme();
     const dispatch = useDispatch();
-    // Howl相关
+    // == Howl相关
     const howlInstance = useRef(null);
     const howlLoopInstance = useRef('loop');
     const [howlPlaying, setHowlPlaying] = useState(false);
     const [howlPausing, setHowlPausing] = useState(false);
     const [howlProcess, setHowlProcess] = useState(0);
     const [howlDuration, setHowlDuration] = useState(0);
-    // 播放列表相关
+    // == 播放列表相关
     const [isMusicLoading, setIsMusicLoading] = useState(false);
     const [favListDialogOpen, setFavListDialogOpen] = useState(false);
     const themeMode = useSelector(PlayerProfileSlice.selectors.theme);
@@ -56,6 +59,20 @@ function SPlayer() {
         setVolumeEl(null);
     };
     const openVolumeBar = Boolean(volumeEl);
+    // == 歌词窗口相关
+    const [ lyricView, setLyricView] = useState(false);
+    const [windowHeight, setWindowHeight] = useState(window.innerHeight);
+    useEffect(() => {
+        const handleResize = () => {
+            setWindowHeight(window.innerHeight);
+        };
+        // 监听窗口大小变化
+        window.addEventListener('resize', handleResize);
+        // 清除事件监听
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    });
     // ==
 
     const audioLists = useMemo(() => {
@@ -248,156 +265,171 @@ function SPlayer() {
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    return <div className={`splayer-main splayer-theme-${themeMode}`}>
-        {currentMusic && <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>}
-        <div className="splayer-slider-box">
-            <Slider
-                className="splayer-slider"
-                size="small"
-                step={0.01}
-                min={0}
-                max={100}
-                value={howlPercentage}
-                onChange={handleSeekChange}
-                aria-label="time-indicator"
-                valueLabelDisplay="off"
-                sx={{
-                    color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0,0,0,0.87)',
-                }}
+    return <>
+        {currentMusic && <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
+            <LyricViewer
+                currentMusic={currentMusic}
+                height={windowHeight}
+                onToggleLyricView={setLyricView}
+                duration={howlProcess}
             />
-            <div className="splayer-slider-current">
-                {durationToTime(howlProcess)}
+        </Drawer>}
+        <div className={`splayer-main splayer-theme-${themeMode}`}>
+            {currentMusic && !lyricView && <div className="splayer-background" style={{backgroundImage: `url(${currentMusic.cover})`}}></div>}
+            <div className="splayer-slider-box">
+                <Slider
+                    className="splayer-slider"
+                    size="small"
+                    step={0.01}
+                    min={0}
+                    max={100}
+                    value={howlPercentage}
+                    onChange={handleSeekChange}
+                    aria-label="time-indicator"
+                    valueLabelDisplay="off"
+                    sx={{
+                        color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0,0,0,0.87)',
+                    }}
+                />
+                <div className="splayer-slider-current">
+                    {durationToTime(howlProcess)}
+                </div>
+                <div className="splayer-slider-duration">
+                    {durationToTime(howlDuration)}
+                </div>
             </div>
-            <div className="splayer-slider-duration">
-                {durationToTime(howlDuration)}
-            </div>
-        </div>
-        <Grid container className="splayer-layout">
-            <Grid item md={4} lg={3} xs={12}>
-                <Grid
-                    container
-                    direction="row"
-                    justifyContent="center"
-                    alignItems="center"
-                    className="splayer-controller-bar"
-                >
-                    <Stack direction="row" spacing={2}>
-                        <div className="controller-bar-button">
-                            <IconButton size="small" onClick={handlePlayLoopModeClick}>
-                                {playerLoopMode === 'single' && <RepeatOneIcon/>}
-                                {playerLoopMode === 'loop' && <RepeatIcon/>}
-                                {playerLoopMode === 'random' && <ShuffleIcon/>}
-                            </IconButton>
-                        </div>
-                        <div className="controller-bar-button">
-                            <IconButton size="small" onClick={() => playNextItem('prev')}>
-                                <SkipPreviousIcon/>
-                            </IconButton>
-                        </div>
-                        <div className="controller-bar-button">
-                            <IconButton size="large" aria-label="play" onClick={handlePlayClick}>
-                                {isMusicLoading ?
-                                    <CircularProgress /> :
-                                    ((howlPausing || !howlPlaying) ? <PlayArrowIcon fontSize="large"/> : <PauseIcon fontSize="large"/>)
-                                }
-                            </IconButton>
-                        </div>
-                        <div className="controller-bar-button">
-                            <IconButton size="small" onClick={() => playNextItem(playerLoopMode === 'random' ? 'random' : 'next')}>
-                                <SkipNextIcon/>
-                            </IconButton>
-                        </div>
-                        <div className="controller-bar-button">
-                            <Popover
-                                id="volume-popover"
-                                open={openVolumeBar}
-                                anchorEl={volumeEl}
-                                anchorOrigin={{
-                                    vertical: 'top',
-                                    horizontal: 'center',
-                                }}
-                                transformOrigin={{
-                                    vertical: 'bottom',
-                                    horizontal: 'center',
-                                }}
-                                onClose={handleVolumePopoverClose}
-                            >
-                                <div className="splayer-volume-box">
-                                    <Slider
-                                        aria-label="volume"
-                                        orientation="vertical"
-                                        min={0}
-                                        max={1}
-                                        step={0.01}
-                                        value={playerSetting.volume}
-                                        valueLabelDisplay="off"
-                                        onChange={handleAudioVolumeChange}
-                                    />
-                                </div>
-                            </Popover>
-                            <IconButton onClick={handleVolumePopoverOpen}>
-                                <VolumeUpIcon/>
-                            </IconButton>
-                        </div>
-                    </Stack>
-                </Grid>
-            </Grid>
-            <Grid item md={6} lg={6} xs={12}>
-                {currentMusic && <div className="splayer-middle-side">
-                    <div className="splayer-music-card">
-                        <div className="splayer-music-card-cover">
-                            <img src={currentMusic.cover} alt="cover"/>
-                        </div>
-                        <div className="splayer-music-card-info">
-                            <div className="splayer-music-card-title">{currentMusic.name}</div>
-                            <div className="splayer-music-card-desc">
-                                <Marquee text={currentMusic.desc} speed={0.2} />
-                            </div>
-                        </div>
-                        <div className="splayer-music-card-extra">
-                            <div className="splayer-music-card-extra-item">
-                                <IconButton size="small" onClick={handleGotoBilibili}>
-                                    <InfoIcon  fontSize="12px" />
+            <Grid container className="splayer-layout">
+                <Grid item md={4} lg={3} xs={12}>
+                    <Grid
+                        container
+                        direction="row"
+                        justifyContent="center"
+                        alignItems="center"
+                        className="splayer-controller-bar"
+                    >
+                        <Stack direction="row" spacing={2}>
+                            <div className="controller-bar-button">
+                                <IconButton size="small" onClick={handlePlayLoopModeClick}>
+                                    {playerLoopMode === 'single' && <RepeatOneIcon/>}
+                                    {playerLoopMode === 'loop' && <RepeatIcon/>}
+                                    {playerLoopMode === 'random' && <ShuffleIcon/>}
                                 </IconButton>
                             </div>
-                            {/*<div className="splayer-music-card-extra-item">*/}
-                            {/*    <IconButton size="small">*/}
-                            {/*        <ShareIcon fontSize="12px"/>*/}
-                            {/*    </IconButton>*/}
-                            {/*</div>*/}
-                        </div>
-                    </div>
-                </div>}
-            </Grid>
-            <Grid item md={2} lg={3} xs={12}>
-                <div className="splayer-right-side">
-                    <div className="splayer-operator-bar">
-                        <div className="splayer-operator-bar-item">
-                            <IconButton onClick={() => setFavListDialogOpen(true)}>
-                                <AddIcon />
-                            </IconButton>
-                        </div>
-                        <div className="splayer-operator-bar-item">
-                            <PlayingList>
-                                {({ open }) => {
-                                    return <IconButton onClick={open}>
-                                        <QueueMusicIcon />
+                            <div className="controller-bar-button">
+                                <IconButton size="small" onClick={() => playNextItem('prev')}>
+                                    <SkipPreviousIcon/>
+                                </IconButton>
+                            </div>
+                            <div className="controller-bar-button">
+                                <IconButton size="large" aria-label="play" onClick={handlePlayClick}>
+                                    {isMusicLoading ?
+                                        <CircularProgress /> :
+                                        ((howlPausing || !howlPlaying) ? <PlayArrowIcon fontSize="large"/> : <PauseIcon fontSize="large"/>)
+                                    }
+                                </IconButton>
+                            </div>
+                            <div className="controller-bar-button">
+                                <IconButton size="small" onClick={() => playNextItem(playerLoopMode === 'random' ? 'random' : 'next')}>
+                                    <SkipNextIcon/>
+                                </IconButton>
+                            </div>
+                            <div className="controller-bar-button">
+                                <Popover
+                                    id="volume-popover"
+                                    open={openVolumeBar}
+                                    anchorEl={volumeEl}
+                                    anchorOrigin={{
+                                        vertical: 'top',
+                                        horizontal: 'center',
+                                    }}
+                                    transformOrigin={{
+                                        vertical: 'bottom',
+                                        horizontal: 'center',
+                                    }}
+                                    onClose={handleVolumePopoverClose}
+                                >
+                                    <div className="splayer-volume-box">
+                                        <Slider
+                                            aria-label="volume"
+                                            orientation="vertical"
+                                            min={0}
+                                            max={1}
+                                            step={0.01}
+                                            value={playerSetting.volume}
+                                            valueLabelDisplay="off"
+                                            onChange={handleAudioVolumeChange}
+                                        />
+                                    </div>
+                                </Popover>
+                                <IconButton onClick={handleVolumePopoverOpen}>
+                                    <VolumeUpIcon/>
+                                </IconButton>
+                            </div>
+                        </Stack>
+                    </Grid>
+                </Grid>
+                <Grid item md={6} lg={6} xs={12}>
+                    {currentMusic && <div className="splayer-middle-side">
+                        <div className="splayer-music-card">
+                            <div className="splayer-music-card-cover">
+                                <img src={currentMusic.cover} alt="cover"/>
+                            </div>
+                            <div className="splayer-music-card-info">
+                                <div className="splayer-music-card-title">{currentMusic.name}</div>
+                                <div className="splayer-music-card-desc">
+                                    <Marquee text={currentMusic.desc} speed={0.2} />
+                                </div>
+                            </div>
+                            <div className="splayer-music-card-extra">
+                                <div className="splayer-music-card-extra-item">
+                                    <IconButton size="small" onClick={handleGotoBilibili}>
+                                        <InfoIcon  fontSize="12px" />
                                     </IconButton>
-                                }}
-                            </PlayingList>
+                                </div>
+                                {/*<div className="splayer-music-card-extra-item">*/}
+                                {/*    <IconButton size="small">*/}
+                                {/*        <ShareIcon fontSize="12px"/>*/}
+                                {/*    </IconButton>*/}
+                                {/*</div>*/}
+                            </div>
+                        </div>
+                    </div>}
+                </Grid>
+                <Grid item md={2} lg={3} xs={12}>
+                    <div className="splayer-right-side">
+                        <div className="splayer-operator-bar">
+                            <div className="splayer-operator-bar-item">
+                                <IconButton  onClick={() => setLyricView(!lyricView)}>
+                                    <LyricsIcon  sx={{ color: lyricView ? blue[500] : null }} />
+                                </IconButton>
+                            </div>
+                            <div className="splayer-operator-bar-item">
+                                <IconButton onClick={() => setFavListDialogOpen(true)}>
+                                    <AddIcon />
+                                </IconButton>
+                            </div>
+                            <div className="splayer-operator-bar-item">
+                                <PlayingList>
+                                    {({ open }) => {
+                                        return <IconButton onClick={open}>
+                                            <QueueMusicIcon />
+                                        </IconButton>
+                                    }}
+                                </PlayingList>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </Grid>
             </Grid>
-        </Grid>
-        {currentMusic && <AddFavDialog
-            open={favListDialogOpen}
-            onClose={() => setFavListDialogOpen(false)}
-            excludeFavId=""
-            video={currentMusic.payload}
-            formSearch={false}
-        />}
-    </div>
+            {currentMusic && <AddFavDialog
+                open={favListDialogOpen}
+                onClose={() => setFavListDialogOpen(false)}
+                excludeFavId=""
+                video={currentMusic.payload}
+                formSearch={false}
+            />}
+        </div>
+    </>
 }
 
 export default SPlayer;

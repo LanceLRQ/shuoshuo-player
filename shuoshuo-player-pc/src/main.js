@@ -1,6 +1,7 @@
 const { app, BrowserWindow, session: ElectronSession, ipcMain, shell, Menu } = require('electron');
 const path = require('path');
 const url = require('path');
+const {BindElectronAPI} = require("./client/spider");
 const ElectronStore = require('electron-store').default;
 
 if (process.env.NODE_ENV !== 'production') {
@@ -195,7 +196,7 @@ app.whenReady().then(() => {
     mainWindow.close();
     createLoginWindow();
   })
-
+  BindElectronAPI();
   createWindow();
 
   // On OS X it's common to re-create a window in the app when the

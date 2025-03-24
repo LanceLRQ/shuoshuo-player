@@ -6,6 +6,7 @@
     position: relative;
     border-top: 1px solid $grey-012;
     overflow: hidden;
+    z-index: 200000;
     .splayer-background {
         position: absolute;
         top: 0;

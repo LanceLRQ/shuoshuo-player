@@ -6,7 +6,7 @@ import {SlicerHuman} from "@/constants";
 import API from '@/api';
 import VideoItem from "@player/components/video_item";
 import {searchResultConverter} from "@player/utils";
-import FavEditDialog from "@player/components/fav_edit";
+import FavEditDialog from "@player/dialogs/fav_edit";
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList } from 'react-window';
 import InfiniteLoader from "react-window-infinite-loader";

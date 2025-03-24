@@ -47,7 +47,7 @@ export const PlayerNoticesSlice = createSlice({
 export const PlayerProfileSlice = createSlice({
     name: 'ui_profile',
     initialState: {
-        theme: 'dark',
+        theme: 'light',
         volume: 0.5,
         autoPlay: false,
         loopMode: 'loop',
@@ -56,7 +56,7 @@ export const PlayerProfileSlice = createSlice({
         setTheme: (state, action) => {
             const { theme } = action.payload;
             if (theme !== 'light' && theme !== 'dark' && theme !== 'auto') {
-                state.theme = 'dark';
+                state.theme = 'light';
                 return;
             }
             state.theme = theme;

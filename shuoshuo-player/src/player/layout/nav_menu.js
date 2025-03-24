@@ -17,7 +17,7 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import {useNavigate, useMatch} from "react-router";
 import {FavListType, MasterUpInfo} from "@/constants";
 import {FavListSlice} from "@/store/play_list";
-import FavEditDialog from "@player/components/fav_edit";
+import FavEditDialog from "@player/dialogs/fav_edit";
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 
 const drawerWidth = 240;
@@ -94,7 +94,7 @@ const NavMenu = (props) => {
 
 
     return <>
-        <Drawer variant="permanent" open={menuOpen}>
+        <Drawer className="player-left-nav-menu" variant="permanent" open={menuOpen}>
             <Toolbar
                 sx={{
                     display: 'flex',

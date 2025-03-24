@@ -12,5 +12,11 @@ contextBridge.exposeInMainWorld('ElectronAPI', {
         Login: () => ipcRenderer.invoke('bilibili:login'),
         Logout: () => ipcRenderer.invoke('bilibili:logout'),
         LoginSuccess: (callback) => ipcRenderer.on('bilibili:login_success', (event) => callback(event))
+    },
+    Spider: {
+        QQMusic: {
+            SearchSong: (keyword, limit) => ipcRenderer.invoke('spider:qqmusic:search', keyword, limit),
+            GetLRC: (mid) => ipcRenderer.invoke('spider:qqmusic:get_lrc', mid),
+        }
     }
 })
