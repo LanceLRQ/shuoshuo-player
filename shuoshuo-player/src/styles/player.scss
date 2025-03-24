@@ -458,6 +458,28 @@ body, html, #root {
     }
 }
 
+.player-lyric-drawer {
+    z-index: 10000 !important;
+    overflow: hidden;
+    .MuiBackdrop-root, .MuiPaper-root {
+        overflow: hidden;
+    }
+    .player-lyric-background-mask {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        img {
+            pointer-events: none;
+            object-fit: contain;
+            opacity: 0.1;
+            backdrop-filter: blur(10px);
+        }
+    }
+}
+.player-lyric-main {
+
+}
+
 .player-left-nav-menu {
     .MuiPaper-root {
         background: $grey-11;
@@ -509,8 +531,11 @@ body, html, #root {
             }
         }
     }
-}
 
+    .player-lyric-background-mask {
+        background: rgba(255,255,255, 0.5) !important;
+    }
+}
 
 .b-login-require {
     box-sizing: border-box;

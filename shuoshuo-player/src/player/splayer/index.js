@@ -24,18 +24,22 @@ import InfoIcon from '@mui/icons-material/Info';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import AddFavDialog from "@player/dialogs/add_fav_dialog";
 import PlayingList from "@player/splayer/playing_list";
+import LyricsIcon from '@mui/icons-material/Lyrics';
+import PropTypes from "prop-types";
+import { blue } from '@mui/material/colors';
 
-function Index() {
+function Index(props) {
     const theme = useTheme();
     const dispatch = useDispatch();
-    // Howl相关
+    const { onToggleLyricView, LyricView } = props;
+    // == Howl相关
     const howlInstance = useRef(null);
     const howlLoopInstance = useRef('loop');
     const [howlPlaying, setHowlPlaying] = useState(false);
     const [howlPausing, setHowlPausing] = useState(false);
     const [howlProcess, setHowlProcess] = useState(0);
     const [howlDuration, setHowlDuration] = useState(0);
-    // 播放列表相关
+    // == 播放列表相关
     const [isMusicLoading, setIsMusicLoading] = useState(false);
     const [favListDialogOpen, setFavListDialogOpen] = useState(false);
     const themeMode = useSelector(PlayerProfileSlice.selectors.theme);
@@ -373,6 +377,11 @@ function Index() {
                 <div className="splayer-right-side">
                     <div className="splayer-operator-bar">
                         <div className="splayer-operator-bar-item">
+                            <IconButton  onClick={() => onToggleLyricView(!LyricView)}>
+                                <LyricsIcon  sx={{ color: LyricView ? blue[500] : null }} />
+                            </IconButton>
+                        </div>
+                        <div className="splayer-operator-bar-item">
                             <IconButton onClick={() => setFavListDialogOpen(true)}>
                                 <AddIcon />
                             </IconButton>
@@ -398,6 +407,11 @@ function Index() {
             formSearch={false}
         />}
     </div>
+}
+
+Index.propTypes = {
+    onToggleLyricView: PropTypes.func,
+    LyricView: PropTypes.bool,
 }
 
 export default Index;
