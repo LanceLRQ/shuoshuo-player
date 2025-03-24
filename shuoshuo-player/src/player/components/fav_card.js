@@ -13,13 +13,13 @@ import MusicIcon from '@mui/icons-material/MusicNote';
 import {FavListSlice, PlayingListSlice} from "@/store/play_list";
 import {useNavigate} from "react-router";
 import {FavListType, NoticeTypes} from "@/constants";
-import FavEditDialog from "@player/components/fav_edit";
+import FavEditDialog from "@player/dialogs/fav_edit";
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 import AddIcon from '@mui/icons-material/Add';
 import UpdateIcon from '@mui/icons-material/Update';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import AddSongDialog from "@player/components/fav_add_song";
+import AddSongDialog from "@player/dialogs/fav_add_song";
 import {PlayerNoticesSlice} from "@/store/ui";
 
 const BilibiliUpSpaceCard = forwardRef((props, ref) => {

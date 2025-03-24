@@ -4,7 +4,7 @@ import "@styles/splayer.scss";
 import { useTheme } from '@mui/material/styles';
 import {Grid, IconButton, Stack, Slider, Popover, CircularProgress } from '@mui/material';
 import {useDispatch, useSelector} from "react-redux";
-import Marquee from './marquee';
+import Marquee from '../components/marquee';
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
 import {PlayingListSlice} from "@/store/play_list";
@@ -22,10 +22,10 @@ import AddIcon from '@mui/icons-material/Add';
 import InfoIcon from '@mui/icons-material/Info';
 // import ShareIcon from '@mui/icons-material/Share';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
-import AddFavDialog from "@player/components/add_fav_dialog";
-import PlayingList from "@player/components/playing_list";
+import AddFavDialog from "@player/dialogs/add_fav_dialog";
+import PlayingList from "@player/splayer/playing_list";
 
-function SPlayer() {
+function Index() {
     const theme = useTheme();
     const dispatch = useDispatch();
     // Howl相关
@@ -400,4 +400,4 @@ function SPlayer() {
     </div>
 }
 
-export default SPlayer;
+export default Index;

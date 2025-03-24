@@ -20,7 +20,7 @@ import { PlayingListSlice } from "@/store/play_list";
 import {useDispatch, useSelector} from "react-redux";
 import { NoticeTypes} from "@/constants";
 import {PlayerNoticesSlice} from "@/store/ui";
-import AddFavDialog from "@player/components/add_fav_dialog";
+import AddFavDialog from "@player/dialogs/add_fav_dialog";
 
 
 const VideoItem = (props) => {
