@@ -1,36 +1,29 @@
 package configs
 
 import (
-	"fmt"
+	"github.com/LanceLRQ/shuoshuo-player/cloud-services/utils"
+	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
-
-	"gopkg.in/yaml.v3"
 )
 
-type ServerConfigStruct struct {
-	Listen string `yaml:"listen" json:"listen"`
-}
-
-func GetDefaulfAppDataPath() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return ""
-	}
-	appPath := fmt.Sprintf("%s/ollama-watchdog", dir)
-	if err := os.MkdirAll(appPath, 0o755); err != nil {
-		return ""
-	}
-	return appPath
-}
-
 func GetDefaultServerConfigPath() string {
-	return "./server.yaml"
+	return "./temp/server.yaml"
 }
 
 func GetDefaultServerConfig() ServerConfigStruct {
 	return ServerConfigStruct{
-		Listen: "0.0.0.0:10715",
+		Listen:    "0.0.0.0:10715",
+		PublicUrl: "http://localhost:10715",
+		Security: ServerSecurityConfig{
+			JWTSecret: utils.GenerateRandomJWTSecret(64),
+			JWTExpire: int64(365 * 24),
+		},
+		Debug: true,
+		Log: ServerLogConfig{
+			AccessFile: "./temp/access.log",
+			DebugFile:  "./temp/debug.log",
+		},
 	}
 }
 
@@ -39,7 +32,8 @@ func ReadServerConfig(path string) (*ServerConfigStruct, error) {
 	data, err := os.ReadFile(path)
 	cfg := GetDefaultServerConfig()
 	if os.IsNotExist(err) {
-		return &cfg, nil
+		err = WriteServerConfig(path, &cfg)
+		return &cfg, err
 	} else if err != nil {
 		return nil, err
 	}

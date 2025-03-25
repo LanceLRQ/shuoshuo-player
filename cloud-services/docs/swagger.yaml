@@ -1,0 +1,20 @@
+info:
+  contact: {}
+paths:
+  /debug/jwt/test:
+    get:
+      consumes:
+      - application/json
+      description: 获取随机的JWT Token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 【调试】获取随机的JWT Token
+      tags:
+      - Debug
+swagger: "2.0"

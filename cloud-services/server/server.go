@@ -2,13 +2,36 @@ package server
 
 import (
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+	log "github.com/sirupsen/logrus"
+	"runtime/debug"
 )
 
-func StartHttpServer(cfg *configs.ServerConfigStruct) error {
+// @title 说说播放器服务端
+// @version 1.0
+// @description 说说播放器云端支持服务
 
-	app := fiber.New()
+// @termsOfService	https://github.com/LanceLRQ/shuoshuo-player
+// @contact.name   	API Support
+// @contact.url    	https://github.com/LanceLRQ/shuoshuo-player/issues
+// @contact.email  	lancelrq@gmail.com
+// @license.name 	MIT
+// @license.url		https://github.com/LanceLRQ/shuoshuo-player/blob/master/LICENSE
+// @host 			localhost:10175
+// @BasePath 		/api
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
+
+// StartHttpServer 启动服务器
+func StartHttpServer(cfg *configs.ServerConfigStruct) error {
+	app := fiber.New(fiber.Config{
+		ErrorHandler: AppErrorHandler,
+	})
 	// 使用 CORS 中间件
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",                              // 允许的域名
@@ -16,11 +39,46 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 		AllowHeaders: "Origin, Content-Type, Accept",   // 允许的请求头
 	}))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
+	valid := validator.New()
+	// 注册全局validator
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("validator", valid)
+		c.Locals("config", cfg)
+		return c.Next()
 	})
 
-	err := app.Listen(cfg.Listen)
+	// 初始化logger
+	releaseLogFile, err := initServerLogger(cfg)
+	if err != nil {
+		return err
+	}
+	defer releaseLogFile()
+
+	// recover中间件
+	app.Use(recover.New(recover.Config{
+		StackTraceHandler: func(c *fiber.Ctx, e interface{}) {
+			log.Errorf("[Server] %s\n%s\n", e.(error).Error(), debug.Stack())
+			return
+		},
+		EnableStackTrace: true,
+	}))
+
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendString("Shuoshuo Player Cloud Services.")
+	})
+
+	// 注册swagger页面
+	RegisterSwagger(app, cfg)
+
+	if cfg.Debug {
+		// 注册debug页面
+		bindDebuggerRoutes(app, cfg)
+	}
+
+	// 注册需要认证的接口，这行代码以后得所有路由访问都需要认证
+	app.Use(LoginRequired(cfg))
+
+	err = app.Listen(cfg.Listen)
 
 	return err
 }
