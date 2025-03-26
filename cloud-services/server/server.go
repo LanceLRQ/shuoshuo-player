@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
 	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -68,7 +69,11 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 	})
 
 	// 注册swagger页面
-	RegisterSwagger(app, cfg)
+	app.Use(swagger.New(swagger.Config{ // custom
+		BasePath: "/dev",
+		FilePath: "./docs/swagger.json",
+		Path:     "docs",
+	}))
 
 	if cfg.Debug {
 		// 注册debug页面
