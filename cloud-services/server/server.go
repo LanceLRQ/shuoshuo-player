@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
+	"github.com/LanceLRQ/shuoshuo-player/cloud-services/controller"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
@@ -81,7 +82,10 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 	}
 
 	// 注册需要认证的接口，这行代码以后得所有路由访问都需要认证
-	app.Use(LoginRequired(cfg))
+	apiRouter := app.Group("/api", LoginRequired(cfg))
+
+	// 注册路由 (TODO)
+	controller.BindTestAPIRoutes(apiRouter.Group("/test"))
 
 	err = app.Listen(cfg.Listen)
 
