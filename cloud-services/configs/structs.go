@@ -6,6 +6,7 @@ type ServerConfigStruct struct {
 	Security  ServerSecurityConfig `yaml:"security" json:"security"`
 	Debug     bool                 `yaml:"debug" json:"debug"`
 	Log       ServerLogConfig      `yaml:"log" json:"log"`
+	MongoDB   ServerMongoDBConfig  `yaml:"mongodb" json:"mongodb"`
 }
 
 type ServerSecurityConfig struct {
@@ -16,4 +17,12 @@ type ServerSecurityConfig struct {
 type ServerLogConfig struct {
 	AccessFile string `yaml:"access_file" json:"access_file"`
 	DebugFile  string `yaml:"debug_file" json:"debug_file"`
+}
+
+type ServerMongoDBConfig struct {
+	Host     string `yaml:"host" json:"host"`
+	Port     int    `yaml:"port" json:"port"`
+	DBName   string `yaml:"db_name" json:"db_name"`
+	User     string `yaml:"user" json:"user"`
+	Password string `yaml:"password" json:"password"`
 }

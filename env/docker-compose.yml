@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  mongodb:
+    image: mongo:8
+    container_name: ssplayer_cloud_service_mongodb
+    restart: always
+    ports:
+      - "27017:27017"  # 映射宿主机 27017 -> 容器 27017
+    volumes:
+      - ./mongo:/data/db  # 持久化数据到 ./mongo 目录
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin  # 可选：初始化 root 用户
+      - MONGO_INITDB_ROOT_PASSWORD=12345678

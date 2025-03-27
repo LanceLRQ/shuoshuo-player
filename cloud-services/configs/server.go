@@ -24,6 +24,13 @@ func GetDefaultServerConfig() ServerConfigStruct {
 			AccessFile: "./temp/access.log",
 			DebugFile:  "./temp/debug.log",
 		},
+		MongoDB: ServerMongoDBConfig{
+			Host:     "localhost",
+			Port:     27017,
+			DBName:   "ssplayer_cloud",
+			User:     "admin",
+			Password: "12345678",
+		},
 	}
 }
 

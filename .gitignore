@@ -138,3 +138,5 @@ shuoshuo-player/build
 
 cloud-services/temp/*
 cloud-services/tmp/*
+
+env/mongo
