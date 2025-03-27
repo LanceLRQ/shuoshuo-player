@@ -3,7 +3,10 @@ package server
 import (
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/controller"
+	"github.com/go-playground/locales/zh"
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
+	zhTranslations "github.com/go-playground/validator/v10/translations/zh"
 	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -42,10 +45,18 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 	}))
 
 	valid := validator.New()
+	// 设置中文翻译器
+	translate := zh.New()
+	uni := ut.New(translate, translate)
+	trans, _ := uni.GetTranslator("zh")
+	// 注册默认中文翻译
+	_ = zhTranslations.RegisterDefaultTranslations(valid, trans)
+
 	// 注册全局validator
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals("validator", valid)
 		c.Locals("config", cfg)
+		c.Locals("validator_trans", trans)
 		return c.Next()
 	})
 

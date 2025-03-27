@@ -1,6 +1,7 @@
 package exceptions
 
 import (
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
@@ -28,11 +29,12 @@ func (e *AppError) WithPayload(payload interface{}) *AppError {
 	}
 }
 
-func (e *AppError) WithValidatorError(err error) *AppError {
+func (e *AppError) WithValidatorError(c *fiber.Ctx, err error) *AppError {
+	trans := c.Locals("validator_trans").(ut.Translator)
 	if vErrs, ok := err.(validator.ValidationErrors); ok {
 		vMsg := make([]string, 0, 1)
 		for _, vErr := range vErrs {
-			vMsg = append(vMsg, vErr.Error())
+			vMsg = append(vMsg, vErr.Translate(trans))
 		}
 		return &AppError{
 			Code:    e.Code,

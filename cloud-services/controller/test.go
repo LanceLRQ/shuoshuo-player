@@ -33,7 +33,7 @@ func TestPostDataParse(c *fiber.Ctx) error {
 		if _, ok := err.(*validator.InvalidValidationError); ok {
 			return fmt.Errorf("%w: %s", exceptions.ParamsValidatorError, err)
 		}
-		return exceptions.ParamsValidatorError.WithValidatorError(err)
+		return exceptions.ParamsValidatorError.WithValidatorError(c, err)
 	}
 
 	return c.JSON(fiber.Map{
