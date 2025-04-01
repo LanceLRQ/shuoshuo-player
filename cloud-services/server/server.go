@@ -113,11 +113,11 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 		c.Locals("validator", valid)
 		c.Locals("config", cfg)
 		c.Locals("validator_trans", trans)
-		c.Locals("mongodb", func() *mongo.Client {
-			return mongoClient // 始终返回最新的 client
+		c.Locals("mongodb", func() *mongo.Database {
+			return mongoClient.Database(cfg.MongoDB.DBName) // 始终返回最新的 client
 		})
 		// Usage:
-		//	mongoCli := c.Locals("mongodb").(func() *mongo.Client)
+		//	mongoCli := c.Locals("mongodb").(func() *mongo.Database)
 		//	fmt.Println(mongoCli())
 		return c.Next()
 	})
@@ -154,11 +154,11 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 		bindDebuggerRoutes(app, cfg)
 	}
 
-	// 注册需要认证的接口，这行代码以后得所有路由访问都需要认证
-	apiRouter := app.Group("/api", LoginRequired(cfg))
+	// 注册需要认证的接口
+	apiRouter := app.Group("/api")
 
 	// 注册路由
-	controller.BindAccountAPIRoutes(apiRouter.Group("/accounts"))
+	controller.BindAccountAPIRoutes(apiRouter.Group("/accounts"), LoginRequired(cfg))
 
 	err = app.Listen(cfg.Listen)
 

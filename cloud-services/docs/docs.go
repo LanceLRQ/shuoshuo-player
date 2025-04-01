@@ -15,6 +15,40 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/accounts/login": {
+            "post": {
+                "description": "用户通过邮箱和密码登录系统",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "用户登录",
+                "parameters": [
+                    {
+                        "description": "登录信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controller.loginViewPostParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "登录成功后返回token信息",
+                        "schema": {
+                            "$ref": "#/definitions/controller.loginViewResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/debug/jwt/test": {
             "get": {
                 "description": "获取随机的JWT Token",
@@ -36,6 +70,37 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "controller.loginViewPostParams": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "controller.loginViewResponse": {
+            "type": "object",
+            "properties": {
+                "expire_at": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
                 }
             }
         }

@@ -17,8 +17,9 @@ func CommandEntry(version string) {
 		Commands: []*cli.Command{
 			ConfigCommand(),
 			&cli.Command{
-				Name:  "serve",
-				Usage: "启动服务",
+				Name:    "serve",
+				Usage:   "启动服务",
+				Aliases: []string{"s"},
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:        "config",
@@ -36,6 +37,7 @@ func CommandEntry(version string) {
 					return server.StartHttpServer(cfg)
 				},
 			},
+			CreateSuperAccount(),
 		},
 		Action: func(c *cli.Context) error {
 			fmt.Printf("说说播放器云端服务(built: %s)\n", version)

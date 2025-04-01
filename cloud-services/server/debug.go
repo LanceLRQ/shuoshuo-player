@@ -7,6 +7,7 @@ import (
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/utils"
 	"github.com/gofiber/fiber/v2"
 	"strings"
+	"time"
 )
 
 // GetJWTTestToken
@@ -22,7 +23,7 @@ func GetJWTTestToken(c *fiber.Ctx) error {
 	cfg := c.Locals("config").(*configs.ServerConfigStruct)
 	// 发放令牌
 	accountId, _ := utils.GetSnowflakeId()
-	token, expireAt, err := NewJWTToken(accountId.Int64(), cfg)
+	token, expireAt, err := utils.NewJWTToken(accountId.String(), cfg.Security.JWTSecret, time.Duration(cfg.Security.JWTExpire))
 	if err != nil {
 		return fmt.Errorf("%w: %s", exceptions.InternalServerError, err)
 	}
@@ -42,7 +43,7 @@ func ValidJWTTestToken(c *fiber.Ctx) error {
 	if strings.Index(token, "Bearer ") == 0 {
 		token = strings.TrimPrefix(token, "Bearer ")
 	}
-	valid := ValidJWTToken(token, cfg)
+	valid := utils.ValidJWTToken(token, cfg.Security.JWTSecret)
 	return c.JSON(fiber.Map{
 		"valid": valid,
 	})

@@ -3,7 +3,9 @@ package utils
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
+	"math/big"
 )
 
 // GenerateRandomJWTSecret 生成安全的随机JWT Secret
@@ -32,4 +34,21 @@ func CreatePasswordHash(pwd string) (string, error) {
 func CheckPasswordHash(hash, pwd string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pwd))
 	return err == nil
+}
+
+// GenerateRandomPassword 生成指定长度的随机密码，包含大小写字母和数字
+func GenerateRandomPassword(length int) (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	password := make([]byte, length)
+
+	for i := range password {
+		// 生成一个随机索引
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", fmt.Errorf("生成随机数失败: %v", err)
+		}
+		password[i] = charset[num.Int64()]
+	}
+
+	return string(password), nil
 }

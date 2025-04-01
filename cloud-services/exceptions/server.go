@@ -9,6 +9,7 @@ var ParamsValidatorError = NewAppRequestError(4000001, "参数内容校验失败
 var ParseIdError = NewAppRequestError(4000002, "ID解析错误")
 
 var LoginEmptyTokenError = NewAppRequestError(4010001, "登录令牌内容为空")
+var LoginAccountNotExistsOrPasswordWrong = NewAppRequestError(4010002, "用户名或密码错误")
 
 var InternalServerError = NewAppServerError(5000000, "内部服务器错误")
-var MySQLError = NewAppServerError(5000001, "访问数据库服务失败")
+var MongoDBError = NewAppServerError(5000001, "访问数据库服务失败")

@@ -1,6 +1,48 @@
+definitions:
+  controller.loginViewPostParams:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  controller.loginViewResponse:
+    properties:
+      expire_at:
+        type: integer
+      id:
+        type: string
+      token:
+        type: string
+    type: object
 info:
   contact: {}
 paths:
+  /api/accounts/login:
+    post:
+      consumes:
+      - application/json
+      description: 用户通过邮箱和密码登录系统
+      parameters:
+      - description: 登录信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controller.loginViewPostParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功后返回token信息
+          schema:
+            $ref: '#/definitions/controller.loginViewResponse'
+      summary: 用户登录
+      tags:
+      - Accounts
   /debug/jwt/test:
     get:
       consumes:
