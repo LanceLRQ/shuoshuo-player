@@ -13,3 +13,7 @@ var LoginAccountNotExistsOrPasswordWrong = NewAppRequestError(4010002, "用户�
 
 var InternalServerError = NewAppServerError(5000000, "内部服务器错误")
 var MongoDBError = NewAppServerError(5000001, "访问数据库服务失败")
+
+// 5010xxx: Account控制器错误相关
+
+var AccountNotExistsError = NewAppServerError(5010001, "账户不存在")

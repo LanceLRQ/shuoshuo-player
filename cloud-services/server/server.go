@@ -158,7 +158,8 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 	apiRouter := app.Group("/api")
 
 	// 注册路由
-	controller.BindAccountAPIRoutes(apiRouter.Group("/accounts"), LoginRequired(cfg))
+	controller.BindPublicAPIRoutes(apiRouter)
+	controller.BindAccountAPIRoutes(apiRouter.Group("/accounts", LoginRequired(cfg)))
 
 	err = app.Listen(cfg.Listen)
 
