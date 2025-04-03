@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/constants"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/models"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/utils"
 	"github.com/urfave/cli/v2"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
@@ -56,7 +58,7 @@ func CreateSuperAccount() *cli.Command {
 					return err
 				}
 			}
-			
+
 			fmt.Printf("\n\n=====创建账号=====\nEmail：%s\n密码：%s\n===========\n是否执行(y/N)", email, passwordShow)
 			cmd := ""
 			_, err = fmt.Scanf("%s", &cmd)
@@ -95,6 +97,18 @@ func CreateSuperAccount() *cli.Command {
 					return err
 				}
 
+				collection := mongoClient.Database(cfg.MongoDB.DBName).Collection("accounts")
+				var account models.Account
+				err = collection.FindOne(context.Background(), bson.M{"email": email}).Decode(&account)
+				if err != nil {
+					if !errors.Is(err, mongo.ErrNoDocuments) {
+						return err
+					}
+				} else {
+					fmt.Println("该邮箱已被注册")
+					return nil
+				}
+
 				passwordHashed, err := utils.CreatePasswordHash(password)
 				if err != nil {
 					return err
@@ -104,7 +118,7 @@ func CreateSuperAccount() *cli.Command {
 					Password: passwordHashed,
 					Role:     constants.AccountRoleWebMaster,
 				}
-				collection := mongoClient.Database(cfg.MongoDB.DBName).Collection("accounts")
+
 				_, err = collection.InsertOne(ctx, user)
 				if err != nil {
 					return err

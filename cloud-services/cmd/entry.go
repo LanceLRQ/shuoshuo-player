@@ -19,7 +19,7 @@ func CommandEntry(version string) {
 			&cli.Command{
 				Name:    "serve",
 				Usage:   "启动服务",
-				Aliases: []string{"s"},
+				Aliases: []string{"s", "server"},
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:        "config",
@@ -28,11 +28,20 @@ func CommandEntry(version string) {
 						Usage:       "配置文件路径",
 						DefaultText: configs.GetDefaultServerConfigPath(),
 					},
+					&cli.BoolFlag{
+						Name:  "debug",
+						Value: false,
+						Usage: "强制开启调试模式",
+					},
 				},
 				Action: func(c *cli.Context) error {
 					cfg, err := configs.ReadServerConfig(c.String("config"))
 					if err != nil {
 						return err
+					}
+					forceDebug := c.Bool("debug")
+					if forceDebug {
+						cfg.Debug = true
 					}
 					return server.StartHttpServer(cfg)
 				},

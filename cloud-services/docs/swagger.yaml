@@ -1,4 +1,37 @@
 definitions:
+  controller.accountAddPostParams:
+    properties:
+      email:
+        type: string
+      nick_name:
+        maxLength: 50
+        type: string
+      password:
+        type: string
+      role:
+        enum:
+        - 0
+        - 50
+        - 99
+        type: integer
+    required:
+    - email
+    - password
+    type: object
+  controller.accountModifyPostParams:
+    properties:
+      email:
+        type: string
+      nick_name:
+        maxLength: 50
+        type: string
+      role:
+        enum:
+        - 0
+        - 50
+        - 99
+        type: integer
+    type: object
   controller.loginViewPostParams:
     properties:
       email:
@@ -18,10 +51,120 @@ definitions:
       token:
         type: string
     type: object
+  models.Account:
+    properties:
+      email:
+        example: foo@bar.com
+        type: string
+      id:
+        example: 67edfaa28b6491ae6926f3e8
+        type: string
+      password:
+        example: foobar#1234
+        type: string
+      role:
+        example: 0
+        type: integer
+      user_name:
+        example: foobar
+        type: string
+    type: object
 info:
   contact: {}
 paths:
-  /api/accounts/login:
+  /api/accounts:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户信息
+        in: body
+        name: formData
+        required: true
+        schema:
+          $ref: '#/definitions/controller.accountAddPostParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回新账户信息
+          schema:
+            $ref: '#/definitions/models.Account'
+      summary: 新增用户
+      tags:
+      - Accounts
+  /api/accounts/{id}:
+    delete:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 被删除用户的ID
+          schema:
+            type: string
+      summary: 删除用户
+      tags:
+      - Accounts
+    get:
+      consumes:
+      - application/json
+      description: 获取用户的信息
+      parameters:
+      - description: 用户ID或者用户Email
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回账户信息
+          schema:
+            $ref: '#/definitions/models.Account'
+      summary: 获取用户信息
+      tags:
+      - Accounts
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户信息
+        in: body
+        name: formData
+        required: true
+        schema:
+          $ref: '#/definitions/controller.accountModifyPostParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回新账户信息
+          schema:
+            $ref: '#/definitions/models.Account'
+      summary: 修改用户信息
+      tags:
+      - Accounts
+  /api/accounts/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有用户的信息列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回所有账户信息列表
+          schema:
+            items:
+              $ref: '#/definitions/models.Account'
+            type: array
+      summary: 获取用户列表
+      tags:
+      - Accounts
+  /api/login:
     post:
       consumes:
       - application/json
@@ -29,7 +172,7 @@ paths:
       parameters:
       - description: 登录信息
         in: body
-        name: body
+        name: data
         required: true
         schema:
           $ref: '#/definitions/controller.loginViewPostParams'

@@ -15,7 +15,149 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/accounts/login": {
+        "/api/accounts": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "新增用户",
+                "parameters": [
+                    {
+                        "description": "用户信息",
+                        "name": "formData",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controller.accountAddPostParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回新账户信息",
+                        "schema": {
+                            "$ref": "#/definitions/models.Account"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/accounts/list": {
+            "get": {
+                "description": "获取所有用户的信息列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "获取用户列表",
+                "responses": {
+                    "200": {
+                        "description": "返回所有账户信息列表",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Account"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/accounts/{id}": {
+            "get": {
+                "description": "获取用户的信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "获取用户信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID或者用户Email",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回账户信息",
+                        "schema": {
+                            "$ref": "#/definitions/models.Account"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "修改用户信息",
+                "parameters": [
+                    {
+                        "description": "用户信息",
+                        "name": "formData",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controller.accountModifyPostParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回新账户信息",
+                        "schema": {
+                            "$ref": "#/definitions/models.Account"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "删除用户",
+                "responses": {
+                    "200": {
+                        "description": "被删除用户的ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/login": {
             "post": {
                 "description": "用户通过邮箱和密码登录系统",
                 "consumes": [
@@ -31,7 +173,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "description": "登录信息",
-                        "name": "body",
+                        "name": "data",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -75,6 +217,53 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controller.accountAddPostParams": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "nick_name": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        50,
+                        99
+                    ]
+                }
+            }
+        },
+        "controller.accountModifyPostParams": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "nick_name": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "role": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        50,
+                        99
+                    ]
+                }
+            }
+        },
         "controller.loginViewPostParams": {
             "type": "object",
             "required": [
@@ -101,6 +290,31 @@ const docTemplate = `{
                 },
                 "token": {
                     "type": "string"
+                }
+            }
+        },
+        "models.Account": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "foo@bar.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "67edfaa28b6491ae6926f3e8"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "foobar#1234"
+                },
+                "role": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "user_name": {
+                    "type": "string",
+                    "example": "foobar"
                 }
             }
         }

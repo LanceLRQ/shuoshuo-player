@@ -8,7 +8,6 @@ import (
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/exceptions"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/models"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/utils"
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -40,18 +39,13 @@ func LoginView(c *fiber.Ctx) error {
 	var account models.Account
 
 	formData := loginViewPostParams{}
-	if err := c.BodyParser(&formData); err != nil {
-		return fmt.Errorf("%w: %s", exceptions.ParseJSONError, err)
-	}
-	valid := c.Locals("validator").(*validator.Validate)
-	err := valid.Struct(&formData)
-	if err != nil {
-		return exceptions.ParamsValidatorError.WithValidatorError(c, err)
+	if err := utilsParseRequestData(c, &formData); err != nil {
+		return err
 	}
 
 	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
 	accountsCollection := mongoCli.Collection("accounts")
-	err = accountsCollection.FindOne(context.Background(), bson.M{
+	err := accountsCollection.FindOne(context.Background(), bson.M{
 		"email": formData.Email,
 	}).Decode(&account)
 	if err != nil {

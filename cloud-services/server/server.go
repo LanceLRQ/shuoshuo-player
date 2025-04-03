@@ -18,6 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 	"runtime/debug"
+	"strings"
 	"time"
 )
 
@@ -142,14 +143,24 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 		return c.SendString("Shuoshuo Player Cloud Services.")
 	})
 
-	// 注册swagger页面
-	app.Use(swagger.New(swagger.Config{ // custom
-		BasePath: "/dev",
-		FilePath: "./docs/swagger.json",
-		Path:     "docs",
-	}))
-
 	if cfg.Debug {
+		// Swagger禁用缓存中间件
+		app.Use(func(c *fiber.Ctx) error {
+			if strings.HasPrefix(c.Path(), "/dev/docs") {
+				c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				c.Set("Pragma", "no-cache")
+				c.Set("Expires", "0")
+			}
+			return c.Next()
+		})
+
+		// 注册swagger页面
+		app.Use(swagger.New(swagger.Config{ // custom
+			BasePath: "/dev",
+			FilePath: "./docs/swagger.json",
+			Path:     "docs",
+		}))
+
 		// 注册debug页面
 		bindDebuggerRoutes(app, cfg)
 	}
@@ -160,6 +171,11 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 	// 注册路由
 	controller.BindPublicAPIRoutes(apiRouter)
 	controller.BindAccountAPIRoutes(apiRouter.Group("/accounts", LoginRequired(cfg)))
+
+	if cfg.Debug {
+		fmt.Println("[DEBUG] 调试模式已开启")
+		fmt.Printf("[DEBUG] Swagger文档访问：http://%s/dev/docs \n", strings.Replace(cfg.Listen, "0.0.0.0", "localhost", -1))
+	}
 
 	err = app.Listen(cfg.Listen)
 

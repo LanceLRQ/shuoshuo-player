@@ -17,3 +17,4 @@ var MongoDBError = NewAppServerError(5000001, "访问数据库服务失败")
 // 5010xxx: Account控制器错误相关
 
 var AccountNotExistsError = NewAppServerError(5010001, "账户不存在")
+var AccountEmailExistsError = NewAppServerError(5010002, "该邮箱已被注册")
