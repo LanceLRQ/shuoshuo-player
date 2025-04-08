@@ -35,7 +35,8 @@ func GetLyricByBvid(c *fiber.Ctx) error {
 		return exceptions.MongoDBError
 	}
 
-	return models.NewJSONResponse(c, lyric)
+	// 返回歌词内容，不返回 id 字段
+	return models.NewJSONResponseExcludeFields(c, lyric, []string{"id"})
 }
 
 // GetLyricList 管理：获取数据库中所有的歌词列表
