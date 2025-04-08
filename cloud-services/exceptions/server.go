@@ -21,3 +21,7 @@ var MongoDBError = NewAppServerError(5000001, "访问数据库服务失败")
 
 var AccountNotExistsError = NewAppServerError(5010001, "账户不存在")
 var AccountEmailExistsError = NewAppServerError(5010002, "该邮箱已被注册")
+
+var LyricNotExistsError = NewAppServerError(5020001, "歌词信息不存在")
+var InvalidBVIDError = NewAppServerError(5020002, "BVID格式无效")
+var LyricContentEmptyError = NewAppServerError(5020003, "歌词内容不能为空")

@@ -240,3 +240,18 @@ func FilterMapFields(data fiber.Map, options FilterMapFieldsOptions) fiber.Map {
 
 	return result
 }
+
+// IsValidBVID 检查是否为合法的B站BVID格式
+func IsValidBVID(bvid string) bool {
+	// 1. 基本长度检查
+	if len(bvid) != 12 {
+		return false
+	}
+
+	// 2. 前缀必须为 "BV1"（不区分大小写）
+	if !strings.HasPrefix(strings.ToUpper(bvid), "BV1") {
+		return false
+	}
+
+	return true
+}

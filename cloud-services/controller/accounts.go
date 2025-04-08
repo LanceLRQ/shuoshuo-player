@@ -30,18 +30,11 @@ type accountModifyPostParams struct {
 
 func getAccountByIdOrEmail(collect *mongo.Collection, id string) (*models.Account, error) {
 	var account models.Account
-	var filter bson.M
+	filter := bson.M{"email": id}
 	if id != "" {
 		objId, err := bson.ObjectIDFromHex(id)
 		if err == nil {
 			filter = bson.M{"_id": objId}
-		} else {
-			filter = bson.M{
-				"$or": []bson.M{
-					{"email": id},
-					{"_id": objId},
-				},
-			}
 		}
 	} else {
 		return nil, exceptions.AccountNotExistsError

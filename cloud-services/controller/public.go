@@ -79,4 +79,5 @@ func LoginView(c *fiber.Ctx) error {
 
 func BindPublicAPIRoutes(apiRoot fiber.Router) {
 	apiRoot.Post("/login", LoginView)
+	apiRoot.Get("/lyric/:bvid", GetLyricByBvid)
 }
