@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// utilsParseRequestData 解析请求数据并进行验证
 func utilsParseRequestData(c *fiber.Ctx, formData interface{}) error {
 	if err := c.BodyParser(formData); err != nil {
 		return fmt.Errorf("%w: %s", exceptions.ParseJSONError, err)

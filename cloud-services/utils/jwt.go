@@ -14,7 +14,7 @@ func NewJWTToken(accountId string, jwtSecret string, jwtExpire time.Duration) (s
 	claims := factory.Claims.(jwt.MapClaims)
 	claims["account_id"] = accountId
 	claims["exp"] = expireAt
-	claims["iss"] = "sso@example.com"
+	claims["iss"] = "sso@shuoshuo.sikong.ren"
 	claims["nbf"] = time.Now().Unix()
 	claims["iat"] = claims["nbf"]
 	claims["sub"] = "login"

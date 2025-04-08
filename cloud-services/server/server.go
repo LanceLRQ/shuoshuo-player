@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/controller"
+	"github.com/LanceLRQ/shuoshuo-player/cloud-services/middlewares"
 	"github.com/go-playground/locales/zh"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -44,7 +45,7 @@ var MongoDBConnectRetryMax int = 5
 // StartHttpServer 启动服务器
 func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 	app := fiber.New(fiber.Config{
-		ErrorHandler: AppErrorHandler,
+		ErrorHandler: middlewares.AppErrorHandler,
 	})
 
 	// 连接 MongoDB
@@ -162,7 +163,7 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 		}))
 
 		// 注册debug页面
-		bindDebuggerRoutes(app, cfg)
+		controller.BindDebuggerRoutes(app, cfg)
 	}
 
 	// 注册需要认证的接口
@@ -170,7 +171,7 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 
 	// 注册路由
 	controller.BindPublicAPIRoutes(apiRouter)
-	controller.BindAccountAPIRoutes(apiRouter.Group("/accounts", LoginRequired(cfg)))
+	controller.BindAccountAPIRoutes(apiRouter.Group("/accounts", middlewares.LoginRequired(cfg), middlewares.WithLoginAccount))
 
 	if cfg.Debug {
 		fmt.Println("[DEBUG] 调试模式已开启")

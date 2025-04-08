@@ -1,9 +1,10 @@
-package server
+package controller
 
 import (
 	"fmt"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/exceptions"
+	"github.com/LanceLRQ/shuoshuo-player/cloud-services/middlewares"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/utils"
 	"github.com/gofiber/fiber/v2"
 	"strings"
@@ -49,11 +50,11 @@ func ValidJWTTestToken(c *fiber.Ctx) error {
 	})
 }
 
-func bindDebuggerRoutes(app *fiber.App, cfg *configs.ServerConfigStruct) {
+func BindDebuggerRoutes(app *fiber.App, cfg *configs.ServerConfigStruct) {
 	dGroup := app.Group("/debug")
 	dGroup.Get("/jwt/get", GetJWTTestToken)
 	dGroup.Get("/jwt/valid", ValidJWTTestToken)
-	dGroup.Get("/jwt/test", LoginRequired(cfg), func(c *fiber.Ctx) error {
+	dGroup.Get("/jwt/test", middlewares.LoginRequired(cfg), func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"message": "ok",
 		})
