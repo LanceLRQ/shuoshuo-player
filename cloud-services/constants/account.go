@@ -2,6 +2,6 @@ package constants
 
 const (
 	AccountRoleUser      = 0
-	AccountRoleAdmin     = 50
-	AccountRoleWebMaster = 99
+	AccountRoleAdmin     = 1 << 9
+	AccountRoleWebMaster = 1 << 10
 )

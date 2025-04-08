@@ -238,8 +238,8 @@ const docTemplate = `{
                     "type": "integer",
                     "enum": [
                         0,
-                        50,
-                        99
+                        512,
+                        1024
                     ]
                 }
             }
@@ -258,8 +258,8 @@ const docTemplate = `{
                     "type": "integer",
                     "enum": [
                         0,
-                        50,
-                        99
+                        512,
+                        1024
                     ]
                 }
             }

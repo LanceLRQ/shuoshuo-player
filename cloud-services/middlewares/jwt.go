@@ -42,25 +42,13 @@ func WithLoginAccount(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(jwtTokenInvalidErrMsg)
 	}
 
-	session := LoginSession{
+	var session *LoginSession
+	session = &LoginSession{
 		AccountId:  accountId,
 		JwtPayload: claims,
 	}
 
 	c.Locals("session", session)
-
-	// 从数据库检索账号信息
-	//account := models.Account{}
-	//result := DB.First(&account, accountId)
-	//if result.Error != nil {
-	//	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-	//		return c.Status(fiber.StatusUnauthorized).JSON(jwtTokenInvalidErrMsg)
-	//	}
-	//	return fmt.Errorf("%w: %s", MySQLError, result.Error)
-	//}
-	// 写入account信息
-	//c.Locals("account", account)
-
 	return c.Next()
 }
 
@@ -69,7 +57,7 @@ func (s *LoginSession) GetAccount(c *fiber.Ctx) error {
 	if s.Account != nil {
 		return nil
 	}
-	
+
 	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
 	accountsCollection := mongoCli.Collection("accounts")
 
@@ -77,13 +65,13 @@ func (s *LoginSession) GetAccount(c *fiber.Ctx) error {
 
 	objId, err := bson.ObjectIDFromHex(s.AccountId)
 	if err != nil {
-		return exceptions.AccountNotExistsError
+		return exceptions.LoginTokenExpiredError
 	}
 
 	err = accountsCollection.FindOne(context.Background(), bson.M{"_id": objId}).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return exceptions.AccountNotExistsError
+			return exceptions.LoginTokenExpiredError
 		} else {
 			log.Error(err)
 			return exceptions.MongoDBError
@@ -91,4 +79,13 @@ func (s *LoginSession) GetAccount(c *fiber.Ctx) error {
 	}
 	s.Account = &account
 	return nil
+}
+
+func (s *LoginSession) CheckPermission(roleRequired int) bool {
+	if s.Account == nil || s.Account.Role == 0 {
+		return false
+	}
+
+	// 使用位与运算检查用户角色是否在权限组合中
+	return (s.Account.Role & roleRequired) != 0
 }

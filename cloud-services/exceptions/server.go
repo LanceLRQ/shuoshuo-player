@@ -8,8 +8,11 @@ var ParseJSONError = NewAppRequestError(4000000, "JSON数据解析错误")
 var ParamsValidatorError = NewAppRequestError(4000001, "参数内容校验失败")
 var ParseIdError = NewAppRequestError(4000002, "ID解析错误")
 
+var LoginTokenExpiredError = NewAppRequestError(4010000, "登录信息失效，请重新登录")
 var LoginEmptyTokenError = NewAppRequestError(4010001, "登录令牌内容为空")
 var LoginAccountNotExistsOrPasswordWrong = NewAppRequestError(4010002, "用户名或密码错误")
+var LoginAccountPermissionDeniedError = NewAppRequestError(4010002, "当前登录用户角色无权限访问")
+var LoginAccountCannotDeleteSelfError = NewAppRequestError(4010003, "不能删除自己")
 
 var InternalServerError = NewAppServerError(5000000, "内部服务器错误")
 var MongoDBError = NewAppServerError(5000001, "访问数据库服务失败")

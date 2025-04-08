@@ -3,26 +3,29 @@ package controller
 import (
 	"context"
 	"errors"
+	"github.com/LanceLRQ/shuoshuo-player/cloud-services/constants"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/exceptions"
+	"github.com/LanceLRQ/shuoshuo-player/cloud-services/middlewares"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/models"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/utils"
 	"github.com/gofiber/fiber/v2"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type accountAddPostParams struct {
 	Email    string `json:"email" validate:"email,required"`
 	NickName string `json:"nick_name" validate:"max=50"`
 	Password string `json:"password" validate:"required"`
-	Role     int    `json:"role" validate:"oneof=0 50 99"`
+	Role     int    `json:"role" validate:"oneof=0 512 1024"`
 }
 
 type accountModifyPostParams struct {
 	Email    string `json:"email" validate:"omitempty,email"`
 	NickName string `json:"nick_name" validate:"max=50"`
-	Role     int    `json:"role" validate:"oneof=0 50 99"`
+	Role     int    `json:"role" validate:"oneof=0 512 1024"`
 }
 
 func getAccountByIdOrEmail(collect *mongo.Collection, id string) (*models.Account, error) {
@@ -44,7 +47,8 @@ func getAccountByIdOrEmail(collect *mongo.Collection, id string) (*models.Accoun
 		return nil, exceptions.AccountNotExistsError
 	}
 
-	err := collect.FindOne(context.Background(), filter).Decode(&account)
+	opt := options.FindOne().SetProjection(bson.M{"password": 0})
+	err := collect.FindOne(context.Background(), filter, opt).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, exceptions.AccountNotExistsError
@@ -65,11 +69,17 @@ func getAccountByIdOrEmail(collect *mongo.Collection, id string) (*models.Accoun
 // @Success 200 {object} []models.Account "返回所有账户信息列表"
 // @Router       /api/accounts/list [get]
 func AccountListView(c *fiber.Ctx) error {
+	//权限检查
+	if err := utilCheckPermissionOfSession(c, constants.AccountRoleWebMaster|constants.AccountRoleAdmin); err != nil {
+		return err
+	}
+
 	var accounts []models.Account
 
 	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
 	accountsCollection := mongoCli.Collection("accounts")
-	cursor, err := accountsCollection.Find(context.Background(), bson.M{})
+	opt := options.Find().SetProjection(bson.M{"password": 0})
+	cursor, err := accountsCollection.Find(context.Background(), bson.M{}, opt)
 	if err != nil {
 		log.Error(err)
 		return exceptions.MongoDBError
@@ -94,6 +104,10 @@ func AccountListView(c *fiber.Ctx) error {
 // @Success 200 {object} models.Account "返回账户信息"
 // @Router       /api/accounts/{id} [get]
 func AccountGetView(c *fiber.Ctx) error {
+	//权限检查
+	if err := utilCheckPermissionOfSession(c, constants.AccountRoleWebMaster|constants.AccountRoleAdmin); err != nil {
+		return err
+	}
 
 	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
 	accountsCollection := mongoCli.Collection("accounts")
@@ -116,6 +130,11 @@ func AccountGetView(c *fiber.Ctx) error {
 // @Success 200 {object} models.Account "返回新账户信息"
 // @Router       /api/accounts [post]
 func AccountAddView(c *fiber.Ctx) error {
+	//权限检查
+	if err := utilCheckPermissionOfSession(c, constants.AccountRoleWebMaster|constants.AccountRoleAdmin); err != nil {
+		return err
+	}
+
 	formData := accountAddPostParams{}
 	if err := utilsParseRequestData(c, &formData); err != nil {
 		return err
@@ -161,6 +180,11 @@ func AccountAddView(c *fiber.Ctx) error {
 // @Success 200 {object} models.Account "返回新账户信息"
 // @Router       /api/accounts/{id} [put]
 func AccountEditView(c *fiber.Ctx) error {
+	//权限检查
+	if err := utilCheckPermissionOfSession(c, constants.AccountRoleWebMaster|constants.AccountRoleAdmin); err != nil {
+		return err
+	}
+
 	id := c.Params("id")
 
 	formData := accountModifyPostParams{}
@@ -174,6 +198,12 @@ func AccountEditView(c *fiber.Ctx) error {
 	account, err := getAccountByIdOrEmail(accountsCollection, id)
 	if err != nil {
 		return err
+	}
+
+	session := c.Locals("session").(*middlewares.LoginSession)
+	// 不能管理比自己高级别的用户
+	if session.Account.Role < account.Role {
+		return exceptions.LoginAccountPermissionDeniedError
 	}
 
 	// 检查需要更新的字段
@@ -207,6 +237,11 @@ func AccountEditView(c *fiber.Ctx) error {
 // @Success 200 {object} string "被删除用户的ID"
 // @Router       /api/accounts/{id} [delete]
 func AccountDeleteView(c *fiber.Ctx) error {
+	//权限检查
+	if err := utilCheckPermissionOfSession(c, constants.AccountRoleWebMaster|constants.AccountRoleAdmin); err != nil {
+		return err
+	}
+
 	id := c.Params("id")
 
 	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
@@ -215,6 +250,16 @@ func AccountDeleteView(c *fiber.Ctx) error {
 	account, err := getAccountByIdOrEmail(accountsCollection, id)
 	if err != nil {
 		return err
+	}
+
+	session := c.Locals("session").(*middlewares.LoginSession)
+	// 禁止自删除
+	if session.Account.ID.Hex() == account.ID.Hex() {
+		return exceptions.LoginAccountCannotDeleteSelfError
+	}
+	// 不能管理比自己高级别的用户
+	if session.Account.Role < account.Role {
+		return exceptions.LoginAccountPermissionDeniedError
 	}
 
 	_, err = accountsCollection.DeleteOne(context.Background(), bson.M{"_id": account.ID})

@@ -11,8 +11,8 @@ definitions:
       role:
         enum:
         - 0
-        - 50
-        - 99
+        - 512
+        - 1024
         type: integer
     required:
     - email
@@ -28,8 +28,8 @@ definitions:
       role:
         enum:
         - 0
-        - 50
-        - 99
+        - 512
+        - 1024
         type: integer
     type: object
   controller.loginViewPostParams:
