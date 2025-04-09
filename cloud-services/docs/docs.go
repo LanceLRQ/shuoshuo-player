@@ -74,6 +74,39 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/accounts/password": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "更新当前用户的密码",
+                "parameters": [
+                    {
+                        "description": "用户信息",
+                        "name": "formData",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controller.accountUpdatePasswordParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "当前用户的ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/accounts/{id}": {
             "get": {
                 "description": "获取用户的信息",
@@ -191,6 +224,165 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/lyric/manage/list": {
+            "get": {
+                "description": "获取数据库中所有的歌词列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lyric"
+                ],
+                "summary": "【管理】歌词列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回歌词列表",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Lyric"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/lyric/manage/{id}": {
+            "post": {
+                "description": "新增或更新歌词内容",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lyric"
+                ],
+                "summary": "【管理】新增/更新歌词内容",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "支持bvid或ObjectId",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "歌词信息",
+                        "name": "formData",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controller.updateLyricParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回歌词信息",
+                        "schema": {
+                            "$ref": "#/definitions/models.Lyric"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除歌词信息，但不会真正删除，下一次更新歌词的时候会重新恢复。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lyric"
+                ],
+                "summary": "【管理】删除歌词信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "支持bvid或ObjectId",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回操作成功的ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/lyric/manage/{id}/snap": {
+            "get": {
+                "description": "获取当前歌词的历史版本列表，只返回最新的10条。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lyric"
+                ],
+                "summary": "【管理】歌词历史版本列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "支持bvid或ObjectId",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回歌词历史版本列表",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LyricSnapshots"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/lyric/{bvid}": {
+            "get": {
+                "description": "获取歌词信息，公共方法无需鉴权",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lyric"
+                ],
+                "summary": "【公共】获取歌词信息",
+                "responses": {
+                    "200": {
+                        "description": "返回歌词列表",
+                        "schema": {
+                            "$ref": "#/definitions/models.Lyric"
+                        }
+                    }
+                }
+            }
+        },
         "/debug/jwt/test": {
             "get": {
                 "description": "获取随机的JWT Token",
@@ -254,6 +446,9 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 50
                 },
+                "password": {
+                    "type": "string"
+                },
                 "role": {
                     "type": "integer",
                     "enum": [
@@ -261,6 +456,23 @@ const docTemplate = `{
                         512,
                         1024
                     ]
+                }
+            }
+        },
+        "controller.accountUpdatePasswordParams": {
+            "type": "object",
+            "required": [
+                "old_password",
+                "password"
+            ],
+            "properties": {
+                "old_password": {
+                    "type": "string",
+                    "example": "旧密码"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "新密码"
                 }
             }
         },
@@ -293,6 +505,23 @@ const docTemplate = `{
                 }
             }
         },
+        "controller.updateLyricParams": {
+            "type": "object",
+            "required": [
+                "content",
+                "title"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "example": "歌词内容，必填"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "视频标题，必填"
+                }
+            }
+        },
         "models.Account": {
             "type": "object",
             "properties": {
@@ -304,10 +533,6 @@ const docTemplate = `{
                     "type": "string",
                     "example": "67edfaa28b6491ae6926f3e8"
                 },
-                "password": {
-                    "type": "string",
-                    "example": "foobar#1234"
-                },
                 "role": {
                     "type": "integer",
                     "example": 0
@@ -315,6 +540,65 @@ const docTemplate = `{
                 "user_name": {
                     "type": "string",
                     "example": "foobar"
+                }
+            }
+        },
+        "models.Lyric": {
+            "type": "object",
+            "properties": {
+                "bvid": {
+                    "type": "string",
+                    "example": "BV1g6FTefEsc"
+                },
+                "content": {
+                    "type": "string",
+                    "example": "歌词内容"
+                },
+                "create_time": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "67edfaa28b6491ae6926f3e9"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "歌词标题"
+                },
+                "update_time": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.LyricSnapshots": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "$ref": "#/definitions/models.Account"
+                },
+                "author_id": {
+                    "type": "string",
+                    "example": "67edfaa28b6491ae6926f3e8"
+                },
+                "content": {
+                    "type": "string",
+                    "example": "歌词内容"
+                },
+                "create_time": {
+                    "type": "integer",
+                    "example": 123456789
+                },
+                "id": {
+                    "type": "string",
+                    "example": "67edfaa28b6491ae6926f3e9"
+                },
+                "lyric_id": {
+                    "type": "string",
+                    "example": "67edfaa28b6491ae6926f3e7"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "歌词标题"
                 }
             }
         }

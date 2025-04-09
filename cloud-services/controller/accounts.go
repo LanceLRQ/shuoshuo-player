@@ -25,7 +25,13 @@ type accountAddPostParams struct {
 type accountModifyPostParams struct {
 	Email    string `json:"email" validate:"omitempty,email"`
 	NickName string `json:"nick_name" validate:"max=50"`
+	Password string `json:"password"`
 	Role     int    `json:"role" validate:"oneof=0 512 1024"`
+}
+
+type accountUpdatePasswordParams struct {
+	OldPassword string `json:"old_password" validate:"required" example:"旧密码"`
+	Password    string `json:"password" validate:"required" example:"新密码"`
 }
 
 func getAccountByIdOrEmail(collect *mongo.Collection, id string) (*models.Account, error) {
@@ -67,7 +73,7 @@ func AccountListView(c *fiber.Ctx) error {
 		return err
 	}
 
-	var accounts []models.Account
+	accounts := make([]models.Account, 0)
 
 	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
 	accountsCollection := mongoCli.Collection("accounts")
@@ -194,8 +200,8 @@ func AccountEditView(c *fiber.Ctx) error {
 	}
 
 	session := c.Locals("session").(*middlewares.LoginSession)
-	// 不能管理比自己高级别的用户
-	if session.Account.Role < account.Role {
+	// 不能管理同级别或者更高级别的其他用户
+	if session.Account.ID != account.ID && session.Account.Role <= account.Role {
 		return exceptions.LoginAccountPermissionDeniedError
 	}
 
@@ -209,6 +215,14 @@ func AccountEditView(c *fiber.Ctx) error {
 	err = utils.ShallowMergeStructFields(formData, account, updatedFields)
 	if err != nil {
 		return err
+	}
+
+	if formData.Password != "" {
+		hashedPassword, err := utils.CreatePasswordHash(formData.Password)
+		if err != nil {
+			return exceptions.InternalServerError
+		}
+		account.Password = hashedPassword
 	}
 
 	// 更新数据库中的账户信息
@@ -260,11 +274,54 @@ func AccountDeleteView(c *fiber.Ctx) error {
 		return exceptions.MongoDBError
 	}
 
-	return models.NewJSONResponse(c, account.ID)
+	return models.NewJSONResponse(c, account.ID.Hex())
+}
+
+// AccountUpdatePasswordView 更新当前用户的密码
+// @Summary 更新当前用户的密码
+// @Tags Accounts
+// @Accept json
+// @Produce json
+// @Param formData body accountUpdatePasswordParams true "用户信息"
+// @Success 200 {object} string "当前用户的ID"
+// @Router       /api/accounts/password [post]
+func AccountUpdatePasswordView(c *fiber.Ctx) error {
+	formData := accountUpdatePasswordParams{}
+	if err := utilsParseRequestData(c, &formData); err != nil {
+		return err
+	}
+
+	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
+	accountsCollection := mongoCli.Collection("accounts")
+
+	session := c.Locals("session").(*middlewares.LoginSession)
+	if err := session.GetAccount(c); err != nil {
+		return err
+	}
+	account := session.Account
+
+	if !utils.CheckPasswordHash(account.Password, formData.OldPassword) {
+		return exceptions.LoginAccountNotExistsOrPasswordWrong
+	}
+
+	np, err := utils.CreatePasswordHash(formData.Password)
+	if err != nil {
+		return exceptions.InternalServerError
+	}
+
+	account.Password = np
+
+	_, err = accountsCollection.ReplaceOne(context.Background(), bson.M{"_id": account.ID}, &account)
+	if err != nil {
+		return exceptions.MongoDBError
+	}
+
+	return models.NewJSONResponse(c, account.ID.Hex())
 }
 
 func BindAccountAPIRoutes(root fiber.Router) {
 	root.Get("/list", AccountListView)
+	root.Post("/password", AccountUpdatePasswordView)
 	root.Post("/", AccountAddView)
 	root.Get("/:id", AccountGetView)
 	root.Put("/:id", AccountEditView)
