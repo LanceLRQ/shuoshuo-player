@@ -1,5 +1,5 @@
-import React, {useMemo} from 'react';
-import { Typography, Box, Toolbar, IconButton } from '@mui/material';
+import React, {useState, useCallback, useMemo} from 'react';
+import { Typography, Box, Toolbar, IconButton, Popover } from '@mui/material';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import SearchIcon from '@mui/icons-material/Search';
 import { Lrc as ReactLRC } from "react-lrc";
@@ -9,11 +9,25 @@ import isElectron from "is-electron";
 import {useDispatch, useSelector} from "react-redux";
 import {LyricSlice} from "@/store/lyric";
 import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from '@mui/icons-material/Remove';
 
 function LyricViewer(props) {
     const { height, onToggleLyricView, duration, currentMusic } = props;
     const inElectron = isElectron();
     const dispatch = useDispatch();
+
+    const [offsetPopoverEl, setOffsetPopoverEl] = useState(null)
+    const handleOffsetPopoverOpen = (event) => {
+
+        setOffsetPopoverEl(event.currentTarget);
+    };
+    const handleOffsetPopoverClose = () => {
+        setOffsetPopoverEl(null);
+    };
+    const openOffsetPopover = Boolean(offsetPopoverEl);
+    console.log( openOffsetPopover);
+
     const LrcInfos = useSelector(LyricSlice.selectors.lyricMaps)
     const LrcInfo = useMemo(() => {
         if (!currentMusic) return {};
@@ -33,9 +47,18 @@ function LyricViewer(props) {
             bvid: currentMusic.bvid,
             lrc: '',
             offset: 0,
-            source: 'QQ音乐',
+            source: '',
         }));
     }
+
+    const handleChangeDuration = useCallback((offset) => {
+        dispatch(LyricSlice.actions.updateLyric({
+            ...LrcInfo,
+            offset: LrcInfo.offset + offset,
+        }));
+    }, [dispatch, LrcInfo])
+
+    const durationWithOffset = (duration + LrcInfo.offset) * 1000;
 
     return <div className="player-lyric-main" style={{height: height}}>
         <div className="player-lyric-background-mask">
@@ -57,6 +80,34 @@ function LyricViewer(props) {
                             </IconButton>
                         }}
                     </LRCSearchDialog>}
+                    <Box
+                        onMouseEnter={handleOffsetPopoverOpen}
+                        onMouseLeave={handleOffsetPopoverClose}
+                    >
+                        <IconButton onClick={() => handleChangeDuration(-0.5)}>
+                            <RemoveIcon></RemoveIcon>
+                        </IconButton>
+                        <IconButton onClick={() => handleChangeDuration(0.5)}>
+                            <AddIcon></AddIcon>
+                        </IconButton>
+                    </Box>
+                    <Popover
+                        sx={{pointerEvents: 'none'}}
+                        open={openOffsetPopover}
+                        anchorEl={offsetPopoverEl}
+                        anchorOrigin={{
+                            vertical: 'bottom',
+                            horizontal: 'center',
+                        }}
+                        transformOrigin={{
+                            vertical: 'top',
+                            horizontal: 'center',
+                        }}
+                        onClose={handleOffsetPopoverClose}
+                        disableRestoreFocus
+                    >
+                        <Typography sx={{ p: 1 }}>当前偏移量：{LrcInfo?.offset ?? '0'}s</Typography>
+                    </Popover>
                     {isDebugging && <IconButton onClick={handleDebugClearLRC}>
                         <DeleteIcon></DeleteIcon>
                     </IconButton>}
@@ -66,7 +117,7 @@ function LyricViewer(props) {
         <Box className="player-lyric-content">
             <ReactLRC
                 lrc={LrcInfo?.lrc || '[00:00]暂无歌词，请欣赏'}
-                currentMillisecond={duration * 1000}
+                currentMillisecond={durationWithOffset}
                 verticalSpace={true}
                 lineRenderer={({ active, line: { content } }) => (
                     active ? <span className="lrc-line lrc-line-active">{content}</span> : <span className="lrc-line">{content}</span>

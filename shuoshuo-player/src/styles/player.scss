@@ -458,8 +458,12 @@ body, html, #root {
     }
 }
 
-.player-lyric-drawer {
+.MuiPopover-root {
     z-index: 10000 !important;
+}
+
+.player-lyric-drawer {
+    z-index: 5000 !important;
     overflow: hidden;
     .MuiBackdrop-root, .MuiPaper-root {
         overflow: hidden;
