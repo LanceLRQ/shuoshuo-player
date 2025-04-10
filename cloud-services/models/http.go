@@ -9,8 +9,8 @@ import (
 
 func NewJSONResponse(c *fiber.Ctx, data interface{}) error {
 	return c.JSON(fiber.Map{
-		"code":    0,
-		"payload": data,
+		"code": 0,
+		"data": data,
 	})
 }
 
@@ -22,8 +22,8 @@ func NewJSONResponseExcludeFields(c *fiber.Ctx, data interface{}, excludeFields 
 	filteredData := filterFields(data, excludeFields)
 
 	return c.JSON(fiber.Map{
-		"code":    0,
-		"payload": filteredData,
+		"code": 0,
+		"data": filteredData,
 	})
 }
 

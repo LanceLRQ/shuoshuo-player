@@ -27,6 +27,8 @@ import PlayingList from "@player/splayer/playing_list";
 import LyricsIcon from '@mui/icons-material/Lyrics';
 import { blue } from '@mui/material/colors';
 import LyricViewer from "@player/splayer/lyric";
+import API from "@/api";
+import {LyricSlice} from "@/store/lyric";
 
 function SPlayer() {
     const theme = useTheme();
@@ -50,6 +52,21 @@ function SPlayer() {
     const playerLoopMode = useMemo(() => {
         return playerSetting.loopMode;
     }, [playerSetting])
+    const audioLists = useMemo(() => {
+        return playingList.map((vItem) => ({
+            key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
+            bvid: vItem.bvid,
+            name: vItem.title,
+            desc: String(vItem.description || '').replace(/<[^>]+>/g, ''),
+            singer: vItem.author,
+            cover: vItem.pic,
+            musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid),
+            payload: vItem,
+        }))
+    }, [biliUser, playingList]);
+    const currentMusic = useMemo(() => {
+        return audioLists[playingInfo.index]
+    }, [audioLists, playingInfo.index]);
     // == 弹层相关
     const [volumeEl, setVolumeEl] = useState(null);
     const handleVolumePopoverOpen = (event) => {
@@ -73,25 +90,17 @@ function SPlayer() {
             window.removeEventListener('resize', handleResize);
         };
     });
-    // ==
+    // == 歌词服务 ==
+    const LrcInfos = useSelector(LyricSlice.selectors.lyricMaps)
+    const LrcInfo = useMemo(() => {
+        if (!currentMusic) return {};
+        return LrcInfos[currentMusic.bvid]?? {};
+    }, [currentMusic, LrcInfos]);
 
-    const audioLists = useMemo(() => {
-        return playingList.map((vItem) => ({
-            key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
-            bvid: vItem.bvid,
-            name: vItem.title,
-            desc: String(vItem.description || '').replace(/<[^>]+>/g, ''),
-            singer: vItem.author,
-            cover: vItem.pic,
-            musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid),
-            payload: vItem,
-        }))
-    }, [biliUser, playingList]);
+    // ==================
 
-    const currentMusic = useMemo(() => {
-        return audioLists[playingInfo.index]
-    }, [audioLists, playingInfo.index]);
 
+    // == 播放进度控制 ==
     const updateProcess = useRef(() => {
         if (howlInstance.current) {
             setHowlProcess(howlInstance.current.seek())
@@ -200,7 +209,7 @@ function SPlayer() {
 
     useEffect(() => {
         if (playNext) {
-            console.log(currentMusic, 'currentMusic')
+            console.debug(currentMusic, 'currentMusic')
             if (!currentMusic && howlPlaying) {
                 // 如果当前播放的音乐被移除，则停止播放
                 howlInstance.current.stop();
@@ -216,6 +225,28 @@ function SPlayer() {
         dispatch, initHowl, howlPlaying, playNext, howlInstance,
         currentMusic, setHowlPausing ,setHowlPlaying
     ])
+
+    // 自动从云服务拉取歌词信息
+    useEffect( () => {
+        if (!currentMusic) return;
+        if (LrcInfo && LrcInfo.lrc) return;
+        API.CloudService.Lyric.getLyricByBvid(currentMusic.bvid)({}).then(resp => {
+            const lrcContent = resp?.content;
+            dispatch(LyricSlice.actions.updateLyric({
+                bvid: currentMusic.bvid,
+                lrc: lrcContent,
+                offset: 0,
+                source: '说说播放器云服务',
+            }));
+        }).catch((resp) => {
+            console.warn(resp.message);
+            // dispatch(PlayerNoticesSlice.actions.sendNotice({
+            //     type: NoticeTypes.ERROR,
+            //     message: `获取视频(${currentMusic.bvid})歌词信息失败`,
+            //     duration: 3000,
+            // }));
+        });
+    }, [LrcInfo, currentMusic, dispatch])
 
     const handlePlayClick = useCallback(() => {
         if (isMusicLoading || !currentMusic) return;

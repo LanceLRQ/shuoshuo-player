@@ -6,22 +6,36 @@ import { Lrc as ReactLRC } from "react-lrc";
 import PropTypes from "prop-types";
 import LRCSearchDialog from "@player/dialogs/lrc_search";
 import isElectron from "is-electron";
-import {useSelector} from "react-redux";
+import {useDispatch, useSelector} from "react-redux";
 import {LyricSlice} from "@/store/lyric";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 function LyricViewer(props) {
     const { height, onToggleLyricView, duration, currentMusic } = props;
     const inElectron = isElectron();
+    const dispatch = useDispatch();
     const LrcInfos = useSelector(LyricSlice.selectors.lyricMaps)
     const LrcInfo = useMemo(() => {
-        if (!currentMusic) return '';
-        return LrcInfos[currentMusic.bvid]?? '';
+        if (!currentMusic) return {};
+        return LrcInfos[currentMusic.bvid]?? {};
     }, [currentMusic, LrcInfos]);
+    const isDebugging = process.env.NODE_ENV === 'development';
 
     const coverImg = useMemo(() => {
         if (!currentMusic) return '';
         return currentMusic.cover;
     }, [currentMusic]);
+
+
+    const handleDebugClearLRC = () => {
+        if (!currentMusic.bvid) return;
+        dispatch(LyricSlice.actions.updateLyric({
+            bvid: currentMusic.bvid,
+            lrc: '',
+            offset: 0,
+            source: 'QQ音乐',
+        }));
+    }
 
     return <div className="player-lyric-main" style={{height: height}}>
         <div className="player-lyric-background-mask">
@@ -43,6 +57,9 @@ function LyricViewer(props) {
                             </IconButton>
                         }}
                     </LRCSearchDialog>}
+                    {isDebugging && <IconButton onClick={handleDebugClearLRC}>
+                        <DeleteIcon></DeleteIcon>
+                    </IconButton>}
                 </Box>
             </Toolbar>
         </Box>
