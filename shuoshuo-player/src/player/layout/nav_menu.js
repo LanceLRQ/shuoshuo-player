@@ -18,6 +18,7 @@ import {useNavigate, useMatch} from "react-router";
 import {FavListType, MasterUpInfo} from "@/constants";
 import {FavListSlice} from "@/store/play_list";
 import FavEditDialog from "@player/dialogs/fav_edit";
+import StarIcon from '@mui/icons-material/Star'
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 
 const drawerWidth = 240;
@@ -63,6 +64,7 @@ const NavMenu = (props) => {
     const MenuMapping = [
         { label: '首页', key: 'index', icon: <HomeIcon /> },
         { label: '搜索&发现', key: 'discovery', icon: <ManageSearchIcon /> },
+        { label: '直播切片', key: 'live_slicers', icon: <StarIcon /> },
         // { label: '最近播放', key: 'recent', icon: <ScheduleIcon /> },
         { type: 'divider' },
         { label: MasterUpInfo.uname, key: 'fav:main', icon: <FavoriteIcon /> },

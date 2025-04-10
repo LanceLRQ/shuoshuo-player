@@ -1,12 +1,10 @@
-import React, {useCallback, useState, useRef} from 'react';
-import {Avatar, Box, Paper, IconButton, InputBase, Typography, Stack, Button} from "@mui/material";
+import React, {useCallback, useState} from 'react';
+import { Box, Paper, IconButton, InputBase } from "@mui/material";
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
-import {SlicerHuman} from "@/constants";
 import API from '@/api';
 import VideoItem from "@player/components/video_item";
 import {searchResultConverter} from "@player/utils";
-import FavEditDialog from "@player/dialogs/fav_edit";
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList } from 'react-window';
 import InfiniteLoader from "react-window-infinite-loader";
@@ -19,8 +17,6 @@ const DiscoveryPage = () => {
     });
     const [results, setResults] = useState([]);
     const [itemStatusMap, setItemStatusMap] = useState({});
-
-    const favEditDgRef = useRef();
 
     const doSearch = useCallback(() => {
         if (!keyword) {
@@ -134,23 +130,6 @@ const DiscoveryPage = () => {
                 </IconButton>}
             </Paper>
         </Box>
-        {mode === 'index' ? <Box className="discovery-slicer-human">
-            <Box className="slicer-box-title"><Typography  variant="h6">切片Man</Typography></Box>
-            <Box className="discovery-slicer-human-container">
-                {SlicerHuman.map((item) => {
-                    return <Box className="slicer-card" key={item.mid}>
-                        <Avatar className="slicer-avatar" sx={{ width: 64, height: 64 }} src={item.face} />
-                        <Box className="slicer-meta">
-                            <Typography className="slicer-name" variant="h7">{item.name}</Typography>
-                            <Stack direction="row" spacing={2}>
-                                <Button onClick={() => { favEditDgRef.current.showDialog({ mid: item.mid, name: `${item.name}的歌单` }); }}>添加歌单</Button>
-                                <Button onClick={() => window.open(`https://space.bilibili.com/${item.mid}`)}>去TA空间</Button>
-                            </Stack>
-                        </Box>
-                    </Box>;
-                })}
-            </Box>
-        </Box> : null}
         {mode === 'search' ? <Box className="discovery-search-list">
             <Box sx={{width: '100%', height: '100%', bgcolor: 'background.paper'}}>
                 <AutoSizer>
@@ -178,7 +157,6 @@ const DiscoveryPage = () => {
                 </AutoSizer>
             </Box>
         </Box> : null}
-        <FavEditDialog ref={favEditDgRef} />
     </Box>;
 }
 
