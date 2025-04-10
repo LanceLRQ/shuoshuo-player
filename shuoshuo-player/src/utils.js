@@ -38,3 +38,77 @@ export function createLyricsFinder(lyricsArray, offset = 0) {
         return result;
     };
 }
+
+export function objectToDownload(data, filename = 'export.json') {
+    // 将JSON对象转换为字符串
+    const jsonString = JSON.stringify(data, null, 2); // 第三个参数用于美化输出
+
+    // 创建Blob对象
+    const blob = new Blob([jsonString], { type: 'application/json' });
+
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+
+    // 触发点击下载
+    document.body.appendChild(a);
+    a.click();
+
+    // 清理
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+export function createJsonFileLoader(callback, errorCallback) {
+    // 创建隐藏的文件输入元素
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+
+    // 添加到DOM（虽然隐藏但仍需在DOM中）
+    document.body.appendChild(fileInput);
+
+    // 监听文件选择变化
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // 验证文件类型
+        if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+            const err = new Error('请选择有效的JSON文件');
+            if (errorCallback) errorCallback(err);
+            return;
+        }
+
+        // 创建文件阅读器
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            try {
+                const jsonData = JSON.parse(e.target.result);
+                if (callback) callback(jsonData, file.name);
+            } catch (parseError) {
+                const err = new Error('解析JSON失败: ' + parseError.message);
+                if (errorCallback) errorCallback(err);
+            }
+        };
+
+        reader.onerror = function() {
+            const err = new Error('读取文件时发生错误');
+            if (errorCallback) errorCallback(err);
+        };
+
+        reader.readAsText(file);
+
+        // 清理：移除文件输入元素
+        setTimeout(() => {
+            document.body.removeChild(fileInput);
+        }, 100);
+    });
+
+    // 触发文件选择对话框
+    fileInput.click();
+}

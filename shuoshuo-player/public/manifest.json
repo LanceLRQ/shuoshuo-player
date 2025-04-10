@@ -32,7 +32,12 @@
     "*://*.cgvideo.com/*",
     "*://*.y.qq.com/*",
     "*://*.bilivideo.cn/*",
-    "*://*.akamaized.net/*"
+    "*://*.akamaized.net/*",
+    "*://player.shuoshuo.sikong.ren/*",
+    "http://localhost/",
+    "http://localhost:*/*",
+    "http://127.0.0.1/",
+    "http://127.0.0.1:*/*"
   ],
   "declarative_net_request": {
     "rule_resources": [{

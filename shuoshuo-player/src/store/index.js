@@ -2,6 +2,7 @@ import { throttle } from 'lodash';
 import { configureStore } from '@reduxjs/toolkit';
 import { createRootReducer } from './reducers';
 import isElectron from 'is-electron';
+import {persistKeys} from "@/constants";
 
 // const preloadedState = {
     // bili_current_user: {},
@@ -12,7 +13,7 @@ import isElectron from 'is-electron';
 // };
 const inElectron = isElectron();
 
-const persistKeys = ['bili_user_videos', 'bili_videos', 'playing_list', 'fav_list', 'ui_profile', 'lyrics']
+
 const persistFunc = {
     bili_user_videos: (state) => {
         return {

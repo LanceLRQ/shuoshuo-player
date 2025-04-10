@@ -50,12 +50,12 @@ export const FavListPage = (props) => {
     const isTypeUploader = favListInfo?.type === FavListType.UPLOADER;
     const isTypeCustom = favListInfo?.type === FavListType.CUSTOM;
     const favVideoList = useMemo(() => {
+        if (!favListInfo) return [];
         if (favId === 'main') {
             return biliVideoListAll[MasterUpInfo.mid] ?? []
         } else if (favListInfo?.type === FavListType.UPLOADER) {
             return biliVideoListAll[favListInfo?.mid] ?? []
         }
-        console.log(biliVideoEntities[favListInfo.bv_ids[0]])
         return favListInfo.bv_ids.map((bvId) => biliVideoEntities[bvId]).filter(item => !!item);
     }, [favId, biliVideoListAll, favListInfo, biliVideoEntities]);
     const favVideoListSearched = useMemo(() => {

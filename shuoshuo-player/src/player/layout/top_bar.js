@@ -7,7 +7,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import { useDispatch, useSelector } from 'react-redux';
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
-import {MasterUpInfo} from "@/constants";
+import {MasterUpInfo, persistKeys} from "@/constants";
 import LogoutIcon from '@mui/icons-material/Logout';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
@@ -16,6 +16,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import dayjs from 'dayjs';
 import isElectron from 'is-electron';
 import {PlayerProfileSlice} from "@/store/ui";
+import {createJsonFileLoader, objectToDownload} from "@/utils";
 
 const drawerWidth = 240;
 
@@ -87,8 +88,21 @@ const TopBar = (props) => {
                 }
             };
             input.click();
+        } else if (chrome && chrome.storage && chrome.storage.local)  {
+            const chromeStorage = chrome && chrome.storage && chrome.storage.local;
+            createJsonFileLoader((ret) => {
+                const confirmImport = window.confirm('确定要导入数据吗？导入后当前数据将被覆盖');
+                if (confirmImport) {
+                    chromeStorage.set(ret, () => {
+                        alert('导入成功');
+                        window.location.reload();
+                    })
+                }
+            }, (e) => {
+                alert(e)
+            })
         } else {
-            alert('暂不支持在浏览器中导入数据');
+            alert('当前环境不支持导入数据');
         }
         handleMenuClose();
     }, [inElectron, handleMenuClose]);
@@ -103,8 +117,13 @@ const TopBar = (props) => {
                 a.download = `导出数据_${dayjs().format('YYYY-MM-DD_HH-mm-ss')}.json`;
                 a.click();
             });
+        } else if (chrome && chrome.storage && chrome.storage.local) {
+            const chromeStorage = chrome && chrome.storage && chrome.storage.local;
+            chromeStorage.get(persistKeys, (result) => {
+                objectToDownload(result, `导出数据_${dayjs().format('YYYY-MM-DD_HH-mm-ss')}.json`);
+            })
         } else {
-            alert('暂不支持在浏览器中导出数据');
+            alert('当前环境不支持导出数据');
         }
         handleMenuClose();
     }, [inElectron, handleMenuClose]);

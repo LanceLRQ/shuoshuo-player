@@ -1,3 +1,5 @@
+export const persistKeys = ['bili_user_videos', 'bili_videos', 'playing_list', 'fav_list', 'ui_profile', 'lyrics']
+
 // 设置主要用户
 export const MasterUpInfo = {
     uname: '说说Crystal',
