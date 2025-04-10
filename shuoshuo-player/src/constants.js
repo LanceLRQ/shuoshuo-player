@@ -14,8 +14,9 @@ export const NoticeTypes = {
     SUCCESS: 3,
 }
 export const FavListType = {
-    CUSTOM: 0,
-    UPLOADER: 1,
+    CUSTOM: 0,    // 自定义收藏夹（空）
+    UPLOADER: 1, // B站用户视频列表
+    BILI_FAV: 2, // bilibili收藏夹
 }
 
 export const StartupLoadingTip = [

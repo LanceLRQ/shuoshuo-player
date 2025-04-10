@@ -146,6 +146,7 @@ export const FavListSlice = createAppSlice({
                         type,
                         name: name || '未命名歌单',
                         mid: mid ?? '',
+                        biliFavFolderId: '',
                         bv_ids: [],
                         create_time: Date.now(),
                         update_time: 0,

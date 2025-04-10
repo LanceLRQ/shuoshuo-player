@@ -21,7 +21,11 @@ const UserApi = {
     }),
     getUserSpaceUpStat: buildApiBilibiliCall({        // 获赞、播放
         url: 'https://api.bilibili.com/x/space/upstat',
-    })
+    }),
+    getMyFavoriteFolder: buildApiBilibiliCall({
+        // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/fav/info.md
+        url: 'https://api.bilibili.com/x/v3/fav/folder/created/list-all',
+    }),
 }
 const VideoApi = {
     getVideoViewInfo: buildApiBilibiliCall({
