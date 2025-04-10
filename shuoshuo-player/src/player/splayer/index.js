@@ -29,6 +29,8 @@ import { blue } from '@mui/material/colors';
 import LyricViewer from "@player/splayer/lyric";
 import API from "@/api";
 import {LyricSlice} from "@/store/lyric";
+import { Lrc as LrcKit } from 'lrc-kit';
+import {createLyricsFinder} from "@/utils";
 
 function SPlayer() {
     const theme = useTheme();
@@ -296,6 +298,24 @@ function SPlayer() {
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
+    // === 歌词计算
+    const lrcParsedFinder = useMemo(() => {
+        if (!LrcInfo || !LrcInfo.lrc) return null;
+        const lrcParsedInfo = LrcKit.parse(LrcInfo.lrc);
+        const lrcList = lrcParsedInfo.lyrics;
+        if (lrcList.length <= 0) return null;
+        // 排序一次
+        return createLyricsFinder(lrcList, LrcInfo.offset)
+    }, [LrcInfo]);
+
+    const playerCardDescWithLrc = useMemo(() => {
+        if (howlPlaying && lrcParsedFinder) {
+            const rel = lrcParsedFinder(howlProcess)
+            if (rel) return rel?.content;
+        }
+        return '';
+    }, [lrcParsedFinder, howlPlaying, howlProcess])
+
     return <>
         {currentMusic && <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
             <LyricViewer
@@ -408,7 +428,9 @@ function SPlayer() {
                             <div className="splayer-music-card-info">
                                 <div className="splayer-music-card-title">{currentMusic.name}</div>
                                 <div className="splayer-music-card-desc">
-                                    <Marquee text={currentMusic.desc} speed={0.2} />
+                                    {howlPlaying && playerCardDescWithLrc ?
+                                        <span>{playerCardDescWithLrc}</span> :
+                                        <Marquee text={currentMusic?.desc} speed={0.2} />}
                                 </div>
                             </div>
                             <div className="splayer-music-card-extra">
