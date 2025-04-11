@@ -65,7 +65,7 @@ func LoginView(c *fiber.Ctx) error {
 	// 发放令牌
 	cfg := c.Locals("config").(*configs.ServerConfigStruct)
 	accountId := account.ID.Hex()
-	token, expireAt, err := utils.NewJWTToken(accountId, cfg.Security.JWTSecret, time.Duration(cfg.Security.JWTExpire))
+	token, expireAt, err := utils.NewJWTToken(accountId, account.PasswordSessionKey, cfg.Security.JWTSecret, time.Duration(cfg.Security.JWTExpire))
 	if err != nil {
 		return fmt.Errorf("%w: %s", exceptions.InternalServerError, err)
 	}

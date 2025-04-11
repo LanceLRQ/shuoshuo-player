@@ -85,6 +85,9 @@ definitions:
       id:
         example: 67edfaa28b6491ae6926f3e8
         type: string
+      password_session_key:
+        description: 密码会话密钥，用于密码重置后，让其他token直接失效
+        type: string
       role:
         example: 0
         type: integer
@@ -217,6 +220,17 @@ paths:
       consumes:
       - application/json
       description: 获取所有用户的信息列表
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:

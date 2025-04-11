@@ -52,3 +52,20 @@ func GenerateRandomPassword(length int) (string, error) {
 
 	return string(password), nil
 }
+
+// GenerateRandomPasswordSessionKey 生成指定长度的密码SessionKey
+func GenerateRandomPasswordSessionKey(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789~!@#$%^&*()_+`-=<>?:{}|,./;'[]"
+	password := make([]byte, length)
+
+	for i := range password {
+		// 生成一个随机索引
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return ""
+		}
+		password[i] = charset[num.Int64()]
+	}
+
+	return string(password)
+}

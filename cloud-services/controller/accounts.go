@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"strconv"
 )
 
 type accountAddPostParams struct {
@@ -65,6 +66,8 @@ func getAccountByIdOrEmail(collect *mongo.Collection, id string) (*models.Accoun
 // @Tags Accounts
 // @Accept json
 // @Produce json
+// @Param page query int64 false "页码" default(1)
+// @Param limit query int64 false "每页数量" default(20)
 // @Success 200 {object} []models.Account "返回所有账户信息列表"
 // @Router       /api/accounts/list [get]
 func AccountListView(c *fiber.Ctx) error {
@@ -73,12 +76,30 @@ func AccountListView(c *fiber.Ctx) error {
 		return err
 	}
 
+	filter := bson.M{}
+	page, err := strconv.ParseInt(c.Query("page"), 10, 64)
+	if err != nil {
+		page = 1
+	}
+	pageSize, err := strconv.ParseInt(c.Query("limit"), 10, 64)
+	if err != nil {
+		pageSize = 20
+	}
+
 	accounts := make([]models.Account, 0)
 
 	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
 	accountsCollection := mongoCli.Collection("accounts")
-	opt := options.Find().SetProjection(bson.M{"password": 0})
-	cursor, err := accountsCollection.Find(context.Background(), bson.M{}, opt)
+
+	total, err := accountsCollection.CountDocuments(context.Background(), filter)
+	if err != nil {
+		log.Error(err)
+		return exceptions.MongoDBError
+	}
+
+	skip := (page - 1) * pageSize
+	opt := options.Find().SetProjection(bson.M{"password": 0}).SetSkip(skip).SetLimit(pageSize).SetSort(bson.M{"_id": -1})
+	cursor, err := accountsCollection.Find(context.Background(), filter, opt)
 	if err != nil {
 		log.Error(err)
 		return exceptions.MongoDBError
@@ -90,7 +111,14 @@ func AccountListView(c *fiber.Ctx) error {
 		return exceptions.MongoDBError
 	}
 
-	return models.NewJSONResponse(c, accounts)
+	return models.NewJSONResponse(c, fiber.Map{
+		"list": accounts,
+		"pager": fiber.Map{
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
 }
 
 // AccountGetView 获取用户信息
@@ -156,11 +184,12 @@ func AccountAddView(c *fiber.Ctx) error {
 		return err
 	}
 	account := &models.Account{
-		ID:       bson.NewObjectID(),
-		Email:    formData.Email,
-		NickName: formData.NickName,
-		Password: passwordHashed,
-		Role:     formData.Role,
+		ID:                 bson.NewObjectID(),
+		Email:              formData.Email,
+		NickName:           formData.NickName,
+		Password:           passwordHashed,
+		PasswordSessionKey: utils.GenerateRandomPasswordSessionKey(32),
+		Role:               formData.Role,
 	}
 
 	_, err = accountsCollection.InsertOne(context.Background(), &account)
@@ -223,6 +252,7 @@ func AccountEditView(c *fiber.Ctx) error {
 			return exceptions.InternalServerError
 		}
 		account.Password = hashedPassword
+		account.PasswordSessionKey = utils.GenerateRandomPasswordSessionKey(32)
 	}
 
 	// 更新数据库中的账户信息
@@ -310,6 +340,7 @@ func AccountUpdatePasswordView(c *fiber.Ctx) error {
 	}
 
 	account.Password = np
+	account.PasswordSessionKey = utils.GenerateRandomPasswordSessionKey(32)
 
 	_, err = accountsCollection.ReplaceOne(context.Background(), bson.M{"_id": account.ID}, &account)
 	if err != nil {

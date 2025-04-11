@@ -114,9 +114,10 @@ func CreateSuperAccount() *cli.Command {
 					return err
 				}
 				user := &models.Account{
-					Email:    email,
-					Password: passwordHashed,
-					Role:     constants.AccountRoleWebMaster,
+					Email:              email,
+					Password:           passwordHashed,
+					PasswordSessionKey: utils.GenerateRandomPasswordSessionKey(32),
+					Role:               constants.AccountRoleWebMaster,
 				}
 
 				_, err = collection.InsertOne(ctx, user)

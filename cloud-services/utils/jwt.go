@@ -6,13 +6,14 @@ import (
 )
 
 // NewJWTToken 创建JWT令牌
-func NewJWTToken(accountId string, jwtSecret string, jwtExpire time.Duration) (string, int64, error) {
+func NewJWTToken(accountId, pwdSessionKey, jwtSecret string, jwtExpire time.Duration) (string, int64, error) {
 	factory := jwt.New(jwt.SigningMethodHS256)
 
 	expireAt := time.Now().Add(jwtExpire * time.Hour).Unix()
 
 	claims := factory.Claims.(jwt.MapClaims)
 	claims["account_id"] = accountId
+	claims["pwd_session"] = pwdSessionKey
 	claims["exp"] = expireAt
 	claims["iss"] = "sso@shuoshuo.sikong.ren"
 	claims["nbf"] = time.Now().Unix()

@@ -24,7 +24,7 @@ func GetJWTTestToken(c *fiber.Ctx) error {
 	cfg := c.Locals("config").(*configs.ServerConfigStruct)
 	// 发放令牌
 	accountId, _ := utils.GetSnowflakeId()
-	token, expireAt, err := utils.NewJWTToken(accountId.String(), cfg.Security.JWTSecret, time.Duration(cfg.Security.JWTExpire))
+	token, expireAt, err := utils.NewJWTToken(accountId.String(), "123", cfg.Security.JWTSecret, time.Duration(cfg.Security.JWTExpire))
 	if err != nil {
 		return fmt.Errorf("%w: %s", exceptions.InternalServerError, err)
 	}

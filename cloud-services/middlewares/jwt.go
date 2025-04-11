@@ -77,6 +77,9 @@ func (s *LoginSession) GetAccount(c *fiber.Ctx) error {
 			return exceptions.MongoDBError
 		}
 	}
+	if s.JwtPayload["pwd_session"] == nil || account.PasswordSessionKey != s.JwtPayload["pwd_session"].(string) {
+		return exceptions.LoginTokenExpiredError
+	}
 	s.Account = &account
 	return nil
 }
