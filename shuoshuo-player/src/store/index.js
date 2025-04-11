@@ -43,9 +43,15 @@ const readStateFromChromeStorage = () => new Promise((resolve, reject) => {
             window.ElectronAPI.Store.Get('player_data').then((result) => {
                 procData(result);
             });
+            window.ElectronAPI.Store.Get('cloud_service').then((result) => {
+                procData({ cloud_service: result});
+            });
         } else {
             chromeStorage.get(persistKeys, (result) => {
                 procData(result);
+            })
+            chromeStorage.get('cloud_service', (result) => {
+                procData({ cloud_service: result});
             })
         }
     } catch (e) {
@@ -83,8 +89,12 @@ const persistStore = throttle(() => {
         }
         if (inElectron && window.ElectronAPI) {
             window.ElectronAPI.Store.Set('player_data', result)
+            window.ElectronAPI.Store.Set('cloud_service', storeState['cloud_service'] || {})
         } else if (chromeStorage) {
-            chromeStorage.set(result, () => {});
+            chromeStorage.set({
+                ...result,
+                cloud_service: storeState['cloud_service'] || {},
+            }, () => {});
         }
     }
 }, 1000);

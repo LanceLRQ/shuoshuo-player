@@ -1,4 +1,6 @@
-export const persistKeys = ['bili_user_videos', 'bili_videos', 'playing_list', 'fav_list', 'ui_profile', 'lyrics']
+// 持久化Key
+export const persistKeys = ['bili_user_videos', 'bili_videos', 'playing_list', 'fav_list', 'ui_profile', 'lyrics', 'cloud_service']
+export const exportKeys = ['bili_user_videos', 'bili_videos', 'playing_list', 'fav_list', 'ui_profile', 'lyrics']
 
 // 设置主要用户
 export const MasterUpInfo = {

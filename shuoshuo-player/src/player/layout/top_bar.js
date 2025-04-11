@@ -7,12 +7,13 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import { useDispatch, useSelector } from 'react-redux';
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
-import {MasterUpInfo, persistKeys} from "@/constants";
+import {MasterUpInfo, exportKeys} from "@/constants";
 import LogoutIcon from '@mui/icons-material/Logout';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import CloudIcon from '@mui/icons-material/Cloud';
 import dayjs from 'dayjs';
 import isElectron from 'is-electron';
 import {PlayerProfileSlice} from "@/store/ui";
@@ -70,7 +71,7 @@ const TopBar = (props) => {
             input.onchange = (event) => {
                 const file = event.target.files[0];
                 if (file) {
-                    const reader = new FileReader();    
+                    const reader = new FileReader();
                     reader.onload = (event) => {
                         const confirmImport = window.confirm('确定要导入数据吗？导入后当前数据将被覆盖');
                         if (confirmImport) {
@@ -119,7 +120,7 @@ const TopBar = (props) => {
             });
         } else if (chrome && chrome.storage && chrome.storage.local) {
             const chromeStorage = chrome && chrome.storage && chrome.storage.local;
-            chromeStorage.get(persistKeys, (result) => {
+            chromeStorage.get(exportKeys, (result) => {
                 objectToDownload(result, `导出数据_${dayjs().format('YYYY-MM-DD_HH-mm-ss')}.json`);
             })
         } else {
@@ -133,6 +134,10 @@ const TopBar = (props) => {
             theme: themeMode === 'light' ? 'dark': 'light',
         }));
     }, [themeMode, dispatch]);
+
+    const handleShowCloudServicePage = () => {
+        window.SHOW_CLOUD_LOGIN();
+    }
 
     return <AppBar position="absolute" open={menuOpen}>
         <Toolbar
@@ -163,6 +168,9 @@ const TopBar = (props) => {
             </Typography>
             {biliUser ? <>
                 <Box>
+                    <IconButton onClick={handleShowCloudServicePage}>
+                        <CloudIcon />
+                    </IconButton>
                     <IconButton onClick={handleThemeChange}>
                         {themeMode === 'light' ? <LightModeIcon />:<DarkModeIcon />}
                     </IconButton>

@@ -6,8 +6,20 @@ const Lyric = {
     }),
 }
 
+const Account = {
+    login: buildApiCall({
+        url: '/login',
+        method: 'post',
+    }),
+    getAccountsList: buildApiCall({
+        url: '/accounts/list',
+        method: 'get',
+    }),
+}
+
 export const api = {
-    Lyric
+    Lyric,
+    Account
 }
 
 export default api;

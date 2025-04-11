@@ -84,6 +84,11 @@ export const apiCall = (config) => {
         ...config,
     };
 
+    if (window.CLOUD_SERVICE_SESSION) {
+        options.headers = options.headers || {};
+        options.headers['Authorization'] = window.CLOUD_SERVICE_SESSION?.token;
+    }
+
     return new Promise((resolve, reject) => {
         cloudService(options).then(function (resp) {
             if (config.responseType === 'blob') {
