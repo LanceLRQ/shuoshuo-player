@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {
     List, ListItem, ListItemIcon, ListItemText, ListItemButton,
-    Drawer as MuiDrawer, Toolbar, IconButton, Divider, Avatar
+    Drawer as MuiDrawer, Toolbar, IconButton, Divider, Avatar, ListSubheader
 } from "@mui/material";
 import { useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
@@ -18,7 +18,9 @@ import {useNavigate, useMatch} from "react-router";
 import {FavListType, MasterUpInfo} from "@/constants";
 import {FavListSlice} from "@/store/play_list";
 import FavEditDialog from "@player/dialogs/fav_edit";
-import StarIcon from '@mui/icons-material/Star'
+import StarsIcon from '@mui/icons-material/Stars';
+import LiveTvIcon from '@mui/icons-material/LiveTv';
+import { red as MUIColorRed } from '@mui/material/colors';
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 
 const drawerWidth = 240;
@@ -64,11 +66,13 @@ const NavMenu = (props) => {
     const MenuMapping = [
         { label: '首页', key: 'index', icon: <HomeIcon /> },
         { label: '搜索&发现', key: 'discovery', icon: <ManageSearchIcon /> },
-        { label: '直播切片', key: 'live_slicers', icon: <StarIcon /> },
+        { label: '直播切片', key: 'live_slicers', icon: <LiveTvIcon /> },
         // { label: '最近播放', key: 'recent', icon: <ScheduleIcon /> },
         { type: 'divider' },
-        { label: MasterUpInfo.uname, key: 'fav:main', icon: <FavoriteIcon /> },
+        { type: 'sub_header', title: '我的歌单' },
+        { label: MasterUpInfo.uname, key: 'fav:main', icon: <FavoriteIcon sx={{ color: MUIColorRed[500] }}  /> },
         { type: 'fav' },
+        { type: 'divider' },
         { label: '创建歌单', key: 'fav:add', icon: <PlaylistAddIcon /> },
     ]
 
@@ -94,6 +98,20 @@ const NavMenu = (props) => {
 
     }, [match]);
 
+    const renderFavListAvatar = (favItem) => {
+        const isUploader = favItem.type === FavListType.UPLOADER;
+        const spaceInfo = isUploader ? spaceInfos[favItem.mid] : null;
+        if (isUploader) {
+            if (spaceInfo) {
+                return <Avatar sx={{ width: 24, height: 24 }} src={spaceInfo.face} />
+            } else {
+                return <VideoCameraFrontIcon />
+            }
+        } else if (favItem.type === FavListType.BILI_FAV) {
+            return <StarsIcon />
+        }
+        return  <QueueMusicIcon />
+    }
 
     return <>
         <Drawer className="player-left-nav-menu" variant="permanent" open={menuOpen}>
@@ -114,17 +132,18 @@ const NavMenu = (props) => {
                 {flatten(MenuMapping.map((item, index) => {
                     if (item.type === 'divider') {
                         return <Divider key={`divider_${index}`}></Divider>
+                    } else if (item.type === 'sub_header') {
+                        return <ListSubheader key={`sub_header_${index}`}>{item.title}</ListSubheader>
                     } else if (item.type === 'fav') {
                         return FavList.map(favItem => {
-                            const isUploader = favItem.type === FavListType.UPLOADER;
-                            const spaceInfo = isUploader ? spaceInfos[favItem.mid] : null;
+
                             return <ListItem
                                 key={favItem.id}
                                 disablePadding
                             >
                                 <ListItemButton selected={value === `fav:${favItem.id}`} onClick={handleMenuClick(`fav:${favItem.id}`)}>
                                     <ListItemIcon>
-                                        {isUploader ? (spaceInfo ? <Avatar sx={{ width: 24, height: 24 }} src={spaceInfo.face} /> :  <VideoCameraFrontIcon />) : <QueueMusicIcon />}
+                                        {renderFavListAvatar(favItem)}
                                     </ListItemIcon>
                                     <ListItemText primary={favItem.name} />
                                 </ListItemButton>

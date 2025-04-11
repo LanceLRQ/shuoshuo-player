@@ -90,11 +90,19 @@ export const BilibiliUserVideoListSlice = createAppSlice({
         //     update_type: '',     // default - 更新前30；fully - 全量
         // }
         space: {},
+        favFolders: {},
+        // <folder_id>: {
+        //     update_time: 0,      // 上次更新时间
+        //     video_list: [],      // 视频数据列表 { bv, created }
+        //     count: 0,            // 视频数量
+        //     update_type: '',     // default - 更新前30；fully - 全量
+        // }
     },
     selectors: {
         loadingStatus: (state) => state.isLoading,
-        videoListInfo: (state) => state.infos,
-        spaceInfo: (state) => state.space,
+        videoListInfo: (state) => state.infos || {},
+        favFoldersListInfo: (state) => state.favFolders || {},
+        spaceInfo: (state) => state.space || {},
     },
     reducers: (create) => ({
         readUserVideos: create.asyncThunk(
@@ -152,6 +160,78 @@ export const BilibiliUserVideoListSlice = createAppSlice({
                 }
 
                 dispatch(PlayerNoticesSlice.actions.removeNotice({id: 'load_user_videos_tip'}));
+                dispatch(PlayerNoticesSlice.actions.sendNotice({
+                    type: NoticeTypes.SUCCESS,
+                    message: '更新完成',
+                    duration: 3000,
+                }));
+            },
+            {
+                pending: (state) => {
+                    state.isLoading = true
+                },
+                rejected: (state, action) => {
+                    state.isLoading = false
+                },
+                fulfilled: (state, action) => {
+                    state.isLoading = false;
+                },
+            }
+        ),
+        readUserFavFolderVideos: create.asyncThunk(
+            async (actionPayload, { dispatch }) => {
+                const { query, mode = 'default' } = actionPayload;
+                dispatch(PlayerNoticesSlice.actions.sendNotice({
+                    id: 'load_fav_folder_videos_tip',
+                    type: NoticeTypes.INFO,
+                    message: '正在加载用户收藏夹列表',
+                    close: false,
+                }));
+                const fetchFavFolderVideoList = async (pn = 1, ps = 30) => {
+                    try {
+                        const videoData = await API.Bilibili.UserApi.getMyFavoriteFolderVideos({
+                            params: {
+                                ...query,
+                                pn,
+                                ps,
+                            }
+                        });
+                        dispatch(BilibiliUserVideoListSlice.actions.updateFavFolderVideoList({
+                            folder_id: query.media_id, data: videoData, updateType: mode,
+                        }));
+                        const videoList = videoData?.medias ?? [];
+                        dispatch(BilibiliVideoEntitiesSlice.actions.upsertMany(pickVideosFields(videoList, 'fav_folder')))
+                        return videoData?.info?.media_count ?? 0;
+                    } catch (e) {
+                        console.debug(e)
+                        dispatch(PlayerNoticesSlice.actions.sendNotice({
+                            type: NoticeTypes.ERROR,
+                            message: '获取收藏夹信息失败',
+                            duration: 3000,
+                        }));
+                        return 0;
+                    }
+                }
+
+                if (mode === 'fully') {
+                    let pn = 1, ps = 30, total = -1, pp = -1;
+                    while (total === -1 || pn <= pp) {
+                        total = await fetchFavFolderVideoList(pn, ps);
+                        pp = Math.ceil(total / ps)
+                        pn++;
+                        await delayPromise();
+                        dispatch(PlayerNoticesSlice.actions.sendNotice({
+                            id: 'load_fav_folder_videos_tip',
+                            type: NoticeTypes.INFO,
+                            message: `正在加载用户收藏夹列表(${pn}/${pp})`,
+                            close: false,
+                        }));
+                    }
+                } else {
+                   await fetchFavFolderVideoList()
+                }
+
+                dispatch(PlayerNoticesSlice.actions.removeNotice({id: 'load_fav_folder_videos_tip'}));
                 dispatch(PlayerNoticesSlice.actions.sendNotice({
                     type: NoticeTypes.SUCCESS,
                     message: '更新完成',
@@ -240,6 +320,39 @@ export const BilibiliUserVideoListSlice = createAppSlice({
             uEntity.update_time = TimeStampNow();
             uEntity.update_type = updateType;
             state.infos[mid] = uEntity;
+        }),
+        updateFavFolderVideoList: create.reducer((state, action) => {
+            if (!state.favFolders) state.favFolders = {};
+            const folderId = action.payload?.folder_id;
+            const vData = action.payload?.data;
+            const updateType = action.payload?.updateType ?? 'default';
+            const uEntity = state.favFolders[folderId] ?? {
+                update_time: 0,
+                video_list: [],
+                count: 0,
+                update_type: '',
+                info: {}
+            }
+            const videoList = vData?.medias ?? [];
+            const pageCount = vData?.info?.media_count ?? 0;
+            if (isArray(videoList)){
+                // 注意使用B站正常的倒序排列方式获取，更新的时候会依次检查是否已存在列表中，如果存在则更新数据，
+                // 否则是插入数据，最后再按照创建时间重新排列。
+                videoList.forEach((video) => {
+                    const vIndex = uEntity.video_list.findIndex(item => item.bvid === video.bvid);
+                    if (vIndex > -1) {
+                        uEntity.video_list[vIndex] = pick(video, BilibiliUserVideoListPickup);
+                    } else {
+                        uEntity.video_list.push(pick(video, BilibiliUserVideoListPickup))
+                    }
+                })
+            }
+            uEntity.video_list.sort((a, b) => a?.created > b?.created ? -1 : 0);
+            uEntity.count = pageCount;
+            uEntity.update_time = TimeStampNow();
+            uEntity.update_type = updateType;
+            uEntity.info =  vData?.info ?? {};
+            state.favFolders[folderId] = uEntity;
         }),
         getVideoByBvid: create.asyncThunk(
             async (actionPayload, { dispatch }) => {

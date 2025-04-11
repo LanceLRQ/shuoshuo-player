@@ -111,5 +111,5 @@ export const searchResultConverter = (result) => {
 }
 
 export const urlPrefixFixed = (url) => {
-    return url.replace(/^\/\//, 'https://').replace('http://', 'https://');
+    return String(url || '').replace(/^\/\//, 'https://').replace('http://', 'https://');
 }

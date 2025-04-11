@@ -8,7 +8,7 @@ import {
 } from "@mui/material";
 import VideoItem from "@player/components/video_item";
 import {useDispatch, useSelector} from "react-redux";
-import {MasterVideoListSelector} from "@/store/selectors/bilibili";
+import {FavFoldersVideoListSelector, MasterVideoListSelector} from "@/store/selectors/bilibili";
 import {FavListType, MasterUpInfo, NoticeTypes} from "@/constants";
 import { FavListSlice} from "@/store/play_list";
 import FavBannerCard from '../components/fav_card';
@@ -33,7 +33,9 @@ export const FavListPage = (props) => {
     }, [favId]);
 
     const biliVideoListAll = useSelector(MasterVideoListSelector);
+    const biliFavFolderListInfos = useSelector(FavFoldersVideoListSelector);
     const biliUpVideoListInfos = useSelector(BilibiliUserVideoListSlice.selectors.videoListInfo);
+    const biliFavFolderInfos = useSelector(BilibiliUserVideoListSlice.selectors.favFoldersListInfo);
     const biliVideoEntities = useSelector(BilibiliVideoEntitiesSlice.selectors.videos);
     const favList = useSelector(FavListSlice.selectors.favList);
     const favListInfo = useMemo(() => {
@@ -49,15 +51,20 @@ export const FavListPage = (props) => {
     }, [favId, favList])
     const isTypeUploader = favListInfo?.type === FavListType.UPLOADER;
     const isTypeCustom = favListInfo?.type === FavListType.CUSTOM;
+    const isTypeBiliFav = favListInfo.type === FavListType.BILI_FAV;
+
     const favVideoList = useMemo(() => {
         if (!favListInfo) return [];
         if (favId === 'main') {
             return biliVideoListAll[MasterUpInfo.mid] ?? []
         } else if (favListInfo?.type === FavListType.UPLOADER) {
             return biliVideoListAll[favListInfo?.mid] ?? []
+        } else if (favListInfo?.type === FavListType.BILI_FAV) {
+            return biliFavFolderListInfos[favListInfo.biliFavFolderId] ?? [];
         }
         return favListInfo.bv_ids.map((bvId) => biliVideoEntities[bvId]).filter(item => !!item);
-    }, [favId, biliVideoListAll, favListInfo, biliVideoEntities]);
+    }, [favId, biliVideoListAll, favListInfo, biliVideoEntities, biliFavFolderListInfos]);
+
     const favVideoListSearched = useMemo(() => {
         if (searchKey) {
             const fuse = new Fuse(favVideoList, {
@@ -68,6 +75,7 @@ export const FavListPage = (props) => {
         }
         return favVideoList;
     }, [searchKey, favVideoList]);
+
     const biliMid = useMemo(() => {
         if (favId === 'main') {
             return MasterUpInfo.mid;
@@ -77,9 +85,19 @@ export const FavListPage = (props) => {
         }
         return 0;
     }, [favId, favListInfo, isTypeUploader]);
-    const biliUpVideoListInfo = useMemo(() => biliUpVideoListInfos[biliMid] ?? null, [biliMid, biliUpVideoListInfos]);
 
-    const updateTime = (isTypeUploader ? (biliUpVideoListInfo?.update_time * 1000) : favListInfo?.update_time) || 0
+    const biliUpVideoListInfo = useMemo(() => biliUpVideoListInfos[biliMid] ?? null, [biliMid, biliUpVideoListInfos]);
+    const biliFavFolderInfo = useMemo(() => biliFavFolderInfos[favListInfo.biliFavFolderId] ?? null, [favListInfo, biliFavFolderInfos])
+
+    const updateTime = useMemo(() => {
+        if (isTypeUploader) {
+            return biliUpVideoListInfo?.update_time * 1000;
+        } else if (isTypeBiliFav) {
+            console.log(biliFavFolderInfo)
+            return biliFavFolderInfo?.update_time * 1000;
+        }
+        return favListInfo?.update_time || 0;
+    }, [favListInfo, isTypeUploader, isTypeBiliFav, biliUpVideoListInfo, biliFavFolderInfo])
 
     const [delDg, setDelDg] = useState(false);
     const [delId, setDelId] = useState('');
@@ -163,7 +181,7 @@ export const FavListPage = (props) => {
             </Box> : <Box className="fav_item_list_empty">
                 <Alert severity="info">
                     <AlertTitle>歌单是空的</AlertTitle>
-                    {isTypeUploader ? <Button onClick={() => favBannerRef.current.openUpdateDialog()}>
+                    {isTypeUploader || isTypeBiliFav ? <Button onClick={() => favBannerRef.current.openUpdateDialog()}>
                         点击这里同步歌曲列表
                     </Button> : <Button onClick={() => favBannerRef.current.addVideo()}>
                         点击这里添加歌曲

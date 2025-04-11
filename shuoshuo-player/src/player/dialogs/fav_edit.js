@@ -133,7 +133,7 @@ const FavEditDialog = forwardRef((props, ref) => {
                     if (fInfo.length !== 2) return;
                     dispatch(FavListSlice.actions.addFavList({
                         type: FavListType.BILI_FAV,
-                        name: `【B站收藏夹】${fInfo[1]}`,
+                        name: `[B站收藏夹]${fInfo[1]}`,
                         mid: biliUser?.mid,
                         biliFavFolderId: fInfo[0],
                     })).then(res => {

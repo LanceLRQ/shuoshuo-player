@@ -26,6 +26,10 @@ const UserApi = {
         // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/fav/info.md
         url: 'https://api.bilibili.com/x/v3/fav/folder/created/list-all',
     }),
+    getMyFavoriteFolderVideos: buildApiBilibiliCall({
+        // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/fav/list.md
+        url: 'https://api.bilibili.com/x/v3/fav/resource/list',
+    }),
 }
 const VideoApi = {
     getVideoViewInfo: buildApiBilibiliCall({

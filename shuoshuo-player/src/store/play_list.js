@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import {createAppSlice} from "@/store/util";
 import {FavListType, MasterUpInfo, NoticeTypes} from "@/constants";
-import {MasterVideoListSelector} from "@/store/selectors/bilibili";
+import {FavFoldersVideoListSelector, MasterVideoListSelector} from "@/store/selectors/bilibili";
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import {PlayerNoticesSlice} from "@/store/ui";
 
@@ -57,23 +57,30 @@ export const PlayingListSlice = createAppSlice({
         addFromFavList: create.asyncThunk(
             async (actionPayload, { getState }) => {
                 const { favId, bvId, playNow } = actionPayload;
-                let mid = 0, bvIds = [];
+                let bvIds = [];
+                const getBvidListByMid = (mid) => {
+                    const masterVideoListAll = MasterVideoListSelector(getState());
+                    const masterVideoList = masterVideoListAll[mid];
+                    return masterVideoList.map((item) => item.bvid);
+                }
+                const getBvidListFromFavFolder = (folder_id) => {
+                    const favFolderListAll = FavFoldersVideoListSelector(getState());
+                    const favFolderList = favFolderListAll[folder_id];
+                    return favFolderList.map((item) => item.bvid);
+                }
                 if (favId === 'main') {
-                    mid = MasterUpInfo.mid;
+                    bvIds = getBvidListByMid(MasterUpInfo.mid);
                 } else {
                     const favList = FavListSlice.selectors.favList(getState());
                     const favItem = favList.find(item => item.id === favId);
                     if (!favItem) return null;
                     if (favItem.type === FavListType.UPLOADER) {
-                        mid = favItem.mid;
+                        bvIds = getBvidListByMid(favItem.mid);
+                    } else  if (favItem.type === FavListType.BILI_FAV) {
+                        bvIds = getBvidListFromFavFolder(favItem.biliFavFolderId)
                     } else {
                         bvIds = [...favItem.bv_ids];
                     }
-                }
-                if (mid > 0) {
-                    const masterVideoListAll = MasterVideoListSelector(getState());
-                    const masterVideoList = masterVideoListAll[mid];
-                    bvIds = masterVideoList.map((item) => item.bvid);
                 }
                 return { favId, bvIds, bvId, playNow };
             },
@@ -133,7 +140,12 @@ export const FavListSlice = createAppSlice({
     reducers: (create) => ({
         addFavList: create.asyncThunk(
             async (actionPayload) => {
-                const { type = FavListType.CUSTOM, name = '新建歌单', mid } = actionPayload;
+                const {
+                    type = FavListType.CUSTOM,
+                    name = '新建歌单',
+                    mid,
+                    biliFavFolderId = ''
+                } = actionPayload;
                 if (type === FavListType.UPLOADER) {
                     if (!mid) return { status: false };
                     // 如果mid是主up的，或者是已存在，则跳过
@@ -146,7 +158,7 @@ export const FavListSlice = createAppSlice({
                         type,
                         name: name || '未命名歌单',
                         mid: mid ?? '',
-                        biliFavFolderId: '',
+                        biliFavFolderId: biliFavFolderId,
                         bv_ids: [],
                         create_time: Date.now(),
                         update_time: 0,
