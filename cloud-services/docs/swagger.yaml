@@ -85,9 +85,6 @@ definitions:
       id:
         example: 67edfaa28b6491ae6926f3e8
         type: string
-      password_session_key:
-        description: 密码会话密钥，用于密码重置后，让其他token直接失效
-        type: string
       role:
         example: 0
         type: integer

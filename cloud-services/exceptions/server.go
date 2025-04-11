@@ -13,6 +13,7 @@ var LoginEmptyTokenError = NewAppRequestError(4010001, "登录令牌内容为空
 var LoginAccountNotExistsOrPasswordWrong = NewAppRequestError(4010002, "用户名或密码错误")
 var LoginAccountPermissionDeniedError = NewAppRequestError(4010002, "当前登录用户角色无权限访问")
 var LoginAccountCannotDeleteSelfError = NewAppRequestError(4010003, "不能删除自己")
+var LoginAccountTryLocked = NewAppRequestError(4010004, "错误密码尝试次数过多，账号已锁定")
 
 var InternalServerError = NewAppServerError(5000000, "内部服务器错误")
 var MongoDBError = NewAppServerError(5000001, "访问数据库服务失败")

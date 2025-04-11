@@ -538,10 +538,6 @@
                     "type": "string",
                     "example": "67edfaa28b6491ae6926f3e8"
                 },
-                "password_session_key": {
-                    "description": "密码会话密钥，用于密码重置后，让其他token直接失效",
-                    "type": "string"
-                },
                 "role": {
                     "type": "integer",
                     "example": 0

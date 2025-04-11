@@ -58,7 +58,30 @@ func LoginView(c *fiber.Ctx) error {
 		}
 	}
 
+	if account.PasswordRetryCount >= 20 {
+		return exceptions.LoginAccountTryLocked
+	}
+
+	wrong := false
 	if !utils.CheckPasswordHash(account.Password, formData.Password) {
+		account.PasswordRetryCount += 1
+		wrong = true
+	} else {
+		account.PasswordRetryCount = 0
+	}
+	_, err = accountsCollection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": account.ID},
+		bson.M{
+			"$set": bson.M{
+				"password_retry_count": account.PasswordRetryCount,
+			},
+		})
+	if err != nil {
+		log.Error(err)
+		return exceptions.MongoDBError
+	}
+	if wrong {
 		return exceptions.LoginAccountNotExistsOrPasswordWrong
 	}
 
