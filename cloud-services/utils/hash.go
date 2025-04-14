@@ -8,6 +8,9 @@ import (
 	"math/big"
 )
 
+const randomCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const randomPwdSessionCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789~!@#$%^&*()_+`-=<>?:{}|,./;'[]"
+
 // GenerateRandomJWTSecret 生成安全的随机JWT Secret
 func GenerateRandomJWTSecret(length int) string {
 	// 创建字节切片存储随机数据
@@ -38,16 +41,15 @@ func CheckPasswordHash(hash, pwd string) bool {
 
 // GenerateRandomPassword 生成指定长度的随机密码，包含大小写字母和数字
 func GenerateRandomPassword(length int) (string, error) {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	password := make([]byte, length)
 
 	for i := range password {
 		// 生成一个随机索引
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(randomCharset))))
 		if err != nil {
 			return "", fmt.Errorf("生成随机数失败: %v", err)
 		}
-		password[i] = charset[num.Int64()]
+		password[i] = randomCharset[num.Int64()]
 	}
 
 	return string(password), nil
@@ -55,16 +57,14 @@ func GenerateRandomPassword(length int) (string, error) {
 
 // GenerateRandomPasswordSessionKey 生成指定长度的密码SessionKey
 func GenerateRandomPasswordSessionKey(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789~!@#$%^&*()_+`-=<>?:{}|,./;'[]"
 	password := make([]byte, length)
-
 	for i := range password {
 		// 生成一个随机索引
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(randomPwdSessionCharset))))
 		if err != nil {
 			return ""
 		}
-		password[i] = charset[num.Int64()]
+		password[i] = randomPwdSessionCharset[num.Int64()]
 	}
 
 	return string(password)
