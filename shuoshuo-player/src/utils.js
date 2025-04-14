@@ -11,6 +11,14 @@ export function formatMillisecond(ms) {
         .padStart(2, '0')}.${millisecond.toString().padStart(3, '0')}`;
 }
 
+export function formatTimeLyric(d) {
+    const ms = d * 1000;
+    const minute = Math.floor(ms / 1000 / 60);
+    const second = Math.floor(ms / 1000) % 60;
+    const millisecond = ms % 1000;
+    return `${minute.toString().padStart(2, '0')}:${second.toString().padStart(2, '0')}.${(millisecond / 10).toFixed(0).padStart(2, '0')}`;
+}
+
 export function removeEmptyLRCItem(lrcText) {
     return String(lrcText || '').split('\n').filter(item => !/^\[(.+)]\s*$/.test(item)).join('\n')
 }
@@ -115,8 +123,8 @@ export function createJsonFileLoader(callback, errorCallback) {
 
 /*** 检查云用户权限 ***/
 export const CheckCloudUserPermission = function (account, roleRequire) {
-    if (!account || !account.role) {
+    if (!account?.role) {
         return false;
     }
-    return account.role & roleRequire !== 0;
+    return (account.role & roleRequire) !== 0;
 }

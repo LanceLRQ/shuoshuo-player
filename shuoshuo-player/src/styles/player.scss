@@ -515,6 +515,18 @@ body, html, #root {
                 font-weight: bold;
             }
         }
+        .player-lyric-editor {
+            height: 100%;
+            overflow: hidden;
+            .player-lyric-editor-left {
+                height: 100%;
+                overflow-y: auto;
+            }
+            .player-lyric-editor-right {
+                height: 100%;
+                overflow-y: auto;
+            }
+        }
     }
 }
 

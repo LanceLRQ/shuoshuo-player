@@ -30,6 +30,7 @@ export const CloudServiceSlice = createSlice({
         account: (state) => state.session?.account,
         expireAt: (state) => new Date(state.session?.expire_at * 1000),
         email: (state) => state.session?.account?.email,
+        role: (state) => state.session?.account?.role,
         roleName: (state) => CloudServiceUserRoleNameMap[state.session?.account?.role] || '未知',
         isLogin: (state) => {
             if (+new Date() > state.session?.expire_at * 1000) {

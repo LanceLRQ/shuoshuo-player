@@ -14,7 +14,7 @@ import {LyricSlice} from "@/store/lyric";
 
 
 const LRCSearchDialog = (props) => {
-    const { bvid = '' } = props;
+    const { bvid = '', onManualUseLyric = null } = props;
     const [open, setOpen] = useState(false);
     const [keyword, setKeyword] = useState('');
     const [songList, setSongList] = useState([]);
@@ -74,14 +74,18 @@ const LRCSearchDialog = (props) => {
     }
 
     const handleUseLrc = useCallback(() => {
-        dispatch(LyricSlice.actions.updateLyric({
-            bvid: bvid,
-            lrc: lrcResp,
-            offset: 0,
-            source: 'QQ音乐',
-        }));
+        if (onManualUseLyric) {
+            onManualUseLyric(lrcResp);
+        } else {
+            dispatch(LyricSlice.actions.updateLyric({
+                bvid: bvid,
+                lrc: lrcResp,
+                offset: 0,
+                source: 'QQ音乐',
+            }));
+        }
         handleClose();
-    }, [dispatch, bvid, lrcResp]);
+    }, [dispatch, bvid, lrcResp, onManualUseLyric]);
 
     return <>
         {props.children({
@@ -110,7 +114,7 @@ const LRCSearchDialog = (props) => {
                 <CloseIcon />
             </IconButton>
             {mode === 'detail' ? <DialogContent dividers>
-                <Typography>
+                <Box>
                     <ReactLRC
                         lrc={lrcResp}
                         lineRenderer={({ line }) => (
@@ -123,7 +127,7 @@ const LRCSearchDialog = (props) => {
                             </p>
                         )}
                     />
-                </Typography>
+                </Box>
             </DialogContent> : <DialogContent dividers>
                 <Stack direction="row" spacing={1}>
                     <TextField
