@@ -112,3 +112,11 @@ export function createJsonFileLoader(callback, errorCallback) {
     // 触发文件选择对话框
     fileInput.click();
 }
+
+/*** 检查云用户权限 ***/
+export const CheckCloudUserPermission = function (account, roleRequire) {
+    if (!account || !account.role) {
+        return false;
+    }
+    return account.role & roleRequire !== 0;
+}

@@ -207,6 +207,27 @@ const docTemplate = `{
             }
         },
         "/api/login": {
+            "get": {
+                "description": "检测当前的鉴权信息是否有效",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "检测是否登录",
+                "responses": {
+                    "200": {
+                        "description": "用户登录状态信息",
+                        "schema": {
+                            "$ref": "#/definitions/controller.checkLoginViewResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "用户通过邮箱和密码登录系统",
                 "consumes": [
@@ -492,6 +513,17 @@ const docTemplate = `{
                 }
             }
         },
+        "controller.checkLoginViewResponse": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "$ref": "#/definitions/models.Account"
+                },
+                "login": {
+                    "type": "boolean"
+                }
+            }
+        },
         "controller.loginViewPostParams": {
             "type": "object",
             "required": [
@@ -510,6 +542,9 @@ const docTemplate = `{
         "controller.loginViewResponse": {
             "type": "object",
             "properties": {
+                "account": {
+                    "$ref": "#/definitions/models.Account"
+                },
                 "expire_at": {
                     "type": "integer"
                 },

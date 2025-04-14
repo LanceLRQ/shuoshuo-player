@@ -36,7 +36,6 @@ cloudService.interceptors.response.use(
     },
     error => {
         // 对非2xx的状态码处理
-        console.log(error);
         if (error.response) {
             // 服务器返回了响应，可以访问error.response
             return Promise.resolve(error.response);
@@ -98,6 +97,11 @@ export const apiCall = (config) => {
                 const suc = !respData.code && !respData.errno;
                 if (suc) {
                     resolve(respData.data);
+                } else if (respData.code === 401 || respData.errno === 4010000) {
+                    window.SHOW_CLOUD_LOGIN && window.SHOW_CLOUD_LOGIN();
+                    console.error('[error]登录信息已失效');
+                    window.__PLAYER_STORE.dispatch({type: 'cloud_service/clearSession'})
+                    reject(respData);
                 } else {
                     reject(respData);
                 }

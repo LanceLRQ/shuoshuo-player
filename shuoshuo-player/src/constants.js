@@ -49,3 +49,14 @@ export const SlicerHuman = [
         face: 'https://i2.hdslb.com/bfs/face/dcd743648150e5c71216b4ee25def1b95076d610.jpg@240w_240h_1c_1s_!web-avatar-space-header.avif'
     },
 ]
+
+export const CloudServiceUserRole = {
+    WebMaster: 1024,
+    Admin: 512,
+    User: 0
+}
+export const CloudServiceUserRoleNameMap = {
+    [CloudServiceUserRole.WebMaster]: '站长',
+    [CloudServiceUserRole.Admin]: '管理员',
+    [CloudServiceUserRole.User]: '水晶蟹'
+}

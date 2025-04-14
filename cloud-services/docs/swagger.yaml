@@ -46,6 +46,13 @@ definitions:
     - old_password
     - password
     type: object
+  controller.checkLoginViewResponse:
+    properties:
+      account:
+        $ref: '#/definitions/models.Account'
+      login:
+        type: boolean
+    type: object
   controller.loginViewPostParams:
     properties:
       email:
@@ -58,6 +65,8 @@ definitions:
     type: object
   controller.loginViewResponse:
     properties:
+      account:
+        $ref: '#/definitions/models.Account'
       expire_at:
         type: integer
       id:
@@ -262,6 +271,20 @@ paths:
       tags:
       - Accounts
   /api/login:
+    get:
+      consumes:
+      - application/json
+      description: 检测当前的鉴权信息是否有效
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户登录状态信息
+          schema:
+            $ref: '#/definitions/controller.checkLoginViewResponse'
+      summary: 检测是否登录
+      tags:
+      - Accounts
     post:
       consumes:
       - application/json

@@ -1,4 +1,5 @@
 import {createSlice} from '@reduxjs/toolkit';
+import {CloudServiceUserRoleNameMap} from "@/constants";
 
 export const CloudServiceSlice = createSlice({
     name: 'cloud_service',
@@ -7,6 +8,7 @@ export const CloudServiceSlice = createSlice({
             token: '',
             id: '',
             expire_at: '',
+            account: null
         }
     },
     reducers: {
@@ -14,10 +16,21 @@ export const CloudServiceSlice = createSlice({
             state.session.token = payload?.token;
             state.session.id = payload?.id;
             state.session.expire_at = payload?.expire_at;
+            state.session.account = payload?.account;
         },
+        clearSession: (state) => {
+            state.session.token = '';
+            state.session.id = '';
+            state.session.expire_at = '';
+            state.session.account = null;
+        }
     },
     selectors: {
         sessionInfo: (state) => state.session,
+        account: (state) => state.session?.account,
+        expireAt: (state) => new Date(state.session?.expire_at * 1000),
+        email: (state) => state.session?.account?.email,
+        roleName: (state) => CloudServiceUserRoleNameMap[state.session?.account?.role] || '未知',
         isLogin: (state) => {
             if (+new Date() > state.session?.expire_at * 1000) {
                 return false;

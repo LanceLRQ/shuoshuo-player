@@ -28,12 +28,21 @@ func NewJWTToken(accountId, pwdSessionKey, jwtSecret string, jwtExpire time.Dura
 	return "Bearer " + token, expireAt, nil
 }
 
-// ValidJWTToken 校验JWT令牌
-func ValidJWTToken(token string, jwtSecret string) bool {
+// ParseJWTToken 解析JWT令牌
+func ParseJWTToken(token string, jwtSecret string) *jwt.Token {
 	ret, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 		return []byte(jwtSecret), nil
 	})
 	if err != nil {
+		return nil
+	}
+	return ret
+}
+
+// ValidJWTToken 校验JWT令牌
+func ValidJWTToken(token string, jwtSecret string) bool {
+	ret := ParseJWTToken(token, jwtSecret)
+	if ret == nil {
 		return false
 	}
 	return ret.Valid

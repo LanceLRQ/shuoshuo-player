@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/exceptions"
+	"github.com/LanceLRQ/shuoshuo-player/cloud-services/middlewares"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/models"
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/utils"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"strings"
 	"time"
 )
 
@@ -21,9 +24,15 @@ type loginViewPostParams struct {
 }
 
 type loginViewResponse struct {
-	ID       string `json:"id"`
-	Token    string `json:"token"`
-	ExpireAt int64  `json:"expire_at"`
+	ID       string         `json:"id"`
+	Token    string         `json:"token"`
+	ExpireAt int64          `json:"expire_at"`
+	Account  models.Account `json:"account"`
+}
+
+type checkLoginViewResponse struct {
+	Login   bool           `json:"login"`
+	Account models.Account `json:"account"`
 }
 
 // LoginView 处理登录请求
@@ -97,10 +106,51 @@ func LoginView(c *fiber.Ctx) error {
 		ID:       accountId,
 		Token:    token,
 		ExpireAt: expireAt,
+		Account:  account,
+	})
+}
+
+// CheckLoginView 检测是否登录
+// @Summary 检测是否登录
+// @Description 检测当前的鉴权信息是否有效
+// @Tags Accounts
+// @Accept json
+// @Produce json
+// @Success 200 {object} checkLoginViewResponse "用户登录状态信息"
+// @Router       /api/login [get]
+func CheckLoginView(c *fiber.Ctx) error {
+	tokenText := c.Get("Authorization")
+	if tokenText != "" {
+		if strings.Index(tokenText, "Bearer ") == 0 {
+			tokenText = strings.TrimPrefix(tokenText, "Bearer ")
+		}
+		cfg := c.Locals("config").(*configs.ServerConfigStruct)
+		token := utils.ParseJWTToken(tokenText, cfg.Security.JWTSecret)
+		if token != nil {
+			claims := token.Claims.(jwt.MapClaims)
+			accountId, ok := claims["account_id"].(string)
+			if ok && accountId != "" {
+				session := &middlewares.LoginSession{
+					AccountId:  accountId,
+					JwtPayload: claims,
+				}
+				err := session.GetAccount(c)
+				if err == nil {
+					return models.NewJSONResponse(c, checkLoginViewResponse{
+						Login:   true,
+						Account: *session.Account,
+					})
+				}
+			}
+		}
+	}
+	return models.NewJSONResponse(c, checkLoginViewResponse{
+		Login: false,
 	})
 }
 
 func BindPublicAPIRoutes(apiRoot fiber.Router) {
+	apiRoot.Get("/login", CheckLoginView)
 	apiRoot.Post("/login", LoginView)
 	apiRoot.Get("/lyric/:bvid", GetLyricByBvid)
 }

@@ -11,6 +11,10 @@ const Account = {
         url: '/login',
         method: 'post',
     }),
+    checkLogin: buildApiCall({
+        url: '/login',
+        method: 'get',
+    }),
     getAccountsList: buildApiCall({
         url: '/accounts/list',
         method: 'get',

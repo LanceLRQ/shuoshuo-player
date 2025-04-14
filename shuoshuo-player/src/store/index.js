@@ -103,6 +103,8 @@ store.subscribe(() => {
     persistStore();
 });
 
+window.__PLAYER_STORE = store;
+
 if (process.env.NODE_ENV !== 'production' && module.hot) {
     module.hot.accept('./reducers', () => store.replaceReducer(createRootReducer()));
 }

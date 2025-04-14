@@ -2,12 +2,12 @@ import React, { useCallback } from 'react';
 import { styled } from '@mui/material/styles';
 import { 
     AppBar as MuiAppBar, Toolbar, IconButton, Typography,  Box,
-    Avatar, Tooltip, Menu, MenuItem, ListItemIcon, Divider
+    Avatar, Tooltip, Menu, MenuItem, ListItemIcon, Divider, Chip, Stack
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useDispatch, useSelector } from 'react-redux';
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
-import {MasterUpInfo, exportKeys} from "@/constants";
+import {MasterUpInfo, exportKeys, CloudServiceUserRoleNameMap} from "@/constants";
 import LogoutIcon from '@mui/icons-material/Logout';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
@@ -18,6 +18,8 @@ import dayjs from 'dayjs';
 import isElectron from 'is-electron';
 import {PlayerProfileSlice} from "@/store/ui";
 import {createJsonFileLoader, objectToDownload} from "@/utils";
+import API from "@/api";
+import {CloudServiceSlice} from "@/store/cloud_service";
 
 const drawerWidth = 240;
 
@@ -43,6 +45,8 @@ const TopBar = (props) => {
     const { menuOpen, toggleMenu } = props;
     const dispatch = useDispatch();
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser);
+    const isCloudServiceLogin = useSelector(CloudServiceSlice.selectors.isLogin);
+    const cloudServiceUserRole = useSelector(CloudServiceSlice.selectors.roleName);
     const themeMode = useSelector(PlayerProfileSlice.selectors.theme);
     const [anchorEl, setAnchorEl] = React.useState(null);
     const open = Boolean(anchorEl);
@@ -136,7 +140,15 @@ const TopBar = (props) => {
     }, [themeMode, dispatch]);
 
     const handleShowCloudServicePage = () => {
-        window.SHOW_CLOUD_LOGIN();
+        handleMenuClose();
+        API.CloudService.Account.checkLogin({}).then((res) => {
+            if (!res.login) {
+                dispatch(CloudServiceSlice.actions.clearSession())
+                window.SHOW_CLOUD_LOGIN();
+            } else {
+                alert(`已登录：${res?.account?.email}\n当前身份：${CloudServiceUserRoleNameMap[res?.account?.role] || '未知'}`)
+            }
+        })
     }
 
     return <AppBar position="absolute" open={menuOpen}>
@@ -168,9 +180,6 @@ const TopBar = (props) => {
             </Typography>
             {biliUser ? <>
                 <Box>
-                    <IconButton onClick={handleShowCloudServicePage}>
-                        <CloudIcon />
-                    </IconButton>
                     <IconButton onClick={handleThemeChange}>
                         {themeMode === 'light' ? <LightModeIcon />:<DarkModeIcon />}
                     </IconButton>
@@ -185,6 +194,16 @@ const TopBar = (props) => {
                     open={open}
                     onClose={handleMenuClose}
                 >
+                    <MenuItem onClick={handleShowCloudServicePage}>
+                        <ListItemIcon>
+                            <CloudIcon fontSize="small" />
+                        </ListItemIcon>
+                        <Stack direction="row" spacing={2}>
+                            <span>云服务</span>
+                            {isCloudServiceLogin ? <Chip size="small" color="primary" label={cloudServiceUserRole} /> : null}
+                        </Stack>
+                    </MenuItem>
+                    <Divider></Divider>
                     <MenuItem onClick={handleImport}>
                         <ListItemIcon>
                             <FileUploadIcon fontSize="small" />

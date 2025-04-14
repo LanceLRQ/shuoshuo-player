@@ -6,8 +6,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-var jwtTokenWrongErrMsg = fiber.Map{"code": "400", "message": "Missing or malformed JWT"}
-var jwtTokenInvalidErrMsg = fiber.Map{"code": "401", "message": "Invalid or expired JWT"}
+var jwtTokenWrongErrMsg = fiber.Map{"code": 400, "message": "Missing or malformed JWT"}
+var jwtTokenInvalidErrMsg = fiber.Map{"code": 401, "message": "Invalid or expired JWT"}
 
 // AppErrorHandler that process return errors from handlers
 var AppErrorHandler = func(c *fiber.Ctx, err error) error {
