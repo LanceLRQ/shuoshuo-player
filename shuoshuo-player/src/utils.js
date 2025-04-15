@@ -30,20 +30,23 @@ export function createLyricsFinder(lyricsArray, offset = 0) {
         let currentTime = _currentTime + offset;
         let left = 0;
         let right = sortedLyrics.length - 1;
-        let result = null;
+        let result = -1;
 
         // 二分查找
         while (left <= right) {
             const mid = Math.floor((left + right) / 2);
             if (sortedLyrics[mid].timestamp <= currentTime) {
-                result = sortedLyrics[mid];
+                result = mid;
                 left = mid + 1;
             } else {
                 right = mid - 1;
             }
         }
 
-        return result;
+        return {
+            value: sortedLyrics[result],
+            index: result
+        };
     };
 }
 

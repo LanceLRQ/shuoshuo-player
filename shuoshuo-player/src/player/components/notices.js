@@ -39,6 +39,7 @@ const NoticesBox = () => {
             const Icon = IconMap[item.type];
             const color = IconColorMap[item.type];
             return <Snackbar
+                sx={{zIndex: 999999999}}
                 anchorOrigin={{ vertical: item.vertical, horizontal: item.horizontal }}
                 open={true}
                 onClose={handleClose(item)}

@@ -3,26 +3,23 @@ import {
     Dialog, DialogTitle, DialogContent, IconButton, TextField, Button,
     Divider, List, ListItem, ListItemText, Stack, Box, Typography, DialogActions
 } from '@mui/material';
+import { noop } from 'lodash';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIco from '@mui/icons-material/Search';
 import { Lrc as ReactLRC } from "react-lrc";
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import isElectron from 'is-electron';
 import {formatMillisecond, removeEmptyLRCItem} from "@/utils";
-import {useDispatch} from "react-redux";
-import {LyricSlice} from "@/store/lyric";
 
 
 const LRCSearchDialog = (props) => {
-    const { bvid = '', onManualUseLyric = null } = props;
+    const { onLyricResponse = noop } = props;
     const [open, setOpen] = useState(false);
     const [keyword, setKeyword] = useState('');
     const [songList, setSongList] = useState([]);
     const [mode, setMode] = useState('list');
     const [lrcResp, setLrcResp] = useState('');
     const inElectron = isElectron();
-
-    const dispatch = useDispatch();
 
     const searchSongByKeyword = (keyword) => {
         window.ElectronAPI.Spider.QQMusic.SearchSong(keyword, 10).then(res => {
@@ -74,18 +71,9 @@ const LRCSearchDialog = (props) => {
     }
 
     const handleUseLrc = useCallback(() => {
-        if (onManualUseLyric) {
-            onManualUseLyric(lrcResp);
-        } else {
-            dispatch(LyricSlice.actions.updateLyric({
-                bvid: bvid,
-                lrc: lrcResp,
-                offset: 0,
-                source: 'QQ音乐',
-            }));
-        }
+        onLyricResponse(lrcResp);
         handleClose();
-    }, [dispatch, bvid, lrcResp, onManualUseLyric]);
+    }, [lrcResp, onLyricResponse]);
 
     return <>
         {props.children({

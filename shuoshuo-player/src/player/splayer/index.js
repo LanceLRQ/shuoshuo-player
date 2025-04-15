@@ -310,7 +310,7 @@ function SPlayer() {
 
     const playerCardDescWithLrc = useMemo(() => {
         if (howlPlaying && lrcParsedFinder) {
-            const rel = lrcParsedFinder(howlProcess)
+            const rel = lrcParsedFinder(howlProcess)?.value
             if (rel) return rel?.content;
         }
         return '';

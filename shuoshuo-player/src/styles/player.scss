@@ -526,6 +526,9 @@ body, html, #root {
                 height: 100%;
                 overflow-y: auto;
             }
+            .player-lyric-editor-current-play-row {
+                background: $blue-2;
+            }
         }
     }
 }
@@ -584,7 +587,6 @@ body, html, #root {
 
     .player-lyric-background-mask {
         background: rgba(255,255,255, 0.5) !important;
-
     }
 }
 

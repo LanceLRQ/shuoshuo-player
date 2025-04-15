@@ -1,20 +1,39 @@
-import React from 'react';
+import React, {useCallback, useMemo} from 'react';
 import {
-    TableContainer,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    Checkbox,
-    TableBody,
-    Button,
-    TextField
+    TableContainer, Table, TableHead, TableRow, TableCell,
+    Checkbox, TableBody, Input, IconButton, Typography
 } from '@mui/material';
+import {noop} from 'lodash';
 import PropTypes from "prop-types";
-import {formatTimeLyric} from "@/utils";
+import CheckIcon from '@mui/icons-material/Check';
+import EditIcon from '@mui/icons-material/Edit';
+import CloseIcon from '@mui/icons-material/Close';
+import {createLyricsFinder, formatTimeLyric} from "@/utils";
 
 const LyricEditorTable = (props) => {
-    const { lyrics = [] } = props;
+    const {
+        lyrics = [],
+        selectedRows = [],
+        readonly = false,
+        onUpdate = noop,
+        onSelectChange = noop,
+        currentPlaying = 0,
+    } = props;
+    const [editingRow, setEditingRow] = React.useState(null);
+    const [editingRowIndex, setEditingRowIndex] = React.useState(-1);
+
+    // === 歌词计算
+    const lrcDurationFinder = useMemo(() => {
+        if (lyrics.length <= 0) return null;
+        return createLyricsFinder(lyrics, 0)
+    }, [lyrics]);
+
+    const currentLrc = useMemo(() => {
+        if (lrcDurationFinder) {
+            return lrcDurationFinder(currentPlaying)
+        }
+        return null;
+    }, [lrcDurationFinder, currentPlaying]);
 
     const headCells = [
         {
@@ -33,7 +52,66 @@ const LyricEditorTable = (props) => {
         },
     ];
 
-    const isSelected = (rowIndex) => {}
+    const isEditing = useMemo(() => {
+        if (readonly) return false;
+        return editingRowIndex > -1;
+    }, [readonly, editingRowIndex]);
+
+    const handleSelectLine = useCallback((e, rowIndex) => {
+        if (isEditing) return;
+        let ret = [...selectedRows];
+        if (e.target.checked) {
+            ret.push(rowIndex)
+        } else {
+            ret.splice(ret.indexOf(rowIndex), 1);
+        }
+        onSelectChange(ret);
+    }, [isEditing, selectedRows, onSelectChange])
+
+    const handleSelectAllLine = useCallback(() => {
+        if (isEditing) return;
+        let ret = lyrics.map((item, index) => index);
+        if (selectedRows.length > 0 && selectedRows.length === lyrics.length) {
+            ret = [];
+        }
+        onSelectChange(ret);
+    }, [isEditing, selectedRows, lyrics, onSelectChange])
+
+    const isEditingLine = (rowIndex) => {
+        if (readonly) return false;
+        return editingRowIndex === rowIndex;
+    }
+
+    const handleSetEditing = (e, rowIndex, rowItem) => {
+        e.stopPropagation();
+        setEditingRow(rowItem);
+        setEditingRowIndex(rowIndex);
+    }
+
+    const handleCancelEdit = (e) => {
+        e.stopPropagation();
+        setEditingRow(null);
+        setEditingRowIndex(-1);
+    }
+
+    const handleEditorChange = (mod) => (event) => {
+        setEditingRow({ ...editingRow, [mod]: event.target.value });
+    }
+
+    const handleAcceptEdit = (e) => {
+        e.stopPropagation();
+        onUpdate(editingRowIndex, editingRow);
+        setEditingRow(null);
+        setEditingRowIndex(-1);
+    }
+
+    const handleInputKeyDown = (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAcceptEdit();
+        }
+    }
 
     return <TableContainer>
         <Table
@@ -43,43 +121,45 @@ const LyricEditorTable = (props) => {
                 <TableRow>
                     <TableCell padding="checkbox">
                         <Checkbox
+                            readOnly={isEditing}
                             color="primary"
-                            // indeterminate={numSelected > 0 && numSelected < rowCount}
-                            // checked={rowCount > 0 && numSelected === rowCount}
-                            // onChange={onSelectAllClick}
-                            inputProps={{
-                                'aria-label': '全选',
-                            }}
+                            indeterminate={selectedRows.length > 0 && selectedRows.length < lyrics.length}
+                            checked={selectedRows.length > 0 && selectedRows.length === lyrics.length}
+                            onChange={handleSelectAllLine}
+                            inputProps={{'aria-label': '全选'}}
                         />
                     </TableCell>
-                    {headCells.map((headCell) => (
-                        <TableCell
+                    {headCells.map((headCell) => {
+                        if (readonly && headCell.id === 'operate') return null;
+                        return <TableCell
                             key={headCell.id}
                             align={headCell.align}
                         >
                             {headCell.label}
                         </TableCell>
-                    ))}
+                    })}
                 </TableRow>
             </TableHead>
             <TableBody>
                 {lyrics.map((row, index) => {
-                    const isItemSelected = isSelected(index);
+                    const isItemSelected = selectedRows.indexOf(index) > -1;
                     const labelId = `lyric-item-${index}`;
 
                     return (
                         <TableRow
                             hover
-                            // onClick={(event) => handleClick(event, row.id)}
+                            className={currentLrc?.index === index ? "player-lyric-editor-current-play-row" : ''}
                             role="checkbox"
-                            aria-checked={isItemSelected}
                             tabIndex={-1}
                             key={index}
                             selected={isItemSelected}
+                            onClick={(e) => handleSelectLine({ target: { checked: !isItemSelected }}, index)}
                             sx={{ cursor: 'pointer' }}
                         >
                             <TableCell padding="checkbox">
                                 <Checkbox
+                                    readOnly={isEditing}
+                                    onChange={(e) => handleSelectLine(e, index)}
                                     color="primary"
                                     checked={isItemSelected}
                                     inputProps={{
@@ -88,20 +168,44 @@ const LyricEditorTable = (props) => {
                                 />
                             </TableCell>
                             <TableCell>
-                                {formatTimeLyric(row?.timestamp)}
+                                {isEditingLine(index) ? <Input
+                                    value={editingRow?.timestamp}
+                                    variant="filled"
+                                    size="small"
+                                    type="number"
+                                    onChange={handleEditorChange('timestamp')}
+                                    onKeyDown={handleInputKeyDown}
+                                /> : formatTimeLyric(row?.timestamp)}
                             </TableCell>
                             <TableCell>
-                                <TextField
-                                    hiddenLabel
-                                    value={row?.content}
+                                {isEditingLine(index) ?  <Input
+                                    value={editingRow?.content}
                                     variant="filled"
                                     fullWidth
                                     size="small"
-                                />
+                                    onChange={handleEditorChange('content')}
+                                    onKeyDown={handleInputKeyDown}
+                                /> : <Typography noWrap>{row?.content}</Typography>}
                             </TableCell>
-                            <TableCell align="right" padding="none">
-                                <Button>test</Button>
-                            </TableCell>
+                            {!readonly ? <TableCell>
+                                {isEditing ? (isEditingLine(index) ?
+                                    <>
+                                        <IconButton size="small" onClick={handleAcceptEdit}>
+                                            <CheckIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton size="small" onClick={handleCancelEdit}>
+                                            <CloseIcon fontSize="small" />
+                                        </IconButton>
+                                    </>
+                                : null) : <>
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => handleSetEditing(e, index, row)}
+                                    >
+                                        <EditIcon fontSize="small" />
+                                    </IconButton>
+                                </>}
+                            </TableCell>: null}
                         </TableRow>
                     );
                 })}
@@ -112,6 +216,9 @@ const LyricEditorTable = (props) => {
 
 LyricEditorTable.propTypes = {
     lyrics: PropTypes.array.isRequired,
+    readonly: PropTypes.bool,
+    onUpdate: PropTypes.func,
+    onSelectChange: PropTypes.func,
 };
 
 export default LyricEditorTable;

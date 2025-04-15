@@ -1,25 +1,18 @@
 import React, {useState, useCallback, useMemo} from 'react';
 import { Typography, Box, Toolbar, IconButton, Popover } from '@mui/material';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
-import SearchIcon from '@mui/icons-material/Search';
 import { Lrc as ReactLRC } from "react-lrc";
 import PropTypes from "prop-types";
-import LRCSearchDialog from "@player/dialogs/lrc_search";
-import isElectron from "is-electron";
 import {useDispatch, useSelector} from "react-redux";
 import {LyricSlice} from "@/store/lyric";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from '@mui/icons-material/Remove';
 import ModeEditIcon from '@mui/icons-material/ModeEdit';
-import {CloudServiceSlice} from "@/store/cloud_service";
-import {CheckCloudUserPermission} from "@/utils";
-import {CloudServiceUserRole} from "@/constants";
 import LyricEditor from "@player/components/cloud_services/lyric_editor";
 
 function LyricViewer(props) {
     const { height, onToggleLyricView, duration, currentMusic } = props;
-    const inElectron = isElectron();
     const dispatch = useDispatch();
 
     const [editorMode, setEditorMode] = useState(true);
@@ -32,11 +25,6 @@ function LyricViewer(props) {
         setOffsetPopoverEl(null);
     };
     const openOffsetPopover = Boolean(offsetPopoverEl);
-
-    const cloudServiceAccount = useSelector(CloudServiceSlice.selectors.account);
-    const isCloudServiceAdmin = useMemo(() => {
-        return CheckCloudUserPermission(cloudServiceAccount, CloudServiceUserRole.WebMaster | CloudServiceUserRole.Admin);
-    }, [cloudServiceAccount])
 
     const LrcInfos = useSelector(LyricSlice.selectors.lyricMaps)
     const LrcInfo = useMemo(() => {
@@ -75,6 +63,7 @@ function LyricViewer(props) {
             <img src={coverImg} alt="cover" />
         </div>
         {editorMode && currentMusic ? <LyricEditor
+            duration={duration}
             currentMusic={currentMusic}
             setEditorMode={setEditorMode}
         /> : <>
@@ -87,13 +76,6 @@ function LyricViewer(props) {
 
                     </Typography>
                     <Box sx={{display: {xs: 'none', md: 'flex'}}}>
-                        {inElectron && <LRCSearchDialog bvid={currentMusic.bvid}>
-                            {(slot) => {
-                                return <IconButton onClick={() => slot.handleOpen(currentMusic?.name ?? '')}>
-                                    <SearchIcon/>
-                                </IconButton>
-                            }}
-                        </LRCSearchDialog>}
                         <Box
                             onMouseEnter={handleOffsetPopoverOpen}
                             onMouseLeave={handleOffsetPopoverClose}
@@ -122,9 +104,9 @@ function LyricViewer(props) {
                         >
                             <Typography sx={{ p: 1 }}>当前偏移量：{LrcInfo?.offset ?? '0'}s</Typography>
                         </Popover>
-                        {inElectron && isCloudServiceAdmin && <IconButton onClick={() => setEditorMode(true)}>
+                        <IconButton onClick={() => setEditorMode(true)}>
                             <ModeEditIcon></ModeEditIcon>
-                        </IconButton>}
+                        </IconButton>
                         {isDebugging && <IconButton onClick={handleDebugClearLRC}>
                             <DeleteIcon></DeleteIcon>
                         </IconButton>}
