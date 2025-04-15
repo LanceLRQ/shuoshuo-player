@@ -12,11 +12,14 @@ import {useDispatch, useSelector} from "react-redux";
 import {LyricSlice} from "@/store/lyric";
 import { Lrc as LrcKit } from 'lrc-kit';
 import LyricEditorTable from "@player/components/cloud_services/lyric_editor_table";
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import BackupIcon from '@mui/icons-material/Backup';
 import CloseIcon from "@mui/icons-material/Close";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from '@mui/icons-material/Remove';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove';
 import {CheckCloudUserPermission, formatTimeLyric} from "@/utils";
 import {CloudServiceSlice} from "@/store/cloud_service";
 import {CloudServiceUserRole, NoticeTypes} from "@/constants";
@@ -116,6 +119,21 @@ const LyricEditor = (props) => {
         suggestedLyricSelected, setSuggestedLyricSelected
     ]);
 
+    const handleOffsetChange = useCallback((offset) => {
+        let ret = [...currentLyric];
+        ret = ret.map((item, index) => {
+            if (currentLyricSelected.length > 0 && !currentLyricSelected.includes(index)) {
+                return item;
+            }
+            const val = item?.timestamp + offset;
+            return {
+                ...item,
+                timestamp: val < 0 ? 0 : val,
+            }
+        })
+        setCurrentLyric(ret);
+    }, [currentLyric, setCurrentLyric, currentLyricSelected])
+
     const handleSaveToCloud = () => {
 
     }
@@ -196,6 +214,15 @@ const LyricEditor = (props) => {
                                 <KeyboardArrowLeftIcon fontSize="small" /> 插入空白行
                                 <br />{formatTimeLyric(duration)}
                             </Button>
+                            <Button onClick={() => {handleOffsetChange(-0.5);}}>
+                                <RemoveIcon fontSize="small" /> {currentLyricSelected.length > 0 ?'选中' : '整体'}前移0.5秒
+                            </Button>
+                            <Button onClick={() => {handleOffsetChange(0.5);}}>
+                                <AddIcon fontSize="small" />  {currentLyricSelected.length > 0 ?'选中' : '整体'}后移0.5秒
+                            </Button>
+                            <Button disabled={currentLyricSelected.length === 0} onClick={() => {setCurrentLyricSelected([])}}>
+                                <PlaylistRemoveIcon fontSize="small" />  取消选择
+                            </Button>
                             <Button
                                 color="warning"
                                 disabled={!currentLyricSelected.length}
@@ -207,7 +234,7 @@ const LyricEditor = (props) => {
                                 color="error"
                                 onClick={() => {handleDeleteLyric('all');}}
                             >
-                                <DeleteForeverIcon fontSize="small" /> 清空歌词
+                                <DeleteSweepIcon fontSize="small" /> 清空歌词
                             </Button>
                         </ButtonGroup>
                     </Box>
