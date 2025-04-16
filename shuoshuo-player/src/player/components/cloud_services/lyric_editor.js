@@ -20,10 +20,12 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove';
+import UndoIcon from '@mui/icons-material/Undo';
 import {CheckCloudUserPermission, formatTimeLyric} from "@/utils";
 import {CloudServiceSlice} from "@/store/cloud_service";
 import {CloudServiceUserRole, NoticeTypes} from "@/constants";
 import {PlayerNoticesSlice} from "@/store/ui";
+import API from "@/api";
 
 const LyricEditor = (props) => {
     const { currentMusic, setEditorMode, duration } = props;
@@ -35,6 +37,8 @@ const LyricEditor = (props) => {
     const [suggestedLyrics, setSuggestedLyrics] = React.useState([]);
     const [currentLyricSelected, setCurrentLyricSelected] = React.useState([]);
     const [suggestedLyricSelected, setSuggestedLyricSelected] = React.useState([]);
+    const [editHistory, setEditHistory] = React.useState([]);
+    const [lyricsChanged, setLyricsChanged] = React.useState(false);
 
     const cloudServiceAccount = useSelector(CloudServiceSlice.selectors.account);
     const isCloudServiceAdmin = useMemo(() => {
@@ -56,6 +60,17 @@ const LyricEditor = (props) => {
         }
     }, [LrcInfo])
 
+    // 创建一条历史编辑记录
+    const pushHistory = useCallback((lyrics) => {
+        const ret = [...editHistory, JSON.parse(JSON.stringify(lyrics))];
+        if (ret.length > 999) {
+            ret.shift();
+        }
+        setEditHistory(ret);
+        setLyricsChanged(true);
+    }, [editHistory, setEditHistory, setLyricsChanged]);
+
+    // 保存歌词到本地
     const handleSaveLyric = useCallback(() => {
         const lrcParser = new LrcKit();
         currentLyric.forEach((lrc) => {
@@ -70,22 +85,26 @@ const LyricEditor = (props) => {
         }));
         dispatch(PlayerNoticesSlice.actions.sendNotice({
             type: NoticeTypes.SUCCESS,
-            message: `修改成功`,
+            message: `保存成功`,
             duration: 1000,
         }));
-        setEditorMode(false);
-    }, [dispatch, currentMusic, currentLyric, setEditorMode]);
+        setLyricsChanged(false)
+    }, [dispatch, currentMusic, currentLyric, setLyricsChanged]);
 
+    // 设置参考歌词的数据
     const handleReceiveSuggestLyric = useCallback((lrc) => {
         const lrcParser = LrcKit.parse(lrc);
         setSuggestedLyrics(lrcParser.lyrics)
     }, [setSuggestedLyrics]);
 
+    // 接收表格组件的歌词内容更新
     const handleUpdateLyric = useCallback((rowIndex, lyrics) => {
+        pushHistory(currentLyric);
         currentLyric[rowIndex] = lyrics;
         setCurrentLyric(currentLyric);
-    }, [currentLyric, setCurrentLyric])
+    }, [currentLyric, setCurrentLyric, pushHistory])
 
+    // 删除歌词
     const handleDeleteLyric = useCallback((targets) => {
         let ret = [...currentLyric];
         if (targets === 'all') {
@@ -95,10 +114,12 @@ const LyricEditor = (props) => {
             if (!window.confirm('确定要删除所选歌词吗？')) return
             ret = ret.filter((_, index) => !currentLyricSelected.includes(index));
         }
+        pushHistory(currentLyric);
         setCurrentLyric(ret);
         setCurrentLyricSelected([]);
-    }, [currentLyric, setCurrentLyric, currentLyricSelected, setCurrentLyricSelected])
+    }, [currentLyric, setCurrentLyric, currentLyricSelected, setCurrentLyricSelected, pushHistory])
 
+    // 插入歌词
     const handleInsertLyric = useCallback((targets) => {
         let ret = [...currentLyric];
         if (targets === 'current') {
@@ -112,13 +133,15 @@ const LyricEditor = (props) => {
             })
         }
         ret.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
+        pushHistory(currentLyric);
         setCurrentLyric(ret);
         setSuggestedLyricSelected([]);
     }, [
         duration, currentLyric, setCurrentLyric, suggestedLyrics,
-        suggestedLyricSelected, setSuggestedLyricSelected
+        suggestedLyricSelected, setSuggestedLyricSelected, pushHistory
     ]);
 
+    // 歌词前后移动
     const handleOffsetChange = useCallback((offset) => {
         let ret = [...currentLyric];
         ret = ret.map((item, index) => {
@@ -131,17 +154,65 @@ const LyricEditor = (props) => {
                 timestamp: val < 0 ? 0 : val,
             }
         })
+        pushHistory(currentLyric);
         setCurrentLyric(ret);
-    }, [currentLyric, setCurrentLyric, currentLyricSelected])
+    }, [currentLyric, setCurrentLyric, currentLyricSelected, pushHistory])
 
-    const handleSaveToCloud = () => {
+    //保存当前歌词到云端(管理员用)
+    const handleSaveToCloud = useCallback(() => {
+        if (lyricsChanged) {
+            alert('歌词内容有改动，请先保存');
+            return;
+        }
+        if (!window.confirm('确定要将当前歌词内容更新到云服务数据库吗？\n操作将覆盖对应歌曲的歌词内容，请谨慎操作！')) return
+        const lrcParser = new LrcKit();
+        currentLyric.forEach((lrc) => {
+            lrcParser.lyrics.push(lrc)
+        });
+        const lrcResp = lrcParser.toString({combine: false});
+        API.CloudService.Lyric.saveLyric(currentMusic.bvid)({
+            data: {
+                content: lrcResp.replace(/\r\n/g, '\n'),
+                title: currentMusic.name,
+            }
+        }).then((res) => {
+            dispatch(PlayerNoticesSlice.actions.sendNotice({
+                type: NoticeTypes.SUCCESS,
+                message: `云端歌词更新成功`,
+                duration: 2000,
+            }));
+        }).catch((err) => {
+            dispatch(PlayerNoticesSlice.actions.sendNotice({
+                type: NoticeTypes.ERROR,
+                message: err?.message,
+                duration: 3000,
+            }));
+        })
+    }, [dispatch, currentLyric, lyricsChanged, currentMusic])
 
-    }
+    // 撤销一步操作
+    const handleUndoClick = useCallback(() => {
+        if (editHistory.length > 0) {
+            const ret = [...editHistory];
+            const data = ret.pop()
+            setCurrentLyric(data);
+            setEditHistory(ret);
+            setLyricsChanged(true)
+        }
+    }, [setCurrentLyric, editHistory, setEditHistory, setLyricsChanged])
+
+    const handleCloseEditor = useCallback(() => {
+        if (lyricsChanged && !window.confirm('确定要返回吗？未保存的改动将丢失')) {
+            return;
+        }
+        setLyricsChanged(false)
+        setEditorMode(false)
+    }, [setEditorMode, lyricsChanged, setLyricsChanged])
 
     return <>
         <Box className="player-lyric-top-bar" sx={{flexGrow: 1}}>
             <Toolbar>
-                <IconButton size="large" aria-label="close lyric" sx={{mr: 2}} onClick={() => setEditorMode(false)}>
+                <IconButton size="large" aria-label="close lyric" sx={{mr: 2}} onClick={handleCloseEditor}>
                     <ArrowBackIcon/>
                 </IconButton>
                 <Typography noWrap={true} variant="h6" component="div" sx={{flexGrow: 1}}>
@@ -219,6 +290,9 @@ const LyricEditor = (props) => {
                             </Button>
                             <Button onClick={() => {handleOffsetChange(0.5);}}>
                                 <AddIcon fontSize="small" />  {currentLyricSelected.length > 0 ?'选中' : '整体'}后移0.5秒
+                            </Button>
+                            <Button disabled={!editHistory.length} onClick={handleUndoClick}>
+                                <UndoIcon fontSize="small" />  撤销一步操作
                             </Button>
                             <Button disabled={currentLyricSelected.length === 0} onClick={() => {setCurrentLyricSelected([])}}>
                                 <PlaylistRemoveIcon fontSize="small" />  取消选择

@@ -4,6 +4,10 @@ const Lyric = {
     getLyricByBvid: (bvid) => buildApiCall({
         url: `/lyric/${bvid}`,
     }),
+    saveLyric: (bvid) => buildApiCall({
+        url: `/lyric/manage/${bvid}`,
+        method: 'post',
+    }),
 }
 
 const Account = {

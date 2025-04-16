@@ -28,12 +28,83 @@ const LyricEditorTable = (props) => {
         return createLyricsFinder(lyrics, 0)
     }, [lyrics]);
 
+    // 获取当前歌词高亮位置
     const currentLrc = useMemo(() => {
         if (lrcDurationFinder) {
             return lrcDurationFinder(currentPlaying)
         }
         return null;
     }, [lrcDurationFinder, currentPlaying]);
+
+    // 编辑状态判断
+    const isEditing = useMemo(() => {
+        if (readonly) return false;
+        return editingRowIndex > -1;
+    }, [readonly, editingRowIndex]);
+
+    // 行选择事件处理
+    const handleSelectLine = useCallback((e, rowIndex) => {
+        if (isEditing) return;
+        let ret = [...selectedRows];
+        if (e.target.checked) {
+            ret.push(rowIndex)
+        } else {
+            ret.splice(ret.indexOf(rowIndex), 1);
+        }
+        onSelectChange(ret);
+    }, [isEditing, selectedRows, onSelectChange])
+
+    // 全选行事件处理
+    const handleSelectAllLine = useCallback(() => {
+        if (isEditing) return;
+        let ret = lyrics.map((item, index) => index);
+        if (selectedRows.length > 0 && selectedRows.length === lyrics.length) {
+            ret = [];
+        }
+        onSelectChange(ret);
+    }, [isEditing, selectedRows, lyrics, onSelectChange])
+
+    // 行编辑状态判断
+    const isEditingLine = (rowIndex) => {
+        if (readonly) return false;
+        return editingRowIndex === rowIndex;
+    }
+
+    // 行编辑状态设置
+    const handleSetEditing = (e, rowIndex, rowItem) => {
+        e.stopPropagation();
+        setEditingRow(rowItem);
+        setEditingRowIndex(rowIndex);
+    }
+
+    // 行编辑取消事件处理
+    const handleCancelEdit = (e) => {
+        e.stopPropagation();
+        setEditingRow(null);
+        setEditingRowIndex(-1);
+    }
+
+    // 行编辑内容变化事件处理
+    const handleEditorChange = (mod) => (event) => {
+        setEditingRow({ ...editingRow, [mod]: event.target.value });
+    }
+
+    // 行编辑确认事件处理
+    const handleAcceptEdit = (e) => {
+        e.stopPropagation();
+        onUpdate(editingRowIndex, editingRow);
+        setEditingRow(null);
+        setEditingRowIndex(-1);
+    }
+
+    // 行编辑输入框按下回车键事件处理
+    const handleInputKeyDown = (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAcceptEdit();
+        }
+    }
 
     const headCells = [
         {
@@ -51,67 +122,6 @@ const LyricEditorTable = (props) => {
             label: '操作',
         },
     ];
-
-    const isEditing = useMemo(() => {
-        if (readonly) return false;
-        return editingRowIndex > -1;
-    }, [readonly, editingRowIndex]);
-
-    const handleSelectLine = useCallback((e, rowIndex) => {
-        if (isEditing) return;
-        let ret = [...selectedRows];
-        if (e.target.checked) {
-            ret.push(rowIndex)
-        } else {
-            ret.splice(ret.indexOf(rowIndex), 1);
-        }
-        onSelectChange(ret);
-    }, [isEditing, selectedRows, onSelectChange])
-
-    const handleSelectAllLine = useCallback(() => {
-        if (isEditing) return;
-        let ret = lyrics.map((item, index) => index);
-        if (selectedRows.length > 0 && selectedRows.length === lyrics.length) {
-            ret = [];
-        }
-        onSelectChange(ret);
-    }, [isEditing, selectedRows, lyrics, onSelectChange])
-
-    const isEditingLine = (rowIndex) => {
-        if (readonly) return false;
-        return editingRowIndex === rowIndex;
-    }
-
-    const handleSetEditing = (e, rowIndex, rowItem) => {
-        e.stopPropagation();
-        setEditingRow(rowItem);
-        setEditingRowIndex(rowIndex);
-    }
-
-    const handleCancelEdit = (e) => {
-        e.stopPropagation();
-        setEditingRow(null);
-        setEditingRowIndex(-1);
-    }
-
-    const handleEditorChange = (mod) => (event) => {
-        setEditingRow({ ...editingRow, [mod]: event.target.value });
-    }
-
-    const handleAcceptEdit = (e) => {
-        e.stopPropagation();
-        onUpdate(editingRowIndex, editingRow);
-        setEditingRow(null);
-        setEditingRowIndex(-1);
-    }
-
-    const handleInputKeyDown = (e) => {
-        e.stopPropagation();
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleAcceptEdit();
-        }
-    }
 
     return <TableContainer>
         <Table
@@ -151,7 +161,7 @@ const LyricEditorTable = (props) => {
                             className={currentLrc?.index === index ? "player-lyric-editor-current-play-row" : ''}
                             role="checkbox"
                             tabIndex={-1}
-                            key={index}
+                            key={`row_${index}_${row?.timestamp}_${row?.content}`}
                             selected={isItemSelected}
                             onClick={(e) => handleSelectLine({ target: { checked: !isItemSelected }}, index)}
                             sx={{ cursor: 'pointer' }}

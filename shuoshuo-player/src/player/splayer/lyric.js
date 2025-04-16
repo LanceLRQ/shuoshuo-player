@@ -5,17 +5,20 @@ import { Lrc as ReactLRC } from "react-lrc";
 import PropTypes from "prop-types";
 import {useDispatch, useSelector} from "react-redux";
 import {LyricSlice} from "@/store/lyric";
-import DeleteIcon from "@mui/icons-material/Delete";
+import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from '@mui/icons-material/Remove';
 import ModeEditIcon from '@mui/icons-material/ModeEdit';
 import LyricEditor from "@player/components/cloud_services/lyric_editor";
+import API from "@/api";
+import {PlayerNoticesSlice} from "@/store/ui";
+import {NoticeTypes} from "@/constants";
 
 function LyricViewer(props) {
     const { height, onToggleLyricView, duration, currentMusic } = props;
     const dispatch = useDispatch();
 
-    const [editorMode, setEditorMode] = useState(true);
+    const [editorMode, setEditorMode] = useState(false);
 
     const [offsetPopoverEl, setOffsetPopoverEl] = useState(null)
     const handleOffsetPopoverOpen = (event) => {
@@ -31,24 +34,39 @@ function LyricViewer(props) {
         if (!currentMusic) return {};
         return LrcInfos[currentMusic.bvid]?? {};
     }, [currentMusic, LrcInfos]);
-    const isDebugging = process.env.NODE_ENV === 'development';
 
     const coverImg = useMemo(() => {
         if (!currentMusic) return '';
         return currentMusic.cover;
     }, [currentMusic]);
 
-
-    const handleDebugClearLRC = () => {
+    // 从云服务端拉取歌词并更新
+    const handleRefreshLyricFromCloudService = () => {
         if (!currentMusic.bvid) return;
-        dispatch(LyricSlice.actions.updateLyric({
-            bvid: currentMusic.bvid,
-            lrc: '',
-            offset: 0,
-            source: '',
-        }));
+        API.CloudService.Lyric.getLyricByBvid(currentMusic.bvid)({}).then(resp => {
+            const lrcContent = resp?.content;
+            dispatch(LyricSlice.actions.updateLyric({
+                bvid: currentMusic.bvid,
+                lrc: lrcContent,
+                offset: 0,
+                source: '说说播放器云服务',
+            }));
+            dispatch(PlayerNoticesSlice.actions.sendNotice({
+                type: NoticeTypes.SUCCESS,
+                message: `更新歌词成功`,
+                duration: 1000,
+            }));
+        }).catch((resp) => {
+            console.warn(resp.message);
+            dispatch(PlayerNoticesSlice.actions.sendNotice({
+                type: NoticeTypes.ERROR,
+                message: `更新失败：${resp.message}`,
+                duration: 3000,
+            }));
+        });
     }
 
+    // 歌词位移（前端加减模式，不影响实际内容）
     const handleChangeDuration = useCallback((offset) => {
         dispatch(LyricSlice.actions.updateLyric({
             ...LrcInfo,
@@ -107,9 +125,9 @@ function LyricViewer(props) {
                         <IconButton onClick={() => setEditorMode(true)}>
                             <ModeEditIcon></ModeEditIcon>
                         </IconButton>
-                        {isDebugging && <IconButton onClick={handleDebugClearLRC}>
-                            <DeleteIcon></DeleteIcon>
-                        </IconButton>}
+                        <IconButton onClick={handleRefreshLyricFromCloudService}>
+                            <RefreshIcon></RefreshIcon>
+                        </IconButton>
                     </Box>
                 </Toolbar>
             </Box>
