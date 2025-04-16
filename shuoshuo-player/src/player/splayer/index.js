@@ -224,12 +224,11 @@ function SPlayer() {
             dispatch(PlayingListSlice.actions.removePlayNext({}));
         }
     }, [
-        dispatch, initHowl, howlPlaying, playNext, howlInstance,
-        currentMusic, setHowlPausing ,setHowlPlaying
+        dispatch, initHowl, howlPlaying, playNext, howlInstance, currentMusic
     ])
 
     // 自动从云服务拉取歌词信息
-    useEffect( () => {
+    useEffect(() => {
         if (!currentMusic) return;
         if (LrcInfo && LrcInfo.lrc) return;
         API.CloudService.Lyric.getLyricByBvid(currentMusic.bvid)({}).then(resp => {

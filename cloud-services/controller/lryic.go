@@ -207,7 +207,7 @@ func UpdateLyric(c *fiber.Ctx) error {
 	lyricsCollect := mongoCli.Collection("lyrics")
 
 	var lyric models.Lyric
-	err = lyricsCollect.FindOne(c.Context(), filter).Decode(&lyric)
+	err = lyricsCollect.FindOne(context.Background(), filter).Decode(&lyric)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			if !utils.IsValidBVID(id) {
@@ -290,7 +290,7 @@ func DeleteLyric(c *fiber.Ctx) error {
 	lyricsCollect := mongoCli.Collection("lyrics")
 
 	var lyric models.Lyric
-	err = lyricsCollect.FindOne(c.Context(), filter).Decode(&lyric)
+	err = lyricsCollect.FindOne(context.Background(), filter).Decode(&lyric)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return exceptions.LyricNotExistsError

@@ -49,10 +49,12 @@ const LyricEditor = (props) => {
     const [lyricsChanged, setLyricsChanged] = React.useState(false);
     const isDebug = process.env.NODE_ENV === 'development';
 
+    const isCloudServiceLogin = useSelector(CloudServiceSlice.selectors.isLogin);
     const cloudServiceAccount = useSelector(CloudServiceSlice.selectors.account);
     const isCloudServiceAdmin = useMemo(() => {
+        if (!isCloudServiceLogin) return false;
         return CheckCloudUserPermission(cloudServiceAccount, CloudServiceUserRole.WebMaster | CloudServiceUserRole.Admin);
-    }, [cloudServiceAccount])
+    }, [cloudServiceAccount, isCloudServiceLogin])
 
     const LrcInfos = useSelector(LyricSlice.selectors.lyricMaps)
     const LrcInfo = useMemo(() => {

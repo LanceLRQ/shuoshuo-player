@@ -1,3 +1,5 @@
+import dayjs from "dayjs";
+
 export const TimeStampNow = () => {
     return Math.round(Date.now() / 1000)
 }
@@ -17,6 +19,10 @@ export function formatTimeLyric(d) {
     const second = Math.floor(ms / 1000) % 60;
     const millisecond = ms % 1000;
     return `${minute.toString().padStart(2, '0')}:${second.toString().padStart(2, '0')}.${(millisecond / 10).toFixed(0).padStart(2, '0')}`;
+}
+
+export function formatTimeStampFromServer(d) {
+    return dayjs(d * 1000).format('YYYY-MM-DD HH:mm:ss');
 }
 
 export function removeEmptyLRCItem(lrcText) {

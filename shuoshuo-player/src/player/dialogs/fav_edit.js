@@ -197,7 +197,7 @@ const FavEditDialog = forwardRef((props, ref) => {
                 setBilibiliMyFavList(res?.list ?? [])
             });
         }
-    }, [formik.values, bilibiliMyFavList, setBilibiliMyFavList, biliUser])
+    }, [formik.values, bilibiliMyFavList, biliUser])
 
     return <Dialog
         open={open}

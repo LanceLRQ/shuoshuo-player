@@ -124,9 +124,7 @@ const LyricEditorTable = (props) => {
     ];
 
     return <TableContainer>
-        <Table
-            size="small"
-        >
+        <Table size="small">
             <TableHead>
                 <TableRow>
                     <TableCell padding="checkbox">
