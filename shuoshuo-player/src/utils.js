@@ -131,3 +131,84 @@ export const CheckCloudUserPermission = function (account, roleRequire) {
     }
     return (account.role & roleRequire) !== 0;
 }
+
+export function createLyricFileLoader(callback, errorCallback) {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.lrc';
+    fileInput.style.display = 'none';
+
+    document.body.appendChild(fileInput);
+
+    // 监听文件选择变化
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // 验证文件类型
+        if (!file.name.endsWith('.lrc')) {
+            const err = new Error('请选择有效的歌词文件');
+            if (errorCallback) errorCallback(err);
+            return;
+        }
+
+        // 创建文件阅读器
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            if (callback) callback(e.target.result, file.name);
+        };
+
+        reader.onerror = function() {
+            const err = new Error('读取文件时发生错误');
+            if (errorCallback) errorCallback(err);
+        };
+
+        reader.readAsText(file);
+
+        // 清理：移除文件输入元素
+        setTimeout(() => {
+            document.body.removeChild(fileInput);
+        }, 100);
+    });
+
+    // 触发文件选择对话框
+    fileInput.click();
+}
+
+export function textToDownload(data, filename = 'export.txt') {
+    // 创建Blob对象
+    const blob = new Blob([data], { type: 'plain/text' });
+
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+
+    // 触发点击下载
+    document.body.appendChild(a);
+    a.click();
+
+    // 清理
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * 过滤掉字符串中非法的 Windows 文件名字符
+ * @param {string} input 原始字符串
+ * @param {string} [replacement=''] 替换非法字符的字符串，默认为空字符串
+ * @returns {string} 过滤后的合法文件名
+ */
+export function filterInvalidFileNameChars(input, replacement = '') {
+    if (typeof input !== 'string') {
+        return '';
+    }
+
+    // Windows 文件名非法字符
+    const illegalChars = /[\\/:*?"<>|]/g;
+
+    // 替换非法字符
+    return input.replace(illegalChars, replacement);
+}

@@ -122,10 +122,10 @@ function LyricViewer(props) {
                         >
                             <Typography sx={{ p: 1 }}>当前偏移量：{LrcInfo?.offset ?? '0'}s</Typography>
                         </Popover>
-                        <IconButton onClick={() => setEditorMode(true)}>
+                        <IconButton title="编辑歌词" onClick={() => setEditorMode(true)}>
                             <ModeEditIcon></ModeEditIcon>
                         </IconButton>
-                        <IconButton onClick={handleRefreshLyricFromCloudService}>
+                        <IconButton title="拉取云端歌词" onClick={handleRefreshLyricFromCloudService}>
                             <RefreshIcon></RefreshIcon>
                         </IconButton>
                     </Box>

@@ -20,8 +20,16 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import UndoIcon from '@mui/icons-material/Undo';
-import {CheckCloudUserPermission, formatTimeLyric} from "@/utils";
+import DownloadIcon from '@mui/icons-material/Download';
+import {
+    CheckCloudUserPermission,
+    createLyricFileLoader,
+    filterInvalidFileNameChars,
+    formatTimeLyric,
+    textToDownload
+} from "@/utils";
 import {CloudServiceSlice} from "@/store/cloud_service";
 import {CloudServiceUserRole, NoticeTypes} from "@/constants";
 import {PlayerNoticesSlice} from "@/store/ui";
@@ -39,6 +47,7 @@ const LyricEditor = (props) => {
     const [suggestedLyricSelected, setSuggestedLyricSelected] = React.useState([]);
     const [editHistory, setEditHistory] = React.useState([]);
     const [lyricsChanged, setLyricsChanged] = React.useState(false);
+    const isDebug = process.env.NODE_ENV === 'development';
 
     const cloudServiceAccount = useSelector(CloudServiceSlice.selectors.account);
     const isCloudServiceAdmin = useMemo(() => {
@@ -53,7 +62,7 @@ const LyricEditor = (props) => {
 
     useEffect(() => {
         if (LrcInfo) {
-            const lrcP = LrcKit.parse(LrcInfo.lrc);
+            const lrcP = LrcKit.parse(LrcInfo?.lrc ?? '');
             setCurrentLyric(lrcP.lyrics);
         } else {
             setCurrentLyric([])
@@ -201,6 +210,7 @@ const LyricEditor = (props) => {
         }
     }, [setCurrentLyric, editHistory, setEditHistory, setLyricsChanged])
 
+    // 关闭编辑器
     const handleCloseEditor = useCallback(() => {
         if (lyricsChanged && !window.confirm('确定要返回吗？未保存的改动将丢失')) {
             return;
@@ -208,6 +218,27 @@ const LyricEditor = (props) => {
         setLyricsChanged(false)
         setEditorMode(false)
     }, [setEditorMode, lyricsChanged, setLyricsChanged])
+
+    // 从文件解析歌词
+    const handleLoadLyricsFromFile = useCallback(() => {
+        createLyricFileLoader((result) => {
+            try {
+                const lrcParser = LrcKit.parse(result.replace(/\r\n/g, '\n'));
+                setSuggestedLyrics(lrcParser.lyrics)
+            } catch (e) {
+                alert('无法解析歌词文件，请检查格式是否正确');
+            }
+        })
+    }, [setSuggestedLyrics]);
+
+    const handleSaveLyricToFile = useCallback(() => {
+        const lrcParser = new LrcKit();
+        currentLyric.forEach((lrc) => {
+            lrcParser.lyrics.push(lrc)
+        });
+        const lrcResp = lrcParser.toString({combine: false});
+        textToDownload(lrcResp, `${filterInvalidFileNameChars(currentMusic.name)}.lrc`)
+    }, [currentLyric, currentMusic]);
 
     return <>
         <Box className="player-lyric-top-bar" sx={{flexGrow: 1}}>
@@ -219,20 +250,26 @@ const LyricEditor = (props) => {
                     <Chip label="编辑歌词" /> {currentMusic?.name}
                 </Typography>
                 <Box sx={{display: {xs: 'none', md: 'flex'}}}>
-                    {inElectron && isCloudServiceAdmin && <IconButton onClick={handleSaveToCloud}>
-                        <BackupIcon></BackupIcon>
-                    </IconButton>}
                     {inElectron ? <LRCSearchDialog onLyricResponse={handleReceiveSuggestLyric}>
                         {(slot) => {
-                            return <IconButton onClick={() => slot.handleOpen(currentMusic?.name ?? '')}>
+                            return <IconButton title="搜索参考歌词(QQ音乐)" onClick={() => slot.handleOpen(currentMusic?.name ?? '')}>
                                 <SearchIcon/>
                             </IconButton>
                         }}
-                    </LRCSearchDialog> : <IconButton onClick={() => alert('参考歌词功能只支持PC版本')}>
+                    </LRCSearchDialog> : <IconButton title="搜索参考歌词(QQ音乐)" onClick={() => alert('参考歌词功能只支持PC版本')}>
                         <SearchIcon/>
                     </IconButton>}
-                    {<IconButton onClick={handleSaveLyric}>
+                    <IconButton onClick={handleLoadLyricsFromFile} title="从文件加载参考歌词">
+                        <UploadFileIcon />
+                    </IconButton>
+                    {inElectron && isCloudServiceAdmin && <IconButton title="上传到云端(管理员)" onClick={handleSaveToCloud}>
+                        <BackupIcon></BackupIcon>
+                    </IconButton>}
+                    <IconButton onClick={handleSaveLyric} title="保存歌词修改">
                         <SaveIcon></SaveIcon>
+                    </IconButton>
+                    {isDebug && <IconButton onClick={handleSaveLyricToFile} title="下载当前歌词(调试)">
+                        <DownloadIcon></DownloadIcon>
                     </IconButton>}
                 </Box>
             </Toolbar>
