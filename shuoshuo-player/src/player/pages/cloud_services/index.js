@@ -1,7 +1,8 @@
 import React from "react";
 import {Navigate, Outlet, Route, useMatches, useNavigate} from "react-router-dom";
 import {Box, Tabs, Tab} from "@mui/material";
-import {LyricListPage} from "@player/pages/cloud_services/lyric_list";
+import LyricListPage from "@player/pages/cloud_services/lyric_list";
+import AccountListPage from "@player/pages/cloud_services/accounts_list";
 import lodash from 'lodash';
 
 const IndexFrame = () => {
@@ -34,6 +35,7 @@ const IndexFrame = () => {
 const cloudServicesIndexPage = () => {
     return <Route path="/cloud_services/*" element={<IndexFrame />}>
         <Route path="lyric" element={<LyricListPage />} />
+        <Route path="accounts" element={<AccountListPage />} />
         <Route index element={<Navigate to="/cloud_services/lyric" />} />
     </Route>;
 }

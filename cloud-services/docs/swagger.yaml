@@ -227,6 +227,11 @@ paths:
       - application/json
       description: 获取所有用户的信息列表
       parameters:
+      - default: "1"
+        description: 关键词
+        in: query
+        name: keyword
+        type: string
       - default: 1
         description: 页码
         in: query

@@ -15,7 +15,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
-export const LyricListPage = () => {
+const LyricListPage = () => {
     const dispatch = useDispatch();
     const [lyricViewOpen, setLyricViewOpen] = useState(false);
     const [lyricViewMode, setLyricViewMode] = useState('view');
@@ -33,8 +33,7 @@ export const LyricListPage = () => {
     useEffect(() => {
         API.CloudService.Lyric.getLyricList({
             params: {
-                page: lyricQueryParams.page,
-                limit: lyricQueryParams.limit,
+                ...lyricQueryParams
             }
         }).then(res => {
             setLyricList(res?.list ?? []);
@@ -87,7 +86,7 @@ export const LyricListPage = () => {
             }));
         })
     }
-    // 显示歌词
+    // 删除歌词
     const handleDeleteLyric = (e, row) => {
         e.stopPropagation();
         if (!window.confirm('确定要删除当前视频关联的歌词信息吗？')) return;
@@ -276,3 +275,5 @@ export const LyricListPage = () => {
         </Dialog>
     </Box>
 }
+
+export default LyricListPage;

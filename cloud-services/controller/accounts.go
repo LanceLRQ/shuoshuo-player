@@ -37,11 +37,11 @@ type accountUpdatePasswordParams struct {
 
 func getAccountByIdOrEmail(collect *mongo.Collection, id string) (*models.Account, error) {
 	var account models.Account
-	filter := bson.M{"email": id}
+	filter := bson.M{"is_deleted": false, "email": id}
 	if id != "" {
 		objId, err := bson.ObjectIDFromHex(id)
 		if err == nil {
-			filter = bson.M{"_id": objId}
+			filter = bson.M{"is_deleted": false, "_id": objId}
 		}
 	} else {
 		return nil, exceptions.AccountNotExistsError
@@ -66,6 +66,7 @@ func getAccountByIdOrEmail(collect *mongo.Collection, id string) (*models.Accoun
 // @Tags Accounts
 // @Accept json
 // @Produce json
+// @Param keyword query string false "关键词" default(1)
 // @Param page query int64 false "页码" default(1)
 // @Param limit query int64 false "每页数量" default(20)
 // @Success 200 {object} []models.Account "返回所有账户信息列表"
@@ -76,7 +77,9 @@ func AccountListView(c *fiber.Ctx) error {
 		return err
 	}
 
-	filter := bson.M{}
+	filter := bson.M{
+		"is_deleted": false,
+	}
 	page, err := strconv.ParseInt(c.Query("page"), 10, 64)
 	if err != nil {
 		page = 1
@@ -84,6 +87,18 @@ func AccountListView(c *fiber.Ctx) error {
 	pageSize, err := strconv.ParseInt(c.Query("limit"), 10, 64)
 	if err != nil {
 		pageSize = 20
+	}
+
+	if c.Query("keyword") != "" {
+		filter = bson.M{
+			"$and": []bson.M{
+				{"is_deleted": false},
+				{"$or": []bson.M{
+					{"email": bson.Regex{Pattern: c.Query("keyword"), Options: "i"}},
+					{"user_name": bson.Regex{Pattern: c.Query("keyword"), Options: "i"}},
+				}},
+			},
+		}
 	}
 
 	accounts := make([]models.Account, 0)
@@ -170,7 +185,7 @@ func AccountAddView(c *fiber.Ctx) error {
 	mongoCli := c.Locals("mongodb").(func() *mongo.Database)() // 获取 MongoDB 客户端"
 	accountsCollection := mongoCli.Collection("accounts")
 	var existAccount models.Account
-	err := accountsCollection.FindOne(context.Background(), bson.M{"email": formData.Email}).Decode(&existAccount)
+	err := accountsCollection.FindOne(context.Background(), bson.M{"is_deleted": false, "email": formData.Email}).Decode(&existAccount)
 	if err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return err
@@ -275,7 +290,7 @@ func AccountEditView(c *fiber.Ctx) error {
 // @Router       /api/accounts/{id} [delete]
 func AccountDeleteView(c *fiber.Ctx) error {
 	//权限检查
-	if err := utilCheckPermissionOfSession(c, constants.AccountRoleWebMaster|constants.AccountRoleAdmin); err != nil {
+	if err := utilCheckPermissionOfSession(c, constants.AccountRoleWebMaster); err != nil {
 		return err
 	}
 
@@ -299,10 +314,15 @@ func AccountDeleteView(c *fiber.Ctx) error {
 		return exceptions.LoginAccountPermissionDeniedError
 	}
 
-	_, err = accountsCollection.DeleteOne(context.Background(), bson.M{"_id": account.ID})
-	if err != nil {
+	account.IsDeleted = true
+	if _, err = accountsCollection.ReplaceOne(context.Background(), bson.M{"_id": account.ID}, &account); err != nil {
+		log.Error(err)
 		return exceptions.MongoDBError
 	}
+	//_, err = accountsCollection.DeleteOne(context.Background(), bson.M{"_id": account.ID})
+	//if err != nil {
+	//	return exceptions.MongoDBError
+	//}
 
 	return models.NewJSONResponse(c, account.ID.Hex())
 }

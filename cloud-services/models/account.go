@@ -11,4 +11,5 @@ type Account struct {
 	// 密码会话密钥，用于密码重置后，让其他token直接失效
 	PasswordSessionKey string `json:"-" bson:"password_session_key"`
 	PasswordRetryCount int    `json:"-" bson:"password_retry_count"`
+	IsDeleted          bool   `json:"-" bson:"is_deleted"`
 }

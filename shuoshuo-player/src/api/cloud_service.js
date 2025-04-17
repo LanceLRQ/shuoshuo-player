@@ -29,10 +29,34 @@ const Account = {
         url: '/login',
         method: 'get',
     }),
-    getAccountsList: buildApiCall({
-        url: '/accounts/list',
-        method: 'get',
+    changePassword: buildApiCall({
+        url: '/accounts/password',
+        method: 'post',
     }),
+
+
+    Manage: {
+        getAccountsList: buildApiCall({
+            url: '/accounts/list',
+            method: 'get',
+        }),
+        getAccount: (id) => buildApiCall({
+            url: `/accounts/${id}`,
+            method: 'get',
+        }),
+        addAccount: buildApiCall({
+            url: `/accounts`,
+            method: 'post',
+        }),
+        editAccount: (id) => buildApiCall({
+            url: `/accounts/${id}`,
+            method: 'put',
+        }),
+        deleteAccount: (id) => buildApiCall({
+            url: `/accounts/${id}`,
+            method: 'edit',
+        }),
+    }
 }
 
 export const api = {

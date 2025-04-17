@@ -63,6 +63,13 @@ const docTemplate = `{
                 "summary": "获取用户列表",
                 "parameters": [
                     {
+                        "type": "string",
+                        "default": "1",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "default": 1,
                         "description": "页码",

@@ -68,7 +68,7 @@ func (s *LoginSession) GetAccount(c *fiber.Ctx) error {
 		return exceptions.LoginTokenExpiredError
 	}
 
-	err = accountsCollection.FindOne(context.Background(), bson.M{"_id": objId}).Decode(&account)
+	err = accountsCollection.FindOne(context.Background(), bson.M{"is_deleted": false, "_id": objId}).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return exceptions.LoginTokenExpiredError
