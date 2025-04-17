@@ -146,7 +146,9 @@ const TopBar = (props) => {
                 dispatch(CloudServiceSlice.actions.clearSession())
                 window.SHOW_CLOUD_LOGIN();
             } else {
-                alert(`已登录：${res?.account?.email}\n当前身份：${CloudServiceUserRoleNameMap[res?.account?.role] || '未知'}`)
+                if(window.confirm(`已登录：${res?.account?.email}\n当前身份：${CloudServiceUserRoleNameMap[res?.account?.role] || '未知'}\n是否切换账号？`)){
+                    window.SHOW_CLOUD_LOGIN();
+                }
             }
         })
     }

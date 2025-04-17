@@ -1,17 +1,28 @@
 import {
-    Box, TableContainer, Table, TableHead, TableRow, Dialog,
-    DialogContent, DialogActions, Pagination, TableCell, TableBody, Typography,
-    Stack, IconButton, DialogTitle, Grid, InputBase, Paper
+    Box, TableContainer, Table, TableHead, TableRow, Dialog, Button, Divider, DialogContent,
+    Pagination, TableCell, TableBody, Typography, Stack, IconButton, DialogTitle, Grid, InputBase,
+    Paper, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, TextField, Checkbox, DialogActions
 } from "@mui/material";
 import React, {useEffect, useMemo, useState} from "react";
 import API from "@/api";
 import {PlayerNoticesSlice} from "@/store/ui";
-import {CloudServiceUserRoleNameMap, CommonPagerObject, CommonPagerParams, NoticeTypes} from "@/constants";
-import {useDispatch} from "react-redux";
+import {
+    CloudServiceUserRole,
+    CloudServiceUserRoleNameMap,
+    CommonPagerObject,
+    CommonPagerParams,
+    NoticeTypes
+} from "@/constants";
+import {useDispatch, useSelector} from "react-redux";
 import ClearIcon from '@mui/icons-material/Clear';
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import {useFormik} from "formik";
+import * as yup from "yup";
+import AddIcon from "@mui/icons-material/Add";
+import {CheckCloudUserPermission} from "@/utils";
+import {CloudServiceSlice} from "@/store/cloud_service";
 
 const AccountListPage = () => {
     const dispatch = useDispatch();
@@ -24,6 +35,12 @@ const AccountListPage = () => {
         ...CommonPagerParams
     });
     const [accountListPager, setAccountListPager] = useState({...CommonPagerObject});
+    const isCloudServiceLogin = useSelector(CloudServiceSlice.selectors.isLogin);
+    const cloudServiceAccount = useSelector(CloudServiceSlice.selectors.account);
+    const hasWebMasterPermission = useMemo(() => {
+        if (!isCloudServiceLogin) return false;
+        return CheckCloudUserPermission(cloudServiceAccount, CloudServiceUserRole.WebMaster);
+    }, [cloudServiceAccount, isCloudServiceLogin])
 
     const accountListPageCount = useMemo(() => {
         return Math.ceil(accountListPager.total / accountListPager.page_size);
@@ -47,12 +64,6 @@ const AccountListPage = () => {
     }, [dispatch, accountQueryParams]);
 
 
-    // 打开修改账号弹层
-    const handleShowAccount = (row) => {
-        setAccountInfo(row);
-        setAccountViewOpen(true);
-    }
-
     // 刷新列表
     const handleRefreshList = () => {
         setAccountQueryParams({...accountQueryParams})
@@ -61,6 +72,7 @@ const AccountListPage = () => {
     // 切换分页
     const handlePageChange = (e, page) => {
         setAccountQueryParams({
+            keyword: accountQueryParams.keyword,
             page: page,
             limit: accountQueryParams.limit,
         })
@@ -70,7 +82,7 @@ const AccountListPage = () => {
         setAccountQueryParams({...accountQueryParams, page: 1, keyword: accountSearchKeyword})
     }
 
-    // 删除还在那更好
+    // 删除账号
     const handleDeleteAccount = (e, row) => {
         e.stopPropagation();
         if (!window.confirm('确定要删除当前账号吗？操作不可逆！')) return;
@@ -118,20 +130,104 @@ const AccountListPage = () => {
         },
     ];
 
+    const validationSchema = yup.object({
+        user_name: yup.string().max(16, '名称不能超过16个字符').required('请输入用户名'),
+        email: yup.string().email('email格式不正确').required('请输入邮箱'),
+        role: yup.number(),
+        password: yup.string().max(20, '密码不能超过20个字符').min(8, '密码不能少于8个字符')
+    });
 
+    const formik = useFormik({
+        initialValues: {
+            user_name: '',
+            email: '',
+            role: '0',
+            password: '',
+            reset_password_lock: false
+        },
+        validationSchema: validationSchema,
+        onSubmit: (values) => {
+            if (!accountInfo) {
+                // 新增
+                API.CloudService.Account.Manage.addAccount({
+                    data: values,
+                }).then((res) => {
+                    dispatch(PlayerNoticesSlice.actions.sendNotice({
+                        type: NoticeTypes.SUCCESS,
+                        message: '创建账号成功',
+                        duration: 3000,
+                    }));
+                    setAccountQueryParams({ ...accountQueryParams, keyword: ''});
+                    handlePageChange(null, 1);
+                    handleCloseAccount();
+                }).catch(err => {
+                    dispatch(PlayerNoticesSlice.actions.sendNotice({
+                        type: NoticeTypes.ERROR,
+                        message: err?.message,
+                        duration: 3000,
+                    }));
+                })
+            } else {
+                // 修改
+                API.CloudService.Account.Manage.editAccount(accountInfo.id)({
+                    data: values,
+                }).then((res) => {
+                    dispatch(PlayerNoticesSlice.actions.sendNotice({
+                        type: NoticeTypes.SUCCESS,
+                        message: '修改账号成功',
+                        duration: 3000,
+                    }));
+                    handleRefreshList();
+                    handleCloseAccount();
+                }).catch(err => {
+                    dispatch(PlayerNoticesSlice.actions.sendNotice({
+                        type: NoticeTypes.ERROR,
+                        message: err?.message,
+                        duration: 3000,
+                    }));
+                })
+            }
+        }
+    });
+
+    // 打开修改账号弹层
+    const handleShowAccount = (row) => {
+        if (row) {
+            setAccountInfo(row);
+            formik.resetForm({
+                values: {
+                    user_name: row.user_name,
+                    email: row.email,
+                    role: row.role,
+                    password: row.password,
+                    reset_password_lock: false,
+                }
+            })
+        } else {
+            setAccountInfo(null);
+            formik.resetForm({
+                values: {}
+            })
+        }
+        setAccountViewOpen(true);
+    }
 
     return <Box>
         <Grid container spacing={2}>
-            <Grid item xs={8}>
+            <Grid item xs={6}>
             </Grid>
-            <Grid item xs={4}>
+            <Grid item xs={6}>
                 <Paper
                     component="form"
                     sx={{ p: '2px 8px', display: 'flex', alignItems: 'center' }}
                 >
+                    <Button onClick={() => handleShowAccount()}>
+                        <AddIcon /> 添加账号
+                    </Button>
+                    <Divider sx={{ height: 28, m: 0.5 }} orientation="vertical" />
                     <InputBase
                         value={accountSearchKeyword}
-                        sx={{ flex: 1 }}
+                        sx={{ ml: 1, flex: 1 }}
                         onChange={(e) => setAccountSearchKeyword(e.target.value)}
                         onKeyDown={(e) => (e.key === 'Enter' && handleSearch())}
                         placeholder="搜索账号(用户名/邮箱)"
@@ -203,14 +299,88 @@ const AccountListPage = () => {
                     color: theme.palette.grey[500],
                 })}
             >
-                <CloseIcon />
+                <CloseIcon/>
             </IconButton>
-            <DialogContent>
-
+            <form onSubmit={formik.handleSubmit}>
+                <DialogContent>
+                    {(!accountInfo || hasWebMasterPermission) ? <FormControl>
+                        <FormLabel>角色身份</FormLabel>
+                        <RadioGroup
+                            row
+                            name="role"
+                            value={formik.values.role}
+                            onChange={(e) => {
+                                formik.setFieldValue("role", Number(e.target.value)); // 转换回数字
+                            }}
+                            onBlur={formik.handleBlur}
+                        >
+                            {Object.keys(CloudServiceUserRoleNameMap).map((key) => {
+                                if (!hasWebMasterPermission && key >= cloudServiceAccount?.role) return null;
+                                console.log(key)
+                                return <FormControlLabel
+                                    key={key}
+                                    value={key}
+                                    control={<Radio value={key}/>}
+                                    label={CloudServiceUserRoleNameMap[key]}
+                                />
+                            })}
+                        </RadioGroup>
+                    </FormControl> : null}
+                    <TextField
+                        autoFocus
+                        required
+                        margin="dense"
+                        name="user_name"
+                        value={formik.values.user_name}
+                        label="用户名"
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        error={formik.touched.user_name && Boolean(formik.errors.user_name)}
+                        helperText={formik.touched.user_name && formik.errors.user_name}
+                        fullWidth
+                        variant="standard"
+                    />
+                    <TextField
+                        autoFocus
+                        required
+                        margin="dense"
+                        name="email"
+                        value={formik.values.email}
+                        label="邮箱"
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        error={formik.touched.email && Boolean(formik.errors.email)}
+                        helperText={formik.touched.email && formik.errors.email}
+                        fullWidth
+                        variant="standard"
+                    />
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        name="password"
+                        value={formik.values.password}
+                        label="修改密码"
+                        placeholder="留空则不修改"
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        error={formik.touched.password && Boolean(formik.errors.password)}
+                        helperText={formik.touched.password && formik.errors.password}
+                        fullWidth
+                        variant="standard"
+                    />
+                    <FormControlLabel
+                        control={<Checkbox
+                            value={formik.values.reset_password_lock}
+                            onChange={(e) => formik.setFieldValue('reset_password_lock', e.target.checked)}
+                        />}
+                        label="重置登录密码错误计数"
+                    />
             </DialogContent>
             <DialogActions>
-
-            </DialogActions>
+                    <Button type="button" onClick={handleCloseAccount}>取消</Button>
+                    <Button type="submit">确定</Button>
+                </DialogActions>
+            </form>
         </Dialog>
     </Box>
 }

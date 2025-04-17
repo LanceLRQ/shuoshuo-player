@@ -452,10 +452,6 @@
                 "email": {
                     "type": "string"
                 },
-                "nick_name": {
-                    "type": "string",
-                    "maxLength": 50
-                },
                 "password": {
                     "type": "string"
                 },
@@ -466,6 +462,10 @@
                         512,
                         1024
                     ]
+                },
+                "user_name": {
+                    "type": "string",
+                    "maxLength": 50
                 }
             }
         },
@@ -475,12 +475,11 @@
                 "email": {
                     "type": "string"
                 },
-                "nick_name": {
-                    "type": "string",
-                    "maxLength": 50
-                },
                 "password": {
                     "type": "string"
+                },
+                "reset_password_lock": {
+                    "type": "boolean"
                 },
                 "role": {
                     "type": "integer",
@@ -489,6 +488,10 @@
                         512,
                         1024
                     ]
+                },
+                "user_name": {
+                    "type": "string",
+                    "maxLength": 50
                 }
             }
         },

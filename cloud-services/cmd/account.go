@@ -14,6 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 	"golang.org/x/term"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -113,11 +114,16 @@ func CreateSuperAccount() *cli.Command {
 				if err != nil {
 					return err
 				}
+				userName := email[:strings.Index(email, "@")]
 				user := &models.Account{
+					ID:                 bson.NewObjectID(),
+					UserName:           userName,
 					Email:              email,
 					Password:           passwordHashed,
 					PasswordSessionKey: utils.GenerateRandomPasswordSessionKey(32),
 					Role:               constants.AccountRoleWebMaster,
+					IsDeleted:          false,
+					PasswordRetryCount: 0,
 				}
 
 				_, err = collection.InsertOne(ctx, user)

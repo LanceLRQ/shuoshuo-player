@@ -175,7 +175,9 @@ const FavEditDialog = forwardRef((props, ref) => {
                     }
                 })
             } else {
-                formik.resetForm()
+                formik.resetForm({
+                    values: {}
+                })
             }
         }
     };

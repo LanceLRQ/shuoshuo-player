@@ -18,16 +18,17 @@ import (
 
 type accountAddPostParams struct {
 	Email    string `json:"email" validate:"email,required"`
-	NickName string `json:"nick_name" validate:"max=50"`
+	UserName string `json:"user_name" validate:"max=50"`
 	Password string `json:"password" validate:"required"`
 	Role     int    `json:"role" validate:"oneof=0 512 1024"`
 }
 
 type accountModifyPostParams struct {
-	Email    string `json:"email" validate:"omitempty,email"`
-	NickName string `json:"nick_name" validate:"max=50"`
-	Password string `json:"password"`
-	Role     int    `json:"role" validate:"oneof=0 512 1024"`
+	Email             string `json:"email" validate:"omitempty,email"`
+	UserName          string `json:"user_name" validate:"max=50"`
+	Password          string `json:"password"`
+	Role              int    `json:"role" validate:"oneof=0 512 1024"`
+	ResetPasswordLock bool   `json:"reset_password_lock" validate:""`
 }
 
 type accountUpdatePasswordParams struct {
@@ -176,6 +177,7 @@ func AccountAddView(c *fiber.Ctx) error {
 	if err := utilCheckPermissionOfSession(c, constants.AccountRoleWebMaster|constants.AccountRoleAdmin); err != nil {
 		return err
 	}
+	session := c.Locals("session").(*middlewares.LoginSession)
 
 	formData := accountAddPostParams{}
 	if err := utilsParseRequestData(c, &formData); err != nil {
@@ -194,6 +196,11 @@ func AccountAddView(c *fiber.Ctx) error {
 		return exceptions.AccountEmailExistsError
 	}
 
+	// 防止管理员越权创建角色为站长
+	if formData.Role >= session.Account.Role {
+		formData.Role = 0
+	}
+
 	passwordHashed, err := utils.CreatePasswordHash(formData.Password)
 	if err != nil {
 		return err
@@ -201,10 +208,12 @@ func AccountAddView(c *fiber.Ctx) error {
 	account := &models.Account{
 		ID:                 bson.NewObjectID(),
 		Email:              formData.Email,
-		NickName:           formData.NickName,
+		UserName:           formData.UserName,
 		Password:           passwordHashed,
 		PasswordSessionKey: utils.GenerateRandomPasswordSessionKey(32),
 		Role:               formData.Role,
+		IsDeleted:          false,
+		PasswordRetryCount: 0,
 	}
 
 	_, err = accountsCollection.InsertOne(context.Background(), &account)
@@ -250,9 +259,14 @@ func AccountEditView(c *fiber.Ctx) error {
 	}
 
 	// 检查需要更新的字段
-	updatedFields, err := utils.FieldsToUpdate(c, formData, []string{"Email", "NickName", "Role"})
+	updatedFields, err := utils.FieldsToUpdate(c, formData, []string{"Email", "UserName", "Role"})
 	if err != nil {
 		return err
+	}
+
+	// 不能修改自己的角色
+	if session.Account.ID == account.ID && session.Account.Role != account.Role {
+		account.Role = session.Account.Role
 	}
 
 	// 更新账户信息
@@ -261,6 +275,7 @@ func AccountEditView(c *fiber.Ctx) error {
 		return err
 	}
 
+	// 密码不为空，修改密码
 	if formData.Password != "" {
 		hashedPassword, err := utils.CreatePasswordHash(formData.Password)
 		if err != nil {
@@ -268,6 +283,10 @@ func AccountEditView(c *fiber.Ctx) error {
 		}
 		account.Password = hashedPassword
 		account.PasswordSessionKey = utils.GenerateRandomPasswordSessionKey(32)
+	}
+
+	if formData.ResetPasswordLock {
+		account.PasswordRetryCount = 0
 	}
 
 	// 更新数据库中的账户信息
@@ -308,10 +327,11 @@ func AccountDeleteView(c *fiber.Ctx) error {
 	// 禁止自删除
 	if session.Account.ID.Hex() == account.ID.Hex() {
 		return exceptions.LoginAccountCannotDeleteSelfError
-	}
-	// 不能管理比自己高级别的用户
-	if session.Account.Role < account.Role {
-		return exceptions.LoginAccountPermissionDeniedError
+	} else {
+		// 不能管理自己同级和更高级别的用户
+		if session.Account.Role <= account.Role {
+			return exceptions.LoginAccountPermissionDeniedError
+		}
 	}
 
 	account.IsDeleted = true

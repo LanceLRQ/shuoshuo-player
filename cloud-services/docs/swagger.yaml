@@ -3,9 +3,6 @@ definitions:
     properties:
       email:
         type: string
-      nick_name:
-        maxLength: 50
-        type: string
       password:
         type: string
       role:
@@ -14,6 +11,9 @@ definitions:
         - 512
         - 1024
         type: integer
+      user_name:
+        maxLength: 50
+        type: string
     required:
     - email
     - password
@@ -22,17 +22,19 @@ definitions:
     properties:
       email:
         type: string
-      nick_name:
-        maxLength: 50
-        type: string
       password:
         type: string
+      reset_password_lock:
+        type: boolean
       role:
         enum:
         - 0
         - 512
         - 1024
         type: integer
+      user_name:
+        maxLength: 50
+        type: string
     type: object
   controller.accountUpdatePasswordParams:
     properties:

@@ -463,10 +463,6 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
-                "nick_name": {
-                    "type": "string",
-                    "maxLength": 50
-                },
                 "password": {
                     "type": "string"
                 },
@@ -477,6 +473,10 @@ const docTemplate = `{
                         512,
                         1024
                     ]
+                },
+                "user_name": {
+                    "type": "string",
+                    "maxLength": 50
                 }
             }
         },
@@ -486,12 +486,11 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
-                "nick_name": {
-                    "type": "string",
-                    "maxLength": 50
-                },
                 "password": {
                     "type": "string"
+                },
+                "reset_password_lock": {
+                    "type": "boolean"
                 },
                 "role": {
                     "type": "integer",
@@ -500,6 +499,10 @@ const docTemplate = `{
                         512,
                         1024
                     ]
+                },
+                "user_name": {
+                    "type": "string",
+                    "maxLength": 50
                 }
             }
         },
