@@ -60,3 +60,14 @@ export const CloudServiceUserRoleNameMap = {
     [CloudServiceUserRole.Admin]: '管理员',
     [CloudServiceUserRole.User]: '水晶蟹'
 }
+
+export const CommonPageLimitSize = 20;
+export const CommonPagerObject = {
+    page: 1,
+    page_size: CommonPageLimitSize,
+    total: 0,
+}
+export const CommonPagerParams = {
+    page: 1,
+    limit: CommonPageLimitSize,
+}

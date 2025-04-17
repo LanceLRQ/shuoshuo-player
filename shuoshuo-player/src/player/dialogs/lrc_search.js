@@ -135,11 +135,9 @@ const LRCSearchDialog = (props) => {
                 <List>
                     {songList && songList.length ? songList.map((song) => (<ListItem
                         key={song.mid}
-                        secondaryAction={
-                            <IconButton aria-label="view" onClick={() => handleViewMode(song.mid)}>
-                                <KeyboardArrowRightIcon />
-                            </IconButton>
-                        }
+                        secondaryAction={<KeyboardArrowRightIcon />}
+                        onClick={() => handleViewMode(song.mid)}
+                        sx={{ cursor: 'pointer' }}
                     >
                         <ListItemText
                             sx={{textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap'}}

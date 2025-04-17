@@ -1,11 +1,11 @@
 import {
-    Box, TableContainer, Table, TableHead, TableRow, Dialog, DialogContent, DialogActions,
+    Box, TableContainer, Table, TableHead, TableRow, Dialog, DialogContent, DialogActions, Pagination,
     TableCell, TableBody, Typography, Stack, IconButton, DialogTitle, Button, ListItem, ListItemText, List
 } from "@mui/material";
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import API from "@/api";
 import {PlayerNoticesSlice} from "@/store/ui";
-import {NoticeTypes} from "@/constants";
+import {CommonPagerObject, CommonPagerParams, NoticeTypes} from "@/constants";
 import {useDispatch} from "react-redux";
 import HistoryIcon from '@mui/icons-material/History';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -13,6 +13,7 @@ import {formatMillisecond, formatTimeStampFromServer} from "@/utils";
 import {Lrc as ReactLRC} from "react-lrc";
 import CloseIcon from "@mui/icons-material/Close";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 export const LyricListPage = () => {
     const dispatch = useDispatch();
@@ -22,15 +23,12 @@ export const LyricListPage = () => {
     const [lyricViewHistory, setLyricViewHistory] = useState([]);
     const [lyricViewSnapInfo, setLyricViewSnapInfo] = useState(null);
     const [lyricList, setLyricList] = useState([]);
-    const [lyricQueryParams, setLyricQueryParams] = useState({
-        page: 1,
-        limit: 20,
-    });
-    const [lyricListPager, setLyricListPager] = useState({
-        page: 1,
-        page_size: 20,
-        total: 0,
-    });
+    const [lyricQueryParams, setLyricQueryParams] = useState({...CommonPagerParams});
+    const [lyricListPager, setLyricListPager] = useState({...CommonPagerObject});
+
+    const lyricListPageCount = useMemo(() => {
+        return Math.ceil(lyricListPager.total / lyricListPager.page_size);
+    }, [lyricListPager])
 
     useEffect(() => {
         API.CloudService.Lyric.getLyricList({
@@ -59,6 +57,19 @@ export const LyricListPage = () => {
         setLyricViewOpen(true);
     }
 
+    // 刷新列表
+    const handleRefreshList = () => {
+        setLyricQueryParams({...lyricQueryParams})
+    }
+
+    // 切换分页
+    const handlePageChange = (e, page) => {
+        setLyricQueryParams({
+            page: page,
+            limit: lyricQueryParams.limit,
+        })
+    }
+
     // 显示歌词快照列表（10个）
     const handleShowHistory = (e, row) => {
         e.stopPropagation();
@@ -80,12 +91,14 @@ export const LyricListPage = () => {
     const handleDeleteLyric = (e, row) => {
         e.stopPropagation();
         if (!window.confirm('确定要删除当前视频关联的歌词信息吗？')) return;
-        API.CloudService.Lyric.getLyricHistory(row.bvid)({}).then(res => {
+        API.CloudService.Lyric.deleteLyric(row.bvid)({}).then(res => {
+            dispatch(PlayerNoticesSlice.actions.sendNotice({
+                type: NoticeTypes.SUCCESS,
+                message: '删除成功',
+                duration: 1000,
+            }));
             // 触发列表刷新
-            setLyricQueryParams({
-                page: lyricQueryParams.page,
-                limit: lyricQueryParams.limit,
-            })
+            handleRefreshList();
         }).catch((err) => {
             dispatch(PlayerNoticesSlice.actions.sendNotice({
                 type: NoticeTypes.ERROR,
@@ -119,7 +132,10 @@ export const LyricListPage = () => {
         },
         {
             id: 'operate',
-            label: '操作',
+            sx: { width: 100 },
+            label: <Typography variant="body2">
+                操作 <IconButton onClick={handleRefreshList}><RefreshIcon fontSize="small" /></IconButton>
+            </Typography>,
         },
     ];
 
@@ -192,6 +208,7 @@ export const LyricListPage = () => {
                             return <TableCell
                                 key={headCell.id}
                                 align={headCell.align}
+                                sx={headCell.sx}
                             >
                                 {headCell.label}
                             </TableCell>
@@ -234,6 +251,7 @@ export const LyricListPage = () => {
                 </TableBody>
             </Table>
         </TableContainer>
+        <Pagination count={lyricListPageCount} onChange={handlePageChange} showFirstButton showLastButton />
         <Dialog
             open={lyricViewOpen}
             onClose={handleCloseLyric}

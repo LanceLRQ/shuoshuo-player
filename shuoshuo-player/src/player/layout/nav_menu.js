@@ -59,7 +59,7 @@ const NavMenu = (props) => {
     const { menuOpen, toggleMenu = noop } = props;
     const favEditDgRef = useRef();
 
-    const match = useMatch("/:key/:p1?");
+    const match = useMatch("/:key/*");
     const navigate = useNavigate();
 
     const FavList = useSelector(FavListSlice.selectors.favList);
@@ -105,8 +105,12 @@ const NavMenu = (props) => {
 
     useEffect(() => {
         const matchKey = match?.params?.key ?? 'index';
-        const matchP1 = match?.params?.p1 ?? '';
-        setValue(matchP1 ? `${matchKey}:${matchP1}` : matchKey);
+        const matchP1 = match?.params?.['*'] ?? '';
+        let matchValue = matchKey;
+        if (matchP1 && matchKey === 'fav') {
+            matchValue = `${matchKey}:${matchP1}`;
+        }
+        setValue(matchValue);
 
     }, [match]);
 
