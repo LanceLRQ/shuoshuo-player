@@ -103,7 +103,6 @@ const createWindow = () => {
       event.preventDefault();
       // 在系统浏览器中打开
       shell.openExternal(url);
-      return;
     }
   });
 
@@ -114,7 +113,6 @@ const createWindow = () => {
   } else {
     // and load the index.html of the app.
     mainWindow.loadURL(PRODUCTION_PLAYER_PATH);
-    // mainWindow.webContents.openDevTools();
   }
 };
 

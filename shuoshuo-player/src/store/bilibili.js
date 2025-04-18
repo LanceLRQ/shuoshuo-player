@@ -32,7 +32,8 @@ export const BilibiliUserInfoSlice = createAppSlice({
                 fulfilled: (state, action) => {
                     if (!action.payload) return;
                     const userData = action.payload;
-                    const { wbi_img: { img_url, sub_url } } = userData;
+                    const img_url = userData?.wbi_img?.img_url || '';
+                    const sub_url = userData?.wbi_img?.sub_url || '';
                     window.BILIBILI_WBI_INFO = {   // 写入wbi信息到全局
                         img_key: img_url.slice(
                             img_url.lastIndexOf('/') + 1,
