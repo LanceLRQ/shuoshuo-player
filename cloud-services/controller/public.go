@@ -153,4 +153,5 @@ func BindPublicAPIRoutes(apiRoot fiber.Router) {
 	apiRoot.Get("/login", CheckLoginView)
 	apiRoot.Post("/login", LoginView)
 	apiRoot.Get("/lyric/:bvid", GetLyricByBvid)
+	apiRoot.Get("/live_slicer_men/list", GetLiveSlicerMenList)
 }

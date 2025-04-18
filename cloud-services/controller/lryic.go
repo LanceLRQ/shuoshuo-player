@@ -27,7 +27,7 @@ type updateLyricParams struct {
 // @Description 获取歌词信息，公共方法无需鉴权
 // @Tags Lyric
 // @Produce json
-// @Success 200 {object} models.Lyric "返回歌词列表"
+// @Success 200 {object} models.Lyric "返回歌词信息"
 // @Router       /api/lyric/{bvid} [get]
 func GetLyricByBvid(c *fiber.Ctx) error {
 	bvid := c.Params("bvid")

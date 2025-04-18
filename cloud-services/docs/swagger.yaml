@@ -103,6 +103,24 @@ definitions:
         example: foobar
         type: string
     type: object
+  models.LiveSlicerMan:
+    properties:
+      face:
+        example: https://i1.hdslb.com/bfs/face/20f47d363780bfc1427e69701f2dbc2424835bc0.jpg@128w_128h_1c_1s.webp
+        type: string
+      id:
+        example: 67edfaa28b6491ae6926f3e9
+        type: string
+      mid:
+        description: 注意这里要用字符串存b站UID
+        example: "3461583028095182"
+        type: string
+      name:
+        example: 洛悠Crystal
+        type: string
+      update_time:
+        type: integer
+    type: object
   models.Lyric:
     properties:
       bvid:
@@ -277,6 +295,82 @@ paths:
       summary: 更新当前用户的密码
       tags:
       - Accounts
+  /api/live_slicer_men/list:
+    get:
+      description: 返回直播切片Man列表，公共方法无需鉴权
+      parameters:
+      - default: "1"
+        description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回切片Man列表
+          schema:
+            items:
+              $ref: '#/definitions/models.LiveSlicerMan'
+            type: array
+      summary: 【公共】返回切片Man列表
+      tags:
+      - Lyric
+  /api/live_slicer_men/manage/{id}:
+    delete:
+      description: 删除切片man数据
+      parameters:
+      - description: ObjectId
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回操作成功的ID
+          schema:
+            type: string
+      summary: 【管理】删除切片man数据
+      tags:
+      - Lyric
+    post:
+      consumes:
+      - application/json
+      description: 新增或更新切片Man信息
+      parameters:
+      - description: ObjectId
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 歌词信息
+        in: body
+        name: formData
+        required: true
+        schema:
+          $ref: '#/definitions/controller.updateLyricParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回歌词信息
+          schema:
+            $ref: '#/definitions/models.Lyric'
+      summary: 【管理】新增/更新切片Man信息
+      tags:
+      - Lyric
   /api/login:
     get:
       consumes:
@@ -320,7 +414,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: 返回歌词列表
+          description: 返回歌词信息
           schema:
             $ref: '#/definitions/models.Lyric'
       summary: 【公共】获取歌词信息

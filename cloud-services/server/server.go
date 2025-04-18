@@ -173,6 +173,7 @@ func StartHttpServer(cfg *configs.ServerConfigStruct) error {
 	controller.BindPublicAPIRoutes(apiRouter)
 	controller.BindAccountAPIRoutes(apiRouter.Group("/accounts", middlewares.LoginRequired(cfg), middlewares.WithLoginAccount))
 	controller.BindLyricAPIRoutes(apiRouter.Group("/lyric/manage", middlewares.LoginRequired(cfg), middlewares.WithLoginAccount))
+	controller.BindLiveSlicersAPIRoutes(apiRouter.Group("/live_slicer_men/manage", middlewares.LoginRequired(cfg), middlewares.WithLoginAccount))
 
 	if cfg.Debug {
 		fmt.Println("[DEBUG] 调试模式已开启")

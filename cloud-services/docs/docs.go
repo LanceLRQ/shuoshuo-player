@@ -213,6 +213,120 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/live_slicer_men/list": {
+            "get": {
+                "description": "返回直播切片Man列表，公共方法无需鉴权",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lyric"
+                ],
+                "summary": "【公共】返回切片Man列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "1",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回切片Man列表",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveSlicerMan"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/live_slicer_men/manage/{id}": {
+            "post": {
+                "description": "新增或更新切片Man信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lyric"
+                ],
+                "summary": "【管理】新增/更新切片Man信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ObjectId",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "歌词信息",
+                        "name": "formData",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controller.updateLyricParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回歌词信息",
+                        "schema": {
+                            "$ref": "#/definitions/models.Lyric"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除切片man数据",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lyric"
+                ],
+                "summary": "【管理】删除切片man数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ObjectId",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回操作成功的ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/login": {
             "get": {
                 "description": "检测当前的鉴权信息是否有效",
@@ -419,7 +533,7 @@ const docTemplate = `{
                 "summary": "【公共】获取歌词信息",
                 "responses": {
                     "200": {
-                        "description": "返回歌词列表",
+                        "description": "返回歌词信息",
                         "schema": {
                             "$ref": "#/definitions/models.Lyric"
                         }
@@ -601,6 +715,31 @@ const docTemplate = `{
                 "user_name": {
                     "type": "string",
                     "example": "foobar"
+                }
+            }
+        },
+        "models.LiveSlicerMan": {
+            "type": "object",
+            "properties": {
+                "face": {
+                    "type": "string",
+                    "example": "https://i1.hdslb.com/bfs/face/20f47d363780bfc1427e69701f2dbc2424835bc0.jpg@128w_128h_1c_1s.webp"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "67edfaa28b6491ae6926f3e9"
+                },
+                "mid": {
+                    "description": "注意这里要用字符串存b站UID",
+                    "type": "string",
+                    "example": "3461583028095182"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "洛悠Crystal"
+                },
+                "update_time": {
+                    "type": "integer"
                 }
             }
         },
