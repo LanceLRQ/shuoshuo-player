@@ -7,11 +7,7 @@ import React, {useEffect, useMemo, useState} from "react";
 import API from "@/api";
 import {PlayerNoticesSlice} from "@/store/ui";
 import {
-    CloudServiceUserRole,
-    CloudServiceUserRoleNameMap,
-    CommonPagerObject,
-    CommonPagerParams,
-    NoticeTypes
+    CloudServiceUserRole, CloudServiceUserRoleNameMap, CommonPagerObject, CommonPagerParams, NoticeTypes
 } from "@/constants";
 import {useDispatch, useSelector} from "react-redux";
 import ClearIcon from '@mui/icons-material/Clear';
@@ -134,14 +130,24 @@ const AccountListPage = () => {
         user_name: yup.string().max(16, '名称不能超过16个字符').required('请输入用户名'),
         email: yup.string().email('email格式不正确').required('请输入邮箱'),
         role: yup.number(),
-        password: yup.string().max(20, '密码不能超过20个字符').min(8, '密码不能少于8个字符')
+        password: yup.string().max(20, '密码不能超过20个字符').min(8, '密码不能少于8个字符').test({
+            name: 'password-for-new-account',
+            test(value, ctx) {
+                const { id = '' } = ctx.parent;
+                if (!id && !(value || '').trim()) {
+                    return ctx.createError({ message: '请填写密码' })
+                }
+                return true
+            }
+        }),
     });
 
     const formik = useFormik({
         initialValues: {
+            id: '',
             user_name: '',
             email: '',
-            role: '0',
+            role: 0,
             password: '',
             reset_password_lock: false
         },
@@ -196,6 +202,7 @@ const AccountListPage = () => {
             setAccountInfo(row);
             formik.resetForm({
                 values: {
+                    id: row.id,
                     user_name: row.user_name,
                     email: row.email,
                     role: row.role,
@@ -206,7 +213,10 @@ const AccountListPage = () => {
         } else {
             setAccountInfo(null);
             formik.resetForm({
-                values: {}
+                values: {
+                    id: '',
+                    role: 0
+                }
             })
         }
         setAccountViewOpen(true);
@@ -288,7 +298,7 @@ const AccountListPage = () => {
             maxWidth="sm"
             fullWidth={true}
         >
-            <DialogTitle>修改账号</DialogTitle>
+            <DialogTitle>{accountInfo ? '编辑账户' : '添加账户'}</DialogTitle>
             <IconButton
                 aria-label="close"
                 onClick={handleCloseAccount}
@@ -341,7 +351,6 @@ const AccountListPage = () => {
                         variant="standard"
                     />
                     <TextField
-                        autoFocus
                         required
                         margin="dense"
                         name="email"
@@ -355,12 +364,13 @@ const AccountListPage = () => {
                         variant="standard"
                     />
                     <TextField
-                        autoFocus
                         margin="dense"
                         name="password"
+                        type="password"
+                        required={!accountInfo}
                         value={formik.values.password}
-                        label="修改密码"
-                        placeholder="留空则不修改"
+                        label={accountInfo ? '修改密码' : '设置密码'}
+                        placeholder={accountInfo? '留空则不修改' : '请输入新密码'}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
                         error={formik.touched.password && Boolean(formik.errors.password)}
@@ -368,13 +378,13 @@ const AccountListPage = () => {
                         fullWidth
                         variant="standard"
                     />
-                    <FormControlLabel
+                    {accountInfo ? <FormControlLabel
                         control={<Checkbox
                             value={formik.values.reset_password_lock}
                             onChange={(e) => formik.setFieldValue('reset_password_lock', e.target.checked)}
                         />}
                         label="重置登录密码错误计数"
-                    />
+                    /> : null}
             </DialogContent>
             <DialogActions>
                     <Button type="button" onClick={handleCloseAccount}>取消</Button>
