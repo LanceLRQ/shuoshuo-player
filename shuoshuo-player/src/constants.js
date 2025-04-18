@@ -48,6 +48,11 @@ export const SlicerHuman = [
         mid: '329057087',
         face: 'https://i2.hdslb.com/bfs/face/dcd743648150e5c71216b4ee25def1b95076d610.jpg@240w_240h_1c_1s_!web-avatar-space-header.avif'
     },
+    {
+        name: '洛悠Crystal',
+        mid: '3461583028095182',
+        face: 'https://i1.hdslb.com/bfs/face/20f47d363780bfc1427e69701f2dbc2424835bc0.jpg@128w_128h_1c_1s.webp'
+    }
 ]
 
 export const CloudServiceUserRole = {
