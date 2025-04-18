@@ -103,7 +103,7 @@ const FavEditDialog = forwardRef((props, ref) => {
                         dispatch(FavListSlice.actions.addFavList({
                             mid,
                             type: FavListType.UPLOADER,
-                            name: values.name || `${res?.name ?? mid}的歌单`
+                            name: values.name || `${res?.name ?? mid}`
                         })).then(res => {
                             if (res?.payload?.status) {
                                 const favId = res?.payload?.data?.id;

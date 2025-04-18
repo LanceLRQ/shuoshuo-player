@@ -20,6 +20,7 @@ import {PlayerProfileSlice} from "@/store/ui";
 import {createJsonFileLoader, objectToDownload} from "@/utils";
 import API from "@/api";
 import {CloudServiceSlice} from "@/store/cloud_service";
+import GitHubIcon from '@mui/icons-material/GitHub';
 
 const drawerWidth = 240;
 
@@ -183,6 +184,9 @@ const TopBar = (props) => {
             </Typography>
             {biliUser ? <>
                 <Box>
+                    <IconButton onClick={() => window.open('https://github.com/LanceLRQ/shuoshuo-player', '_blank')}>
+                        <GitHubIcon />
+                    </IconButton>
                     <IconButton onClick={handleThemeChange}>
                         {themeMode === 'light' ? <LightModeIcon />:<DarkModeIcon />}
                     </IconButton>
