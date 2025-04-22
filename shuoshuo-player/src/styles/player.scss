@@ -432,10 +432,11 @@ body, html, #root {
         .live-slicer-human-container {
             display: flex;
             flex-wrap: wrap;
+            justify-content: space-around;
             .slicer-card {
                 display: flex;
                 border-radius: $width-1;
-                width: $width-16;
+                width: $width-17;
                 margin: $width-2;
                 border: 1px solid $grey-8;
                 box-sizing: border-box;
