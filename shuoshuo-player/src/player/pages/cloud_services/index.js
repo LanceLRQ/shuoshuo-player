@@ -1,9 +1,10 @@
 import React from "react";
+import lodash from 'lodash';
 import {Navigate, Outlet, Route, useMatches, useNavigate} from "react-router-dom";
 import {Box, Tabs, Tab} from "@mui/material";
-import LyricListPage from "@player/pages/cloud_services/lyric_list";
-import AccountListPage from "@player/pages/cloud_services/accounts_list";
-import lodash from 'lodash';
+import LyricListPage from "./lyric_list";
+import AccountListPage from "./accounts_list";
+import LiveSlicerMenListPage from "./live_slicer_men_list";
 
 const IndexFrame = () => {
     const matches = useMatches();
@@ -16,6 +17,7 @@ const IndexFrame = () => {
 
     const tabs = [
         {label: '歌词管理', key: 'lyric'},
+        {label: '切片Man管理', key: 'live_slicer_men'},
         {label: '账号管理', key: 'accounts'},
     ]
 
@@ -36,6 +38,7 @@ const cloudServicesIndexPage = () => {
     return <Route path="/cloud_services/*" element={<IndexFrame />}>
         <Route path="lyric" element={<LyricListPage />} />
         <Route path="accounts" element={<AccountListPage />} />
+        <Route path="live_slicer_men" element={<LiveSlicerMenListPage />} />
         <Route index element={<Navigate to="/cloud_services/lyric" />} />
     </Route>;
 }

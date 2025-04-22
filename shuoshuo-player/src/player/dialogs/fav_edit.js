@@ -14,15 +14,7 @@ import {PlayerNoticesSlice} from "@/store/ui";
 import API from "@/api";
 import {useNavigate} from "react-router";
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
-
-const getBilibiliMidByURL = (upUrl) => {
-    const bUrlMatch = upUrl.match(/https:\/\/space.bilibili.com\/(\d+)/);
-    const midMatch = upUrl.match(/^(\d+)$/);
-    if (!bUrlMatch && !midMatch) {
-        return null;
-    }
-    return bUrlMatch?.[1] || midMatch?.[1];
-}
+import {getBilibiliMidByURL} from "@/utils";
 
 const FavEditDialog = forwardRef((props, ref) => {
 

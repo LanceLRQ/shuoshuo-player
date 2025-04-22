@@ -102,18 +102,11 @@ func UpdateLiveSlicerMan(c *fiber.Ctx) error {
 
 	id := c.Params("id")
 
-	var filter bson.M
+	filter := bson.M{"mid": formData.Mid}
 	if id != "" {
 		objId, err := bson.ObjectIDFromHex(id)
 		if err == nil {
-			filter = bson.M{
-				"$or": []bson.M{
-					{"_id": objId},
-					{"mid": formData.Mid},
-				},
-			}
-		} else {
-			return exceptions.InvalidObjectIdError
+			filter = bson.M{"_id": objId}
 		}
 	}
 
@@ -151,7 +144,7 @@ func UpdateLiveSlicerMan(c *fiber.Ctx) error {
 			return err
 		}
 		liveSlicerMan.UpdateTime = time.Now().Unix()
-		if _, err = slicerMenCollect.ReplaceOne(context.Background(), filter, &liveSlicerMan); err != nil {
+		if _, err = slicerMenCollect.ReplaceOne(context.Background(), bson.M{"_id": liveSlicerMan.ID}, &liveSlicerMan); err != nil {
 			log.Error(err)
 			return exceptions.MongoDBError
 		}

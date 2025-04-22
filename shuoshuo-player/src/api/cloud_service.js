@@ -59,9 +59,25 @@ const Account = {
     }
 }
 
+const LiveSlicerMen = {
+    getLiveSlicerMenList: buildApiCall({
+        url: `/live_slicer_men/list`,
+    }),
+    updateLiveSlicerMan: (id) => buildApiCall({
+        url: `/live_slicer_men/manage/${id}`,  // 以mid区别，Post时传入会自动更新，传数据记录id也能识别
+        method: 'post',
+    }),
+    deleteLiveSlicerMan: (id) => buildApiCall({
+        url: `/live_slicer_men/manage/${id}`,
+        method: 'delete'
+    }),
+}
+
+
 export const api = {
     Lyric,
-    Account
+    Account,
+    LiveSlicerMen
 }
 
 export default api;

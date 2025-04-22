@@ -243,7 +243,7 @@ func UpdateLyric(c *fiber.Ctx) error {
 		}
 		lyric.UpdateTime = time.Now().Unix()
 		lyric.IsDeleted = false
-		if _, err = lyricsCollect.ReplaceOne(context.Background(), filter, &lyric); err != nil {
+		if _, err = lyricsCollect.ReplaceOne(context.Background(), bson.M{"_id": lyric.ID}, &lyric); err != nil {
 			log.Error(err)
 			return exceptions.MongoDBError
 		}
@@ -300,7 +300,7 @@ func DeleteLyric(c *fiber.Ctx) error {
 	}
 
 	lyric.IsDeleted = true
-	if _, err = lyricsCollect.ReplaceOne(context.Background(), filter, &lyric); err != nil {
+	if _, err = lyricsCollect.ReplaceOne(context.Background(), bson.M{"_id": lyric.ID}, &lyric); err != nil {
 		log.Error(err)
 		return exceptions.MongoDBError
 	}
