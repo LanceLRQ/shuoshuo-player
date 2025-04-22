@@ -3,26 +3,23 @@ import {
     Dialog, DialogTitle, DialogContent, IconButton, TextField, Button,
     Divider, List, ListItem, ListItemText, Stack, Box, Typography, DialogActions
 } from '@mui/material';
+import { noop } from 'lodash';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIco from '@mui/icons-material/Search';
 import { Lrc as ReactLRC } from "react-lrc";
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import isElectron from 'is-electron';
 import {formatMillisecond, removeEmptyLRCItem} from "@/utils";
-import {useDispatch} from "react-redux";
-import {LyricSlice} from "@/store/lyric";
 
 
 const LRCSearchDialog = (props) => {
-    const { bvid = '' } = props;
+    const { onLyricResponse = noop } = props;
     const [open, setOpen] = useState(false);
     const [keyword, setKeyword] = useState('');
     const [songList, setSongList] = useState([]);
     const [mode, setMode] = useState('list');
     const [lrcResp, setLrcResp] = useState('');
     const inElectron = isElectron();
-
-    const dispatch = useDispatch();
 
     const searchSongByKeyword = (keyword) => {
         window.ElectronAPI.Spider.QQMusic.SearchSong(keyword, 10).then(res => {
@@ -74,14 +71,9 @@ const LRCSearchDialog = (props) => {
     }
 
     const handleUseLrc = useCallback(() => {
-        dispatch(LyricSlice.actions.updateLyric({
-            bvid: bvid,
-            lrc: lrcResp,
-            offset: 0,
-            source: 'QQ音乐',
-        }));
+        onLyricResponse(lrcResp);
         handleClose();
-    }, [dispatch, bvid, lrcResp]);
+    }, [lrcResp, onLyricResponse]);
 
     return <>
         {props.children({
@@ -110,7 +102,7 @@ const LRCSearchDialog = (props) => {
                 <CloseIcon />
             </IconButton>
             {mode === 'detail' ? <DialogContent dividers>
-                <Typography>
+                <Box>
                     <ReactLRC
                         lrc={lrcResp}
                         lineRenderer={({ line }) => (
@@ -123,7 +115,7 @@ const LRCSearchDialog = (props) => {
                             </p>
                         )}
                     />
-                </Typography>
+                </Box>
             </DialogContent> : <DialogContent dividers>
                 <Stack direction="row" spacing={1}>
                     <TextField
@@ -143,11 +135,9 @@ const LRCSearchDialog = (props) => {
                 <List>
                     {songList && songList.length ? songList.map((song) => (<ListItem
                         key={song.mid}
-                        secondaryAction={
-                            <IconButton aria-label="view" onClick={() => handleViewMode(song.mid)}>
-                                <KeyboardArrowRightIcon />
-                            </IconButton>
-                        }
+                        secondaryAction={<KeyboardArrowRightIcon />}
+                        onClick={() => handleViewMode(song.mid)}
+                        sx={{ cursor: 'pointer' }}
                     >
                         <ListItemText
                             sx={{textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap'}}

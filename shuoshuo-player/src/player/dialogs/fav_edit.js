@@ -1,7 +1,8 @@
-import React, {useState, forwardRef, useImperativeHandle} from 'react';
+import React, {useState, forwardRef, useImperativeHandle, useEffect} from 'react';
 import {
     Box, Button, TextField, Dialog, DialogTitle, DialogActions, DialogContent,
-    FormControl, FormLabel, FormControlLabel, RadioGroup, Radio
+    FormControl, FormLabel, FormControlLabel, RadioGroup, Radio, List,
+    ListItemIcon, ListItemButton, ListItemText
 
 } from '@mui/material';
 import * as yup from 'yup';
@@ -12,28 +13,24 @@ import {FavListType, MasterUpInfo, NoticeTypes} from "@/constants";
 import {PlayerNoticesSlice} from "@/store/ui";
 import API from "@/api";
 import {useNavigate} from "react-router";
-
-const getBilibiliMidByURL = (upUrl) => {
-    const bUrlMatch = upUrl.match(/https:\/\/space.bilibili.com\/(\d+)/);
-    const midMatch = upUrl.match(/^(\d+)$/);
-    if (!bUrlMatch && !midMatch) {
-        return null;
-    }
-    return bUrlMatch?.[1] || midMatch?.[1];
-}
+import {BilibiliUserInfoSlice} from "@/store/bilibili";
+import {getBilibiliMidByURL} from "@/utils";
 
 const FavEditDialog = forwardRef((props, ref) => {
 
     const [open, setOpen] = useState(false);
     const [favId, setFavId] = useState(0);
+    const [fromMid, setFromMid] = useState('');
+    const [fromName, setFromName] = useState('');
     const favList = useSelector(FavListSlice.selectors.favList);
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const [bilibiliMyFavList, setBilibiliMyFavList] = useState([]);
     const validationSchema = yup.object({
         id: yup.string(),
         name: yup
             .string()
-            .max(16, '歌单名称不能超过16个字符')
+            .max(64, '歌单名称不能超过64个字符')
             .test({
                 name: 'name-test',
                 test(value, ctx) {
@@ -49,7 +46,7 @@ const FavEditDialog = forwardRef((props, ref) => {
             name: 'bili-url-test',
             test(value, ctx) {
                 if (ctx.parent?.id) return true;
-                if (Number(ctx.parent?.type) === FavListType.CUSTOM) return true;
+                if (Number(ctx.parent?.type) === FavListType.CUSTOM || Number(ctx.parent?.type) === FavListType.BILI_FAV) return true;
                 const upUrl = String(ctx.parent?.upUrl || '').trim();
                 if (!upUrl) {
                     return ctx.createError({ message: '地址或者UID必填' })
@@ -68,6 +65,7 @@ const FavEditDialog = forwardRef((props, ref) => {
             name: '未命名歌单',
             type: FavListType.CUSTOM,
             upUrl: '',
+            biliFavFolder: '',
         },
         validationSchema: validationSchema,
         onSubmit: (values) => {
@@ -79,6 +77,7 @@ const FavEditDialog = forwardRef((props, ref) => {
                 setOpen(false);
             }
             else {
+                // 处理Up主歌单
                 if (Number(values.type) === FavListType.UPLOADER) {
                     const mid = getBilibiliMidByURL(values.upUrl);
                     // 如果mid是主up的，或者是已存在，则跳过
@@ -96,7 +95,7 @@ const FavEditDialog = forwardRef((props, ref) => {
                         dispatch(FavListSlice.actions.addFavList({
                             mid,
                             type: FavListType.UPLOADER,
-                            name: `${res?.name ?? mid}的歌单`
+                            name: values.name || `${res?.name ?? mid}`
                         })).then(res => {
                             if (res?.payload?.status) {
                                 const favId = res?.payload?.data?.id;
@@ -112,10 +111,28 @@ const FavEditDialog = forwardRef((props, ref) => {
                             duration: 3000,
                         }));
                     });
-                } else {
+                // 处理自定义歌单
+                } else if (Number(values.type) === FavListType.CUSTOM) {
                     dispatch(FavListSlice.actions.addFavList({
                         type: FavListType.CUSTOM,
                         name: values.name,
+                    })).then(res => {
+                        if (res?.payload?.status) {
+                            const favId = res?.payload?.data?.id;
+                            navigate(`/fav/${favId}`);
+                        }
+                    })
+                    setOpen(false);
+                // 处理收藏夹歌单
+                } else if (Number(values.type) === FavListType.BILI_FAV) {
+                    if (!values.biliFavFolder) return;
+                    const fInfo = values.biliFavFolder.split(':::')
+                    if (fInfo.length !== 2) return;
+                    dispatch(FavListSlice.actions.addFavList({
+                        type: FavListType.BILI_FAV,
+                        name: `[${fromName ? fromName : biliUser?.uname}]${fInfo[1]}`,
+                        mid: fromMid ? fromMid : biliUser?.mid,
+                        biliFavFolderId: fInfo[0],
                     })).then(res => {
                         if (res?.payload?.status) {
                             const favId = res?.payload?.data?.id;
@@ -127,9 +144,13 @@ const FavEditDialog = forwardRef((props, ref) => {
             }
         },
     });
+    const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser);
+    // 弹出对话框
     const showDialog = (payload) => {
         const { id = 0, mid = '', name = '' } = payload;
         setFavId(id);
+        setFromMid(mid);
+        setFromName(name);
         setOpen(true);
         if (id) {
             const favInfo = favList.find(item => item.id === id);
@@ -145,7 +166,6 @@ const FavEditDialog = forwardRef((props, ref) => {
                 values: favInfo
             })
         } else {
-            console.log(mid,'ss')
             if (mid) {
                 formik.resetForm({
                     values: {
@@ -155,7 +175,9 @@ const FavEditDialog = forwardRef((props, ref) => {
                     }
                 })
             } else {
-                formik.resetForm()
+                formik.resetForm({
+                    values: {}
+                })
             }
         }
     };
@@ -167,13 +189,26 @@ const FavEditDialog = forwardRef((props, ref) => {
         showDialog,
     }))
 
+    useEffect(() => {
+        if (Number(formik.values.type) === FavListType.BILI_FAV && !bilibiliMyFavList.length) {
+            API.Bilibili.UserApi.getMyFavoriteFolder({
+                params: {
+                    up_mid: fromMid ? fromMid : biliUser.mid
+                }
+            }).then(res => {
+                setBilibiliMyFavList(res?.list ?? [])
+            });
+        }
+    }, [formik.values, bilibiliMyFavList, biliUser, fromMid])
+
     return <Dialog
         open={open}
         onClose={handleClose}
+        scroll="paper"
     >
         <DialogTitle>{favId ? '编辑歌单' : '新建歌单'}</DialogTitle>
         <form onSubmit={formik.handleSubmit}>
-            <DialogContent>
+            <DialogContent dividers>
                 <Box
                     sx={{
                         width: 480,
@@ -190,10 +225,11 @@ const FavEditDialog = forwardRef((props, ref) => {
                             onBlur={formik.handleBlur}
                         >
                             <FormControlLabel value={FavListType.UPLOADER} control={<Radio />} label="Up主歌单" />
-                            <FormControlLabel value={FavListType.CUSTOM} control={<Radio />} label="自定义歌单" />
+                            {!fromMid ? <FormControlLabel value={FavListType.CUSTOM} control={<Radio />} label="自定义歌单" /> : null}
+                            <FormControlLabel value={FavListType.BILI_FAV} control={<Radio />} label={`B站收藏夹(${fromMid ? fromName : biliUser?.uname})`} />
                         </RadioGroup>
                     </FormControl> : null}
-                    {(favId || Number(formik.values.type) === FavListType.CUSTOM) ? <TextField
+                    {(favId || (Number(formik.values.type) === FavListType.UPLOADER && fromName) || Number(formik.values.type) === FavListType.CUSTOM) ? <TextField
                         autoFocus
                         required
                         margin="dense"
@@ -222,6 +258,24 @@ const FavEditDialog = forwardRef((props, ref) => {
                         fullWidth
                         variant="standard"
                     /> : null}
+                    {(!favId && Number(formik.values.type) === FavListType.BILI_FAV) ? <List sx={{ maxHeight: 300, overflowY: 'auto'}}>
+                        {bilibiliMyFavList.map((item, index) => {
+                            const key = `${item.id}:::${item.title}`;
+                            return <ListItemButton key={key} onClick={() => formik.setFieldValue('biliFavFolder', key)} dense>
+                                <ListItemIcon>
+                                    <Radio
+                                        edge="start"
+                                        value={key}
+                                        checked={formik.values.biliFavFolder === key}
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                        tabIndex={index}
+                                    />
+                                </ListItemIcon>
+                                <ListItemText primary={item.title} />
+                            </ListItemButton>
+                        })}
+                    </List> : null}
                 </Box>
             </DialogContent>
             <DialogActions>

@@ -2,20 +2,25 @@ import React, { useCallback } from 'react';
 import { styled } from '@mui/material/styles';
 import { 
     AppBar as MuiAppBar, Toolbar, IconButton, Typography,  Box,
-    Avatar, Tooltip, Menu, MenuItem, ListItemIcon, Divider
+    Avatar, Tooltip, Menu, MenuItem, ListItemIcon, Divider, Chip, Stack
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useDispatch, useSelector } from 'react-redux';
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
-import {MasterUpInfo} from "@/constants";
+import {MasterUpInfo, exportKeys, CloudServiceUserRoleNameMap} from "@/constants";
 import LogoutIcon from '@mui/icons-material/Logout';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import CloudIcon from '@mui/icons-material/Cloud';
 import dayjs from 'dayjs';
 import isElectron from 'is-electron';
 import {PlayerProfileSlice} from "@/store/ui";
+import {createJsonFileLoader, objectToDownload} from "@/utils";
+import API from "@/api";
+import {CloudServiceSlice} from "@/store/cloud_service";
+import GitHubIcon from '@mui/icons-material/GitHub';
 
 const drawerWidth = 240;
 
@@ -41,6 +46,8 @@ const TopBar = (props) => {
     const { menuOpen, toggleMenu } = props;
     const dispatch = useDispatch();
     const biliUser = useSelector(BilibiliUserInfoSlice.selectors.currentUser);
+    const isCloudServiceLogin = useSelector(CloudServiceSlice.selectors.isLogin);
+    const cloudServiceUserRole = useSelector(CloudServiceSlice.selectors.roleName);
     const themeMode = useSelector(PlayerProfileSlice.selectors.theme);
     const [anchorEl, setAnchorEl] = React.useState(null);
     const open = Boolean(anchorEl);
@@ -69,7 +76,7 @@ const TopBar = (props) => {
             input.onchange = (event) => {
                 const file = event.target.files[0];
                 if (file) {
-                    const reader = new FileReader();    
+                    const reader = new FileReader();
                     reader.onload = (event) => {
                         const confirmImport = window.confirm('确定要导入数据吗？导入后当前数据将被覆盖');
                         if (confirmImport) {
@@ -87,8 +94,21 @@ const TopBar = (props) => {
                 }
             };
             input.click();
+        } else if (chrome && chrome.storage && chrome.storage.local)  {
+            const chromeStorage = chrome && chrome.storage && chrome.storage.local;
+            createJsonFileLoader((ret) => {
+                const confirmImport = window.confirm('确定要导入数据吗？导入后当前数据将被覆盖');
+                if (confirmImport) {
+                    chromeStorage.set(ret, () => {
+                        alert('导入成功');
+                        window.location.reload();
+                    })
+                }
+            }, (e) => {
+                alert(e)
+            })
         } else {
-            alert('暂不支持在浏览器中导入数据');
+            alert('当前环境不支持导入数据');
         }
         handleMenuClose();
     }, [inElectron, handleMenuClose]);
@@ -103,8 +123,13 @@ const TopBar = (props) => {
                 a.download = `导出数据_${dayjs().format('YYYY-MM-DD_HH-mm-ss')}.json`;
                 a.click();
             });
+        } else if (chrome && chrome.storage && chrome.storage.local) {
+            const chromeStorage = chrome && chrome.storage && chrome.storage.local;
+            chromeStorage.get(exportKeys, (result) => {
+                objectToDownload(result, `导出数据_${dayjs().format('YYYY-MM-DD_HH-mm-ss')}.json`);
+            })
         } else {
-            alert('暂不支持在浏览器中导出数据');
+            alert('当前环境不支持导出数据');
         }
         handleMenuClose();
     }, [inElectron, handleMenuClose]);
@@ -114,6 +139,21 @@ const TopBar = (props) => {
             theme: themeMode === 'light' ? 'dark': 'light',
         }));
     }, [themeMode, dispatch]);
+
+    const handleShowCloudServicePage = () => {
+        handleMenuClose();
+        API.CloudService.Account.checkLogin({}).then((res) => {
+            if (!res.login) {
+                dispatch(CloudServiceSlice.actions.clearSession())
+                window.SHOW_CLOUD_LOGIN();
+            } else {
+                if(window.confirm(`已登录：${res?.account?.email}\n当前身份：${CloudServiceUserRoleNameMap[res?.account?.role] || '未知'}\n是否切换账号？`)){
+                    dispatch(CloudServiceSlice.actions.clearSession())
+                    window.SHOW_CLOUD_LOGIN();
+                }
+            }
+        })
+    }
 
     return <AppBar position="absolute" open={menuOpen}>
         <Toolbar
@@ -144,6 +184,9 @@ const TopBar = (props) => {
             </Typography>
             {biliUser ? <>
                 <Box>
+                    <IconButton onClick={() => window.open('https://github.com/LanceLRQ/shuoshuo-player', '_blank')}>
+                        <GitHubIcon />
+                    </IconButton>
                     <IconButton onClick={handleThemeChange}>
                         {themeMode === 'light' ? <LightModeIcon />:<DarkModeIcon />}
                     </IconButton>
@@ -158,6 +201,16 @@ const TopBar = (props) => {
                     open={open}
                     onClose={handleMenuClose}
                 >
+                    <MenuItem onClick={handleShowCloudServicePage}>
+                        <ListItemIcon>
+                            <CloudIcon fontSize="small" />
+                        </ListItemIcon>
+                        <Stack direction="row" spacing={2}>
+                            <span>云服务</span>
+                            {isCloudServiceLogin ? <Chip size="small" color="primary" label={cloudServiceUserRole} /> : null}
+                        </Stack>
+                    </MenuItem>
+                    <Divider></Divider>
                     <MenuItem onClick={handleImport}>
                         <ListItemIcon>
                             <FileUploadIcon fontSize="small" />

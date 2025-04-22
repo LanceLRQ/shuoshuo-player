@@ -27,6 +27,10 @@ import PlayingList from "@player/splayer/playing_list";
 import LyricsIcon from '@mui/icons-material/Lyrics';
 import { blue } from '@mui/material/colors';
 import LyricViewer from "@player/splayer/lyric";
+import API from "@/api";
+import {LyricSlice} from "@/store/lyric";
+import { Lrc as LrcKit } from 'lrc-kit';
+import {createLyricsFinder} from "@/utils";
 
 function SPlayer() {
     const theme = useTheme();
@@ -50,6 +54,21 @@ function SPlayer() {
     const playerLoopMode = useMemo(() => {
         return playerSetting.loopMode;
     }, [playerSetting])
+    const audioLists = useMemo(() => {
+        return playingList.map((vItem) => ({
+            key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
+            bvid: vItem.bvid,
+            name: vItem.title,
+            desc: String(vItem.description || '').replace(/<[^>]+>/g, ''),
+            singer: vItem.author,
+            cover: vItem.pic,
+            musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid),
+            payload: vItem,
+        }))
+    }, [biliUser, playingList]);
+    const currentMusic = useMemo(() => {
+        return audioLists[playingInfo.index]
+    }, [audioLists, playingInfo.index]);
     // == 弹层相关
     const [volumeEl, setVolumeEl] = useState(null);
     const handleVolumePopoverOpen = (event) => {
@@ -73,25 +92,17 @@ function SPlayer() {
             window.removeEventListener('resize', handleResize);
         };
     });
-    // ==
+    // == 歌词服务 ==
+    const LrcInfos = useSelector(LyricSlice.selectors.lyricMaps)
+    const LrcInfo = useMemo(() => {
+        if (!currentMusic) return {};
+        return LrcInfos[currentMusic.bvid]?? {};
+    }, [currentMusic, LrcInfos]);
 
-    const audioLists = useMemo(() => {
-        return playingList.map((vItem) => ({
-            key: `${vItem.bvid}:1`,  // 后面的1是p1的意思，为后面如果要播分p的内容预留的
-            bvid: vItem.bvid,
-            name: vItem.title,
-            desc: String(vItem.description || '').replace(/<[^>]+>/g, ''),
-            singer: vItem.author,
-            cover: vItem.pic,
-            musicSrc: fetchMusicUrl(vItem.bvid, biliUser?.mid),
-            payload: vItem,
-        }))
-    }, [biliUser, playingList]);
+    // ==================
 
-    const currentMusic = useMemo(() => {
-        return audioLists[playingInfo.index]
-    }, [audioLists, playingInfo.index]);
 
+    // == 播放进度控制 ==
     const updateProcess = useRef(() => {
         if (howlInstance.current) {
             setHowlProcess(howlInstance.current.seek())
@@ -200,7 +211,7 @@ function SPlayer() {
 
     useEffect(() => {
         if (playNext) {
-            console.log(currentMusic, 'currentMusic')
+            console.debug(currentMusic, 'currentMusic')
             if (!currentMusic && howlPlaying) {
                 // 如果当前播放的音乐被移除，则停止播放
                 howlInstance.current.stop();
@@ -213,9 +224,30 @@ function SPlayer() {
             dispatch(PlayingListSlice.actions.removePlayNext({}));
         }
     }, [
-        dispatch, initHowl, howlPlaying, playNext, howlInstance,
-        currentMusic, setHowlPausing ,setHowlPlaying
+        dispatch, initHowl, howlPlaying, playNext, howlInstance, currentMusic
     ])
+
+    // 自动从云服务拉取歌词信息
+    useEffect(() => {
+        if (!currentMusic) return;
+        if (LrcInfo && LrcInfo.lrc) return;
+        API.CloudService.Lyric.getLyricByBvid(currentMusic.bvid)({}).then(resp => {
+            const lrcContent = resp?.content;
+            dispatch(LyricSlice.actions.updateLyric({
+                bvid: currentMusic.bvid,
+                lrc: lrcContent,
+                offset: 0,
+                source: '说说播放器云服务',
+            }));
+        }).catch((resp) => {
+            console.warn(resp.message);
+            // dispatch(PlayerNoticesSlice.actions.sendNotice({
+            //     type: NoticeTypes.ERROR,
+            //     message: `获取视频(${currentMusic.bvid})歌词信息失败`,
+            //     duration: 3000,
+            // }));
+        });
+    }, [LrcInfo, currentMusic, dispatch])
 
     const handlePlayClick = useCallback(() => {
         if (isMusicLoading || !currentMusic) return;
@@ -264,6 +296,24 @@ function SPlayer() {
         const seconds = Math.floor(duration % 60);
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
+
+    // === 歌词计算
+    const lrcParsedFinder = useMemo(() => {
+        if (!LrcInfo || !LrcInfo.lrc) return null;
+        const lrcParsedInfo = LrcKit.parse(LrcInfo.lrc);
+        const lrcList = lrcParsedInfo.lyrics;
+        if (lrcList.length <= 0) return null;
+        // 排序一次
+        return createLyricsFinder(lrcList, LrcInfo.offset)
+    }, [LrcInfo]);
+
+    const playerCardDescWithLrc = useMemo(() => {
+        if (howlPlaying && lrcParsedFinder) {
+            const rel = lrcParsedFinder(howlProcess)?.value
+            if (rel) return rel?.content;
+        }
+        return '';
+    }, [lrcParsedFinder, howlPlaying, howlProcess])
 
     return <>
         {currentMusic && <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
@@ -375,10 +425,17 @@ function SPlayer() {
                                 <img src={currentMusic.cover} alt="cover"/>
                             </div>
                             <div className="splayer-music-card-info">
-                                <div className="splayer-music-card-title">{currentMusic.name}</div>
-                                <div className="splayer-music-card-desc">
-                                    <Marquee text={currentMusic.desc} speed={0.2} />
-                                </div>
+                                {(howlPlaying && !howlPausing) && playerCardDescWithLrc ? <>
+                                    <div className="splayer-music-card-title lrc-mode">{playerCardDescWithLrc}</div>
+                                    <div className="splayer-music-card-desc">
+                                        <Marquee text={currentMusic.name} speed={0.2}/>
+                                    </div>
+                                </> : <>
+                                    <div className="splayer-music-card-title">{currentMusic.name}</div>
+                                    <div className="splayer-music-card-desc">
+                                        <Marquee text={currentMusic?.desc} speed={0.2}/>
+                                    </div>
+                                </>}
                             </div>
                             <div className="splayer-music-card-extra">
                                 <div className="splayer-music-card-extra-item">
@@ -400,7 +457,7 @@ function SPlayer() {
                         <div className="splayer-operator-bar">
                             <div className="splayer-operator-bar-item">
                                 <IconButton  onClick={() => setLyricView(!lyricView)}>
-                                    <LyricsIcon  sx={{ color: lyricView ? blue[500] : null }} />
+                                    <LyricsIcon sx={{ color: lyricView ? blue[500] : null }} />
                                 </IconButton>
                             </div>
                             <div className="splayer-operator-bar-item">

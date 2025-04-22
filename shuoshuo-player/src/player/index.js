@@ -19,6 +19,8 @@ const router = createHashRouter(
             <Route path="/index" element={<Pages.HomePage />}></Route>
             <Route path="/fav/:id" element={<Pages.FavListPage />}></Route>
             <Route path="/discovery" element={<Pages.DiscoveryPage />}></Route>
+            <Route path="/live_slicers" element={<Pages.LiveSlicersPage />}></Route>
+            {Pages.CloudServicesManagePage()}
             <Route index element={<Navigate to="/index" replace />} />
         </Route>
     )

@@ -13,7 +13,7 @@ const validStoreKey = ['player_data']
 const PRODUCTION_FILE_PATH = `file://${require("path").resolve(__dirname,"..","renderer","build","index.html")}`
 const PRODUCTION_PLAYER_PATH = `file://${require("path").resolve(__dirname,"..","renderer","build","player.html")}`
 // 定义外部浏览器打开的链接
-const externalUrlBase = ['https://bilibili.com/video/', 'https://space.bilibili.com']
+const externalUrlBase = ['https://bilibili.com/video/', 'https://space.bilibili.com', 'https://github.com']
 const isExternalUrl = (url) => {
   return externalUrlBase.some(base => url.startsWith(base))
 }
@@ -103,7 +103,6 @@ const createWindow = () => {
       event.preventDefault();
       // 在系统浏览器中打开
       shell.openExternal(url);
-      return;
     }
   });
 
@@ -114,7 +113,6 @@ const createWindow = () => {
   } else {
     // and load the index.html of the app.
     mainWindow.loadURL(PRODUCTION_PLAYER_PATH);
-    // mainWindow.webContents.openDevTools();
   }
 };
 

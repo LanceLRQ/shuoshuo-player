@@ -36,6 +36,13 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const navigate = useNavigate()
     const isUpdating = useSelector(BilibiliUserVideoListSlice.selectors.loadingStatus);
     const spaceInfos = useSelector(BilibiliUserVideoListSlice.selectors.spaceInfo);
+    const biliFavFolderInfos = useSelector(BilibiliUserVideoListSlice.selectors.favFoldersListInfo);
+
+    const biliFavFolderInfo = useMemo(() => biliFavFolderInfos[favListInfo.biliFavFolderId] ?? null, [favListInfo, biliFavFolderInfos])
+
+    const isTypeCustom = favListInfo.type === FavListType.CUSTOM;
+    const isTypeUploader = favListInfo.type === FavListType.UPLOADER;
+    const isTypeBiliFav = favListInfo.type === FavListType.BILI_FAV;
 
     const spaceInfo = useMemo(() => {
         if (!mid) return null;
@@ -56,18 +63,27 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
         handleExtraMenuClose();
         setUpdateDialogOpen(false);
         if (isUpdating) return;
-        dispatch(BilibiliUserVideoListSlice.actions.readUserVideos({
-            mid,
-            query: {
-                order: 'pubdate',
-                platform: 'web',
-            },
-            mode
-        }))
-        dispatch(BilibiliUserVideoListSlice.actions.readUserSpaceInfo({
-            mid,
-        }))
-    }, [mid, dispatch, isUpdating])
+        if (isTypeUploader) {
+            dispatch(BilibiliUserVideoListSlice.actions.readUserVideos({
+                mid,
+                query: {
+                    order: 'pubdate',
+                    platform: 'web',
+                },
+                mode
+            }))
+            dispatch(BilibiliUserVideoListSlice.actions.readUserSpaceInfo({
+                mid,
+            }))
+        } else if (isTypeBiliFav) {
+            dispatch(BilibiliUserVideoListSlice.actions.readUserFavFolderVideos({
+                query: {
+                    media_id: favListInfo.biliFavFolderId
+                },
+                mode
+            }))
+        }
+    }, [mid, dispatch, isUpdating, isTypeUploader, isTypeBiliFav, favListInfo])
 
     // 播放歌单
     const playFavList = useCallback(() => {
@@ -113,15 +129,15 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     }))
 
     const renderMenu = () => {
-        const isCustom = favListInfo.type === FavListType.CUSTOM;
+
         const menus = [
             { title: '播放歌单', onClick: () => playFavList(), icon: <PlaylistPlayIcon fontSize="small" />, visible: true },
-            { type: 'divider', visible: isCustom },
-            { title: '添加歌曲', onClick: () => addVideo(), icon: <AddIcon fontSize="small" />, visible: isCustom },
+            { type: 'divider', visible: isTypeCustom },
+            { title: '添加歌曲', onClick: () => addVideo(), icon: <AddIcon fontSize="small" />, visible: isTypeCustom },
             { type: 'divider',  visible: !!mid },
-            { title: '更新前30', onClick: () => updateMasterVideoList(), icon: <UpdateIcon fontSize="small" />, visible: !!mid },
+            { title: '更新前30', onClick: () => updateMasterVideoList(), icon: <UpdateIcon fontSize="small" />, visible: isTypeUploader || isTypeBiliFav },
             { title: '更新整个列表', onClick: () => updateMasterVideoList('fully'),
-                icon: <Badge badgeContent="全" color="primary"><UpdateIcon fontSize="small" /></Badge>, visible: !!mid
+                icon: <Badge badgeContent="全" color="primary"><UpdateIcon fontSize="small" /></Badge>, visible: isTypeUploader || isTypeBiliFav
             },
             { type: 'divider', visible: true },
             { title: '编辑歌单', onClick: () => editFavList(), icon: <EditIcon fontSize="small" />, visible: true },
@@ -138,13 +154,20 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
         });
     }
 
+    const renderAvatar = () => {
+        if (spaceInfo) {
+            return <Avatar src={spaceInfo?.face} sx={{width: 80, height: 80}}></Avatar>
+        } else if (biliFavFolderInfo) {
+            return <Avatar src={biliFavFolderInfo?.info?.cover} sx={{width: 80, height: 80}}></Avatar>
+        }
+        return <Avatar sx={{width: 80, height: 80}}><MusicIcon sx={{width: 64, height: 64}} /></Avatar>;
+    }
 
     return <Box className="fav_list_banner_bg" sx={{ background: spaceInfo ? `url(${spaceInfo.top_photo})` : '#91d5ff'}}>
         <Box className="fav_list_banner">
             <Box className="fav_list_user_card">
                 <Box className="fav_list_user_card_item">
-                    {spaceInfo ? <Avatar src={spaceInfo.face} sx={{width: 80, height: 80}}></Avatar> :
-                    <Avatar sx={{width: 80, height: 80}}><MusicIcon sx={{width: 64, height: 64}} /></Avatar>}
+                    {renderAvatar()}
                 </Box>
                 {spaceInfo ? <Box className="fav_list_user_card_item content">
                     <Typography variant="h5" color="text.primary">{spaceInfo.name}</Typography>

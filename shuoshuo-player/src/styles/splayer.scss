@@ -104,6 +104,9 @@
                 text-overflow: ellipsis;
                 white-space: nowrap;
                 width: 100%;
+                &.lrc-mode {
+                    font-size: 16px;
+                }
             }
             .splayer-music-card-desc {
                 margin-top: $width-1;

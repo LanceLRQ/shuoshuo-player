@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import {Box, Button, Typography, Stack} from '@mui/material';
@@ -13,6 +13,8 @@ import {PlayerProfileSlice} from "@/store/ui";
 import LoadingGif from '@/images/loading.webp';
 import {MasterUpInfo, StartupLoadingTip} from "@/constants";
 import isElectron from "is-electron";
+import CloudLoginDialog from "@player/dialogs/cloud_login";
+import {CloudServiceSlice} from "@/store/cloud_service";
 
 const PlayerIndex = () => {
     const dispatch = useDispatch();
@@ -20,7 +22,24 @@ const PlayerIndex = () => {
     const inited = useSelector(BilibiliUserInfoSlice.selectors.isInited);
     const isLogin = useSelector(BilibiliUserInfoSlice.selectors.isLogin);
     const theme = useSelector(PlayerProfileSlice.selectors.theme);
+    const cloudServiceSession = useSelector(CloudServiceSlice.selectors.sessionInfo)
+    const cloudServiceIsLogin = useSelector(CloudServiceSlice.selectors.isLogin)
     const inElectron = isElectron();
+    const cloudLoginDialogRef = useRef(null);
+
+    window.SHOW_CLOUD_LOGIN = () => {
+        if (!cloudLoginDialogRef.current) return;
+        cloudLoginDialogRef.current.showDialog();
+    }
+    useEffect(() => {
+        if (cloudServiceIsLogin) {
+            console.info('[云服务]已登录')
+            window.CLOUD_SERVICE_SESSION = cloudServiceSession;
+        } else{
+            window.CLOUD_SERVICE_SESSION = null;
+            console.info('[云服务]未登录')
+        }
+    }, [cloudServiceIsLogin, cloudServiceSession])
 
     useEffect(() => {
         const htmlElement = document.documentElement;
@@ -80,6 +99,7 @@ const PlayerIndex = () => {
                     </Box>
                 </Box>
                 <SPlayerIndex />
+                <CloudLoginDialog ref={cloudLoginDialogRef} />
             </ThemeProvider>;
         } else {
             return <Box className="b-login-require">

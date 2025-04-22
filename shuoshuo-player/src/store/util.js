@@ -22,6 +22,16 @@ const pickVideosField = (item, mode) => {
         data.comment = item?.stat?.reply;
         data.author = item?.owner?.name;
         data.mid = item?.owner?.mid;
+    } else if (mode === 'fav_folder' ) {
+        data.aid = item?.id;
+        data.pic = item?.cover;
+        data.created = item?.ctime;
+        data.length = item.duration;
+        data.play = item?.cnt_info?.play;
+        data.comment = item?.cnt_info?.reply;
+        data.author = item?.upper?.name;
+        data.mid = item?.upper?.mid;
+        data.description = item?.intro;
     }
     return data;
 }

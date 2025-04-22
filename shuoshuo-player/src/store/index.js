@@ -2,6 +2,7 @@ import { throttle } from 'lodash';
 import { configureStore } from '@reduxjs/toolkit';
 import { createRootReducer } from './reducers';
 import isElectron from 'is-electron';
+import {persistKeys} from "@/constants";
 
 // const preloadedState = {
     // bili_current_user: {},
@@ -12,7 +13,7 @@ import isElectron from 'is-electron';
 // };
 const inElectron = isElectron();
 
-const persistKeys = ['bili_user_videos', 'bili_videos', 'playing_list', 'fav_list', 'ui_profile', 'lyrics']
+
 const persistFunc = {
     bili_user_videos: (state) => {
         return {
@@ -42,9 +43,15 @@ const readStateFromChromeStorage = () => new Promise((resolve, reject) => {
             window.ElectronAPI.Store.Get('player_data').then((result) => {
                 procData(result);
             });
+            window.ElectronAPI.Store.Get('cloud_service').then((result) => {
+                procData({ cloud_service: result});
+            });
         } else {
             chromeStorage.get(persistKeys, (result) => {
                 procData(result);
+            })
+            chromeStorage.get('cloud_service', (result) => {
+                procData({ cloud_service: result});
             })
         }
     } catch (e) {
@@ -82,8 +89,12 @@ const persistStore = throttle(() => {
         }
         if (inElectron && window.ElectronAPI) {
             window.ElectronAPI.Store.Set('player_data', result)
+            window.ElectronAPI.Store.Set('cloud_service', storeState['cloud_service'] || {})
         } else if (chromeStorage) {
-            chromeStorage.set(result, () => {});
+            chromeStorage.set({
+                ...result,
+                cloud_service: storeState['cloud_service'] || {},
+            }, () => {});
         }
     }
 }, 1000);
@@ -91,6 +102,8 @@ const persistStore = throttle(() => {
 store.subscribe(() => {
     persistStore();
 });
+
+window.__PLAYER_STORE = store;
 
 if (process.env.NODE_ENV !== 'production' && module.hot) {
     module.hot.accept('./reducers', () => store.replaceReducer(createRootReducer()));

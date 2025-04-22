@@ -1,0 +1,531 @@
+definitions:
+  controller.accountAddPostParams:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      role:
+        enum:
+        - 0
+        - 512
+        - 1024
+        type: integer
+      user_name:
+        maxLength: 50
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  controller.accountModifyPostParams:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      reset_password_lock:
+        type: boolean
+      role:
+        enum:
+        - 0
+        - 512
+        - 1024
+        type: integer
+      user_name:
+        maxLength: 50
+        type: string
+    type: object
+  controller.accountUpdatePasswordParams:
+    properties:
+      old_password:
+        example: 旧密码
+        type: string
+      password:
+        example: 新密码
+        type: string
+    required:
+    - old_password
+    - password
+    type: object
+  controller.checkLoginViewResponse:
+    properties:
+      account:
+        $ref: '#/definitions/models.Account'
+      login:
+        type: boolean
+    type: object
+  controller.loginViewPostParams:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  controller.loginViewResponse:
+    properties:
+      account:
+        $ref: '#/definitions/models.Account'
+      expire_at:
+        type: integer
+      id:
+        type: string
+      token:
+        type: string
+    type: object
+  controller.updateLyricParams:
+    properties:
+      content:
+        example: 歌词内容，必填
+        type: string
+      title:
+        example: 视频标题，必填
+        type: string
+    required:
+    - content
+    - title
+    type: object
+  models.Account:
+    properties:
+      email:
+        example: foo@bar.com
+        type: string
+      id:
+        example: 67edfaa28b6491ae6926f3e8
+        type: string
+      role:
+        example: 0
+        type: integer
+      user_name:
+        example: foobar
+        type: string
+    type: object
+  models.LiveSlicerMan:
+    properties:
+      face:
+        example: https://i1.hdslb.com/bfs/face/20f47d363780bfc1427e69701f2dbc2424835bc0.jpg@128w_128h_1c_1s.webp
+        type: string
+      id:
+        example: 67edfaa28b6491ae6926f3e9
+        type: string
+      mid:
+        description: 注意这里要用字符串存b站UID
+        example: "3461583028095182"
+        type: string
+      name:
+        example: 洛悠Crystal
+        type: string
+      update_time:
+        type: integer
+    type: object
+  models.Lyric:
+    properties:
+      bvid:
+        example: BV1g6FTefEsc
+        type: string
+      content:
+        example: 歌词内容
+        type: string
+      create_time:
+        type: integer
+      id:
+        example: 67edfaa28b6491ae6926f3e9
+        type: string
+      title:
+        example: 歌词标题
+        type: string
+      update_time:
+        type: integer
+    type: object
+  models.LyricSnapshots:
+    properties:
+      author:
+        $ref: '#/definitions/models.Account'
+      author_id:
+        example: 67edfaa28b6491ae6926f3e8
+        type: string
+      content:
+        example: 歌词内容
+        type: string
+      create_time:
+        example: 123456789
+        type: integer
+      id:
+        example: 67edfaa28b6491ae6926f3e9
+        type: string
+      lyric_id:
+        example: 67edfaa28b6491ae6926f3e7
+        type: string
+      title:
+        example: 歌词标题
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /api/accounts:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户信息
+        in: body
+        name: formData
+        required: true
+        schema:
+          $ref: '#/definitions/controller.accountAddPostParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回新账户信息
+          schema:
+            $ref: '#/definitions/models.Account'
+      summary: 新增用户
+      tags:
+      - Accounts
+  /api/accounts/{id}:
+    delete:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 被删除用户的ID
+          schema:
+            type: string
+      summary: 删除用户
+      tags:
+      - Accounts
+    get:
+      consumes:
+      - application/json
+      description: 获取用户的信息
+      parameters:
+      - description: 用户ID或者用户Email
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回账户信息
+          schema:
+            $ref: '#/definitions/models.Account'
+      summary: 获取用户信息
+      tags:
+      - Accounts
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户信息
+        in: body
+        name: formData
+        required: true
+        schema:
+          $ref: '#/definitions/controller.accountModifyPostParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回新账户信息
+          schema:
+            $ref: '#/definitions/models.Account'
+      summary: 修改用户信息
+      tags:
+      - Accounts
+  /api/accounts/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有用户的信息列表
+      parameters:
+      - default: "1"
+        description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回所有账户信息列表
+          schema:
+            items:
+              $ref: '#/definitions/models.Account'
+            type: array
+      summary: 获取用户列表
+      tags:
+      - Accounts
+  /api/accounts/password:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户信息
+        in: body
+        name: formData
+        required: true
+        schema:
+          $ref: '#/definitions/controller.accountUpdatePasswordParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 当前用户的ID
+          schema:
+            type: string
+      summary: 更新当前用户的密码
+      tags:
+      - Accounts
+  /api/live_slicer_men/list:
+    get:
+      description: 返回直播切片Man列表，公共方法无需鉴权
+      parameters:
+      - default: "1"
+        description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回切片Man列表
+          schema:
+            items:
+              $ref: '#/definitions/models.LiveSlicerMan'
+            type: array
+      summary: 【公共】返回切片Man列表
+      tags:
+      - Lyric
+  /api/live_slicer_men/manage/{id}:
+    delete:
+      description: 删除切片man数据
+      parameters:
+      - description: ObjectId
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回操作成功的ID
+          schema:
+            type: string
+      summary: 【管理】删除切片man数据
+      tags:
+      - Lyric
+    post:
+      consumes:
+      - application/json
+      description: 新增或更新切片Man信息
+      parameters:
+      - description: ObjectId
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 歌词信息
+        in: body
+        name: formData
+        required: true
+        schema:
+          $ref: '#/definitions/controller.updateLyricParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回歌词信息
+          schema:
+            $ref: '#/definitions/models.Lyric'
+      summary: 【管理】新增/更新切片Man信息
+      tags:
+      - Lyric
+  /api/login:
+    get:
+      consumes:
+      - application/json
+      description: 检测当前的鉴权信息是否有效
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户登录状态信息
+          schema:
+            $ref: '#/definitions/controller.checkLoginViewResponse'
+      summary: 检测是否登录
+      tags:
+      - Accounts
+    post:
+      consumes:
+      - application/json
+      description: 用户通过邮箱和密码登录系统
+      parameters:
+      - description: 登录信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controller.loginViewPostParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功后返回token信息
+          schema:
+            $ref: '#/definitions/controller.loginViewResponse'
+      summary: 用户登录
+      tags:
+      - Accounts
+  /api/lyric/{bvid}:
+    get:
+      description: 获取歌词信息，公共方法无需鉴权
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回歌词信息
+          schema:
+            $ref: '#/definitions/models.Lyric'
+      summary: 【公共】获取歌词信息
+      tags:
+      - Lyric
+  /api/lyric/manage/{id}:
+    delete:
+      description: 删除歌词信息，但不会真正删除，下一次更新歌词的时候会重新恢复。
+      parameters:
+      - description: 支持bvid或ObjectId
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回操作成功的ID
+          schema:
+            type: string
+      summary: 【管理】删除歌词信息
+      tags:
+      - Lyric
+    post:
+      consumes:
+      - application/json
+      description: 新增或更新歌词内容
+      parameters:
+      - description: 支持bvid或ObjectId
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 歌词信息
+        in: body
+        name: formData
+        required: true
+        schema:
+          $ref: '#/definitions/controller.updateLyricParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回歌词信息
+          schema:
+            $ref: '#/definitions/models.Lyric'
+      summary: 【管理】新增/更新歌词内容
+      tags:
+      - Lyric
+  /api/lyric/manage/{id}/snap:
+    get:
+      description: 获取当前歌词的历史版本列表，只返回最新的10条。
+      parameters:
+      - description: 支持bvid或ObjectId
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回歌词历史版本列表
+          schema:
+            items:
+              $ref: '#/definitions/models.LyricSnapshots'
+            type: array
+      summary: 【管理】歌词历史版本列表
+      tags:
+      - Lyric
+  /api/lyric/manage/list:
+    get:
+      description: 获取数据库中所有的歌词列表
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回歌词列表
+          schema:
+            items:
+              $ref: '#/definitions/models.Lyric'
+            type: array
+      summary: 【管理】歌词列表
+      tags:
+      - Lyric
+  /debug/jwt/test:
+    get:
+      consumes:
+      - application/json
+      description: 获取随机的JWT Token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 【调试】获取随机的JWT Token
+      tags:
+      - Debug
+swagger: "2.0"
