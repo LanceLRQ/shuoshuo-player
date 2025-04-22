@@ -106,7 +106,11 @@ const LyricEditor = (props) => {
     const handleReceiveSuggestLyric = useCallback((lrc) => {
         const lrcParser = LrcKit.parse(lrc);
         setSuggestedLyrics(lrcParser.lyrics)
-    }, [setSuggestedLyrics]);
+        // 如果当前歌词为空，直接搞进去
+        if (!currentLyric.length) {
+            setCurrentLyric(lrcParser.lyrics)
+        }
+    }, [setSuggestedLyrics, currentLyric, setCurrentLyric]);
 
     // 接收表格组件的歌词内容更新
     const handleUpdateLyric = useCallback((rowIndex, lyrics) => {
@@ -141,6 +145,10 @@ const LyricEditor = (props) => {
         } else if (targets === 'suggested') {
             suggestedLyricSelected.forEach((index) => {
                 ret.push(suggestedLyrics[index])
+            })
+        } else if (targets === 'suggested_all') {
+            suggestedLyrics.forEach((item) => {
+                ret.push(item)
             })
         }
         ret.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
@@ -227,11 +235,15 @@ const LyricEditor = (props) => {
             try {
                 const lrcParser = LrcKit.parse(result.replace(/\r\n/g, '\n'));
                 setSuggestedLyrics(lrcParser.lyrics)
+                // 如果当前歌词为空，直接搞进去
+                if (!currentLyric.length) {
+                    setCurrentLyric(lrcParser.lyrics)
+                }
             } catch (e) {
                 alert('无法解析歌词文件，请检查格式是否正确');
             }
         })
-    }, [setSuggestedLyrics]);
+    }, [setSuggestedLyrics, currentLyric, setCurrentLyric]);
 
     const handleSaveLyricToFile = useCallback(() => {
         const lrcParser = new LrcKit();
@@ -308,7 +320,17 @@ const LyricEditor = (props) => {
                                 disabled={!suggestedLyricSelected.length}
                                 onClick={() => {handleInsertLyric('suggested');}}
                             >
-                                <KeyboardDoubleArrowLeftIcon fontSize="small" /> 插入所选行
+                                <KeyboardArrowLeftIcon fontSize="small" /> 插入所选行
+                            </Button>
+                            <Button
+                                disabled={!suggestedLyrics.length}
+                                onClick={() => {
+                                    if (window.confirm('确定要插入所有参考歌词吗')) {
+                                        handleInsertLyric('suggested_all');
+                                    }
+                                }}
+                            >
+                                <KeyboardDoubleArrowLeftIcon fontSize="small" /> 插入所有行
                             </Button>
                         </ButtonGroup>
                     </Box>
