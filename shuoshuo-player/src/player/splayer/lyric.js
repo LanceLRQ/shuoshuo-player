@@ -9,7 +9,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from '@mui/icons-material/Remove';
 import ModeEditIcon from '@mui/icons-material/ModeEdit';
-import LyricEditor from "@player/components/cloud_services/lyric_editor";
+import LyricEditor from "@player/components/lyric_editor";
 import API from "@/api";
 import {PlayerNoticesSlice} from "@/store/ui";
 import {NoticeTypes} from "@/constants";

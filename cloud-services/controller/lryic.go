@@ -69,6 +69,15 @@ func GetLyricList(c *fiber.Ctx) error {
 	lyricsCollect := mongoCli.Collection("lyrics")
 
 	filter := bson.M{"is_deleted": false}
+
+	keyword := c.Query("keyword")
+	if keyword != "" {
+		filter = bson.M{"is_deleted": false, "title": bson.Regex{Pattern: keyword, Options: "i"}}
+		if utils.IsValidBVID(keyword) {
+			filter = bson.M{"is_deleted": false, "bvid": keyword}
+		}
+	}
+
 	page, err := strconv.ParseInt(c.Query("page"), 10, 64)
 	if err != nil {
 		page = 1

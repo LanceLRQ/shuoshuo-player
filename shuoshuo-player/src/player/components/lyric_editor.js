@@ -11,7 +11,7 @@ import isElectron from "is-electron";
 import {useDispatch, useSelector} from "react-redux";
 import {LyricSlice} from "@/store/lyric";
 import { Lrc as LrcKit } from 'lrc-kit';
-import LyricEditorTable from "@player/components/cloud_services/lyric_editor_table";
+import LyricEditorTable from "@player/components/lyric_editor_table";
 import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import BackupIcon from '@mui/icons-material/Backup';

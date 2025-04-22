@@ -90,13 +90,14 @@ func AccountListView(c *fiber.Ctx) error {
 		pageSize = 20
 	}
 
-	if c.Query("keyword") != "" {
+	keyword := c.Query("keyword")
+	if keyword != "" {
 		filter = bson.M{
 			"$and": []bson.M{
 				{"is_deleted": false},
 				{"$or": []bson.M{
-					{"email": bson.Regex{Pattern: c.Query("keyword"), Options: "i"}},
-					{"user_name": bson.Regex{Pattern: c.Query("keyword"), Options: "i"}},
+					{"email": bson.Regex{Pattern: keyword, Options: "i"}},
+					{"user_name": bson.Regex{Pattern: keyword, Options: "i"}},
 				}},
 			},
 		}

@@ -1,6 +1,7 @@
 import {
     Box, TableContainer, Table, TableHead, TableRow, Dialog, DialogContent, DialogActions, Pagination,
-    TableCell, TableBody, Typography, Stack, IconButton, DialogTitle, Button, ListItem, ListItemText, List
+    TableCell, TableBody, Typography, Stack, IconButton, DialogTitle, Button, ListItem, ListItemText,
+    List, Grid, Paper, InputBase
 } from "@mui/material";
 import React, {useEffect, useMemo, useState} from "react";
 import API from "@/api";
@@ -14,16 +15,21 @@ import {Lrc as ReactLRC} from "react-lrc";
 import CloseIcon from "@mui/icons-material/Close";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import SearchIcon from "@mui/icons-material/Search";
 
 const LyricListPage = () => {
     const dispatch = useDispatch();
+    const [lyricSearchKeyword, setLyricSearchKeyword] = useState('');
     const [lyricViewOpen, setLyricViewOpen] = useState(false);
     const [lyricViewMode, setLyricViewMode] = useState('view');
     const [lyricViewInfo, setLyricViewInfo] = useState(null);
     const [lyricViewHistory, setLyricViewHistory] = useState([]);
     const [lyricViewSnapInfo, setLyricViewSnapInfo] = useState(null);
     const [lyricList, setLyricList] = useState([]);
-    const [lyricQueryParams, setLyricQueryParams] = useState({...CommonPagerParams});
+    const [lyricQueryParams, setLyricQueryParams] = useState({
+        keyword: '',
+        ...CommonPagerParams
+    });
     const [lyricListPager, setLyricListPager] = useState({...CommonPagerObject});
 
     const lyricListPageCount = useMemo(() => {
@@ -110,6 +116,14 @@ const LyricListPage = () => {
     const handleCloseLyric = () => {
         setLyricViewOpen(false);
     }
+
+    const handleSearch = () => {
+        setLyricQueryParams({...lyricQueryParams, page: 1, keyword: lyricSearchKeyword})
+    }
+
+    const handleCellClick = (e) => {
+        e.stopPropagation(); // 阻止事件冒泡
+    };
 
     const headCells = [
         {
@@ -199,6 +213,28 @@ const LyricListPage = () => {
     }
 
     return <Box>
+        <Grid container spacing={2}>
+            <Grid item xs={6}>
+            </Grid>
+            <Grid item xs={6}>
+                <Paper
+                    component="form"
+                    sx={{ p: '2px 8px', display: 'flex', alignItems: 'center' }}
+                >
+                    <InputBase
+                        value={lyricSearchKeyword}
+                        sx={{ ml: 1, flex: 1 }}
+                        onChange={(e) => setLyricSearchKeyword(e.target.value)}
+                        onKeyDown={(e) => (e.key === 'Enter' && handleSearch())}
+                        placeholder="搜索视频标题或BVID"
+                        inputProps={{ 'aria-label': '搜索视频标题或BVID' }}
+                    />
+                    <IconButton type="button" aria-label="搜索" onClick={handleSearch}>
+                        <SearchIcon />
+                    </IconButton>
+                </Paper>
+            </Grid>
+        </Grid>
         <TableContainer>
             <Table size="small">
                 <TableHead>
@@ -218,8 +254,8 @@ const LyricListPage = () => {
                     {lyricList.map((row) => {
                         return (
                             <TableRow hover key={row.id} sx={{ cursor: 'pointer' }} onClick={(e) => handleShowLyric(row)}>
-                                <TableCell>
-                                    <Typography variant="body2" noWrap>{row.bvid}</Typography>
+                                <TableCell onClick={handleCellClick}>
+                                    <Typography variant="body2" noWrap onClick={handleCellClick}>{row.bvid}</Typography>
                                 </TableCell>
                                 <TableCell>
                                     <Typography variant="body2">{row.title}</Typography>
