@@ -141,3 +141,4 @@ cloud-services/tmp/*
 
 env/mongo
 cloud-services/bin/*
+cloud-services/server.yaml

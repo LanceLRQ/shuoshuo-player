@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/LanceLRQ/shuoshuo-player/cloud-services/utils"
 
 	"github.com/LanceLRQ/shuoshuo-player/cloud-services/configs"
 	"github.com/urfave/cli/v2"
@@ -22,6 +23,18 @@ func ConfigCommand() *cli.Command {
 			},
 		},
 		Subcommands: []*cli.Command{
+			{
+				Name:  "init",
+				Usage: "初始化配置",
+				Action: func(c *cli.Context) error {
+					cfg, err := configs.ReadServerConfig(c.String("config"))
+					if err != nil {
+						return err
+					}
+					fmt.Printf("%s\n", utils.ObjectToJSONStringFormatted(cfg))
+					return nil
+				},
+			},
 			{
 				Name:  "get",
 				Usage: "获取当前配置的值",

@@ -8,7 +8,7 @@ import (
 )
 
 func GetDefaultServerConfigPath() string {
-	return "./temp/server.yaml"
+	return "./server.yaml"
 }
 
 func GetDefaultServerConfig() ServerConfigStruct {
