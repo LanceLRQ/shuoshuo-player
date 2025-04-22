@@ -30,7 +30,6 @@ build:
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) \
 	go build $(GOFLAGS) -o $(BUILD_DIR)/$(APP_NAME) .
-	@file $(BUILD_DIR)/$(APP_NAME)
 
 # 构建所有平台
 .PHONY: build-all
