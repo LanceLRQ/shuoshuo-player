@@ -140,3 +140,4 @@ cloud-services/temp/*
 cloud-services/tmp/*
 
 env/mongo
+cloud-services/bin/*
