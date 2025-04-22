@@ -425,12 +425,17 @@ function SPlayer() {
                                 <img src={currentMusic.cover} alt="cover"/>
                             </div>
                             <div className="splayer-music-card-info">
-                                <div className="splayer-music-card-title">{currentMusic.name}</div>
-                                <div className="splayer-music-card-desc">
-                                    {howlPlaying && playerCardDescWithLrc ?
-                                        <span>{playerCardDescWithLrc}</span> :
-                                        <Marquee text={currentMusic?.desc} speed={0.2} />}
-                                </div>
+                                {(howlPlaying && !howlPausing) && playerCardDescWithLrc ? <>
+                                    <div className="splayer-music-card-title lrc-mode">{playerCardDescWithLrc}</div>
+                                    <div className="splayer-music-card-desc">
+                                        <Marquee text={currentMusic.name} speed={0.2}/>
+                                    </div>
+                                </> : <>
+                                    <div className="splayer-music-card-title">{currentMusic.name}</div>
+                                    <div className="splayer-music-card-desc">
+                                        <Marquee text={currentMusic?.desc} speed={0.2}/>
+                                    </div>
+                                </>}
                             </div>
                             <div className="splayer-music-card-extra">
                                 <div className="splayer-music-card-extra-item">
@@ -452,7 +457,7 @@ function SPlayer() {
                         <div className="splayer-operator-bar">
                             <div className="splayer-operator-bar-item">
                                 <IconButton  onClick={() => setLyricView(!lyricView)}>
-                                    <LyricsIcon  sx={{ color: lyricView ? blue[500] : null }} />
+                                    <LyricsIcon sx={{ color: lyricView ? blue[500] : null }} />
                                 </IconButton>
                             </div>
                             <div className="splayer-operator-bar-item">
