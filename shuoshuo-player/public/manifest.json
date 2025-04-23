@@ -33,7 +33,7 @@
     "*://*.y.qq.com/*",
     "*://*.bilivideo.cn/*",
     "*://*.akamaized.net/*",
-    "*://player.shuoshuo.sikong.ren/*",
+    "*://player.ss.sikong.ren/*",
     "http://localhost/",
     "http://localhost:*/*",
     "http://127.0.0.1/",

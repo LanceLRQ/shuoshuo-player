@@ -13,7 +13,7 @@ const cloudService = axios.create({
     timeout: 10000,
     withCredentials: true,
     headers: {'Content-Type': 'application/json'},
-    baseURL: process.env.NODE_ENV === 'development' ? 'http://localhost:10715/api' : 'https://player.shuoshuo.sikong.ren/api',
+    baseURL: process.env.API_MODE === 'development' ? 'http://localhost:10715/api' : 'https://player.ss.sikong.ren/api',
 });
 
 bilibiliService.interceptors.request.use(function (config) {

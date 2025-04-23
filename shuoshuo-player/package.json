@@ -48,7 +48,8 @@
     "react-dom": "^17.0.0 || ^18.0.0"
   },
   "scripts": {
-    "start": "BROWSER=none craco start",
+    "start": "BROWSER=none API_MODE=development craco start",
+    "start:prod": "BROWSER=none API_MODE=production craco start",
     "build": "craco build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
