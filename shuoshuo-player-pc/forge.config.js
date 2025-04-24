@@ -1,6 +1,8 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
+require('dotenv').config();
+
 module.exports = {
   packagerConfig: {
     asar: true,
@@ -11,7 +13,13 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        setupIcon: "src/assets/logo.ico"
+        setupIcon: "src/assets/logo.ico",
+        config: {
+          // Windows 签名配置
+          signingHashAlgorithm: 'sha256',
+          certificateFile: process.env.WIN_CERT_FILE,
+          certificatePassword: process.env.CERT_PASSWORD,
+        }
       },
     },
     {

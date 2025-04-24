@@ -8,17 +8,16 @@
   },
   "action": {
     "default_icon": {
-      "16": "./logo.png",
-      "128": "./logo.png"
+      "16": "logo.png",
+      "128": "logo.png"
     }
   },
   "icons": {
-    "128": "./logo.png"
+    "128": "logo.png"
   },
   "permissions": [
     "storage",
-    "contextMenus",
-    "notifications",
+    "action",
     "unlimitedStorage",
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess"
@@ -32,11 +31,7 @@
     "*://*.y.qq.com/*",
     "*://*.bilivideo.cn/*",
     "*://*.akamaized.net/*",
-    "*://player.ss.sikong.ren/*",
-    "http://localhost/",
-    "http://localhost:*/*",
-    "http://127.0.0.1/",
-    "http://127.0.0.1:*/*"
+    "*://player.ss.sikong.ren/*"
   ],
   "declarative_net_request": {
     "rule_resources": [{

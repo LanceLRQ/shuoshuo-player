@@ -24,6 +24,7 @@
     "@vercel/webpack-asset-relocator-loader": "1.7.3",
     "copy-webpack-plugin": "^12.0.2",
     "css-loader": "^6.0.0",
+    "dotenv": "^16.5.0",
     "electron": "32.1.0",
     "node-loader": "^2.0.0",
     "style-loader": "^3.0.0"
