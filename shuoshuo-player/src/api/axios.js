@@ -9,11 +9,16 @@ const bilibiliService = axios.create({
     baseURL: '/',
 });
 
+let apiBase = process.env.NODE_ENV === 'development' ? 'http://localhost:10715/api' : 'https://player.ss.sikong.ren/api';
+if (process.env.API_MODE === 'production') {
+    apiBase = 'https://player.ss.sikong.ren/api';
+}
+
 const cloudService = axios.create({
     timeout: 10000,
     withCredentials: true,
     headers: {'Content-Type': 'application/json'},
-    baseURL: process.env.API_MODE === 'development' ? 'http://localhost:10715/api' : 'https://player.ss.sikong.ren/api',
+    baseURL: apiBase,
 });
 
 bilibiliService.interceptors.request.use(function (config) {

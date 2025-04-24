@@ -57,7 +57,7 @@ module.exports = {
                     filename: 'player.html',
                     templateParameters: {
                         PLAYER_NAME: process.env.PLAYER_NAME || '说说Crystal播放器',
-                        PLAYER_VERSION: process.env.PLAYER_VERSION || 'v0.1.0 (内部测试)',
+                        PLAYER_VERSION: process.env.PLAYER_VERSION || '开发版',
                     }
                 }),
                 new ProgressBarPlugin({
