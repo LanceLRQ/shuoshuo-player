@@ -90,7 +90,7 @@ go install github.com/air-verse/air@latest
 ### 3、运行服务端
 
 ```shell
-cd cloud-server
+cd cloud-services
 go mod tidy
 air  # 启动服务端
 ```
