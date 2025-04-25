@@ -6,6 +6,9 @@ const CracoLessPlugin = require('craco-less');
 const { loaderByName } = require("@craco/craco");
 const LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
 const isDev = process.env.NODE_ENV === 'development';
+
+require('dotenv').config();
+
 module.exports = {
     eslint: {
         enable: false,
