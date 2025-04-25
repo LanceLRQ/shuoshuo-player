@@ -1,6 +1,6 @@
 {
   "name": "shuoshuo-player-pc",
-  "productName": "shuoshuo-player-pc",
+  "productName": "说说播放器PC版",
   "version": "1.1.0",
   "description": "My Electron application description",
   "main": ".webpack/main",

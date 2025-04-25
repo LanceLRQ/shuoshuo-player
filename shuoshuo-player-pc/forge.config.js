@@ -14,12 +14,9 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         setupIcon: "src/assets/logo.ico",
-        config: {
-          // Windows 签名配置
-          signingHashAlgorithm: 'sha256',
-          certificateFile: process.env.WIN_CERT_FILE,
-          certificatePassword: process.env.CERT_PASSWORD,
-        }
+        // Windows 签名配置（自签名）
+        certificateFile: process.env.WIN_CERT_FILE,
+        certificatePassword: process.env.CERT_PASSWORD,
       },
     },
     {
