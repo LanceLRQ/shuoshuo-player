@@ -2,7 +2,7 @@ import React, {useEffect, useState, useCallback, useMemo} from 'react';
 import dayjs from 'dayjs';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-    Tooltip, IconButton, Grid, List, Typography,
+    Tooltip, IconButton, Grid, List, Typography, Box,
     Dialog, DialogTitle, ListItem, ListItemButton, ListItemText, ListItemIcon, Badge
 } from '@mui/material';
 import VideoAlbumCarousel from "@player/components/carousel";
@@ -69,7 +69,9 @@ const HomePage = () => {
 
     return <Grid container className="player-home-page">
         <Grid item xs={12} lg={6} xl={7} className="player-home-page-left">
-            <VideoAlbumCarousel slides={slidesList} />
+            <Box className="video-album-carousel-limit-container">
+                <VideoAlbumCarousel slides={slidesList} />
+            </Box>
         </Grid>
         <Grid item xs={12} lg={6} xl={5} className="player-home-page-right">
             <section className="player-home-page-recent-title">

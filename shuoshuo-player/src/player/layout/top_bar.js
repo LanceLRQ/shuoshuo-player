@@ -7,7 +7,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import { useDispatch, useSelector } from 'react-redux';
 import {BilibiliUserInfoSlice} from "@/store/bilibili";
-import {MasterUpInfo, exportKeys, CloudServiceUserRoleNameMap} from "@/constants";
+import { exportKeys, CloudServiceUserRoleNameMap} from "@/constants";
 import LogoutIcon from '@mui/icons-material/Logout';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
@@ -180,21 +180,27 @@ const TopBar = (props) => {
                 noWrap
                 sx={{ flexGrow: 1 }}
             >
-                {MasterUpInfo.uname}播放器
+                说说播放器
             </Typography>
             {biliUser ? <>
                 <Box>
-                    <IconButton onClick={() => window.open('https://github.com/LanceLRQ/shuoshuo-player', '_blank')}>
-                        <GitHubIcon />
-                    </IconButton>
-                    <IconButton onClick={handleThemeChange}>
-                        {themeMode === 'light' ? <LightModeIcon />:<DarkModeIcon />}
-                    </IconButton>
-                    <Tooltip title={biliUser.uname}>
-                        <IconButton onClick={handleMenuClick}>
-                            <Avatar sx={{ width: 24, height: 24 }} alt={biliUser.uname} src={biliUser.face} />
-                        </IconButton>
-                    </Tooltip>
+                    <Stack spacing={2} direction="row">
+                        <Tooltip title="喜欢的话点个star呗！">
+                            <IconButton onClick={() => window.open('https://github.com/LanceLRQ/shuoshuo-player', '_blank')}>
+                                <GitHubIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title={themeMode === 'dark' ? '白天模式' : '黑夜模式'}>
+                            <IconButton onClick={handleThemeChange}>
+                                {themeMode === 'dark' ? <LightModeIcon />:<DarkModeIcon />}
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title={biliUser.uname}>
+                            <IconButton onClick={handleMenuClick}>
+                                <Avatar sx={{ width: 24, height: 24 }} alt={biliUser.uname} src={biliUser.face} />
+                            </IconButton>
+                        </Tooltip>
+                    </Stack>
                 </Box>
                 <Menu
                     anchorEl={anchorEl}

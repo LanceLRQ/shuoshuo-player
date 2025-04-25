@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useCallback} from 'react';
 import {
     Grid, Box, Chip, IconButton, Toolbar, Typography,
-    ButtonGroup, Button, Divider
+    ButtonGroup, Button, Divider, Tooltip
 } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LRCSearchDialog from "@player/dialogs/lrc_search";
@@ -180,8 +180,11 @@ const LyricEditor = (props) => {
     //保存当前歌词到云端(管理员用)
     const handleSaveToCloud = useCallback(() => {
         if (lyricsChanged) {
-            alert('歌词内容有改动，请先保存');
-            return;
+            if (window.confirm('歌词有改动，需要先保存才能上传，是否继续？')) {
+                handleSaveLyric();
+            } else {
+                return;
+            }
         }
         if (!window.confirm('确定要将当前歌词内容更新到云服务数据库吗？\n操作将覆盖对应歌曲的歌词内容，请谨慎操作！')) return
         const lrcParser = new LrcKit();
@@ -257,34 +260,44 @@ const LyricEditor = (props) => {
     return <>
         <Box className="player-lyric-top-bar" sx={{flexGrow: 1}}>
             <Toolbar>
-                <IconButton size="large" aria-label="close lyric" sx={{mr: 2}} onClick={handleCloseEditor}>
-                    <ArrowBackIcon/>
-                </IconButton>
+                <Tooltip title="退出编辑">
+                    <IconButton size="large" aria-label="close lyric" sx={{mr: 2}} onClick={handleCloseEditor}>
+                        <ArrowBackIcon/>
+                    </IconButton>
+                </Tooltip>
                 <Typography noWrap={true} variant="h6" component="div" sx={{flexGrow: 1}}>
-                    <Chip label="编辑歌词" /> {currentMusic?.name}
+                    <Chip label="歌词编辑器" /> {currentMusic?.name}
                 </Typography>
                 <Box sx={{display: {xs: 'none', md: 'flex'}}}>
+                    {isDebug && <Tooltip title="下载当前歌词(调试)">
+                        <IconButton onClick={handleSaveLyricToFile} title="下载当前歌词(调试)">
+                            <DownloadIcon></DownloadIcon>
+                        </IconButton>
+                    </Tooltip>}
                     {inElectron ? <LRCSearchDialog onLyricResponse={handleReceiveSuggestLyric}>
                         {(slot) => {
-                            return <IconButton title="搜索参考歌词(QQ音乐)" onClick={() => slot.handleOpen(currentMusic?.name ?? '')}>
-                                <SearchIcon/>
-                            </IconButton>
+                            return <Tooltip title="搜索参考歌词(来源：QQ音乐)">
+                                <IconButton onClick={() => slot.handleOpen(currentMusic?.name ?? '')}>
+                                    <SearchIcon/>
+                                </IconButton>
+                            </Tooltip>
                         }}
-                    </LRCSearchDialog> : <IconButton title="搜索参考歌词(QQ音乐)" onClick={() => alert('参考歌词功能只支持PC版本')}>
-                        <SearchIcon/>
-                    </IconButton>}
-                    <IconButton onClick={handleLoadLyricsFromFile} title="从文件加载参考歌词">
-                        <UploadFileIcon />
-                    </IconButton>
-                    {inElectron && isCloudServiceAdmin && <IconButton title="上传到云端(管理员)" onClick={handleSaveToCloud}>
-                        <BackupIcon></BackupIcon>
-                    </IconButton>}
-                    <IconButton onClick={handleSaveLyric} title="保存歌词修改">
-                        <SaveIcon></SaveIcon>
-                    </IconButton>
-                    {isDebug && <IconButton onClick={handleSaveLyricToFile} title="下载当前歌词(调试)">
-                        <DownloadIcon></DownloadIcon>
-                    </IconButton>}
+                    </LRCSearchDialog> : null}
+                    <Tooltip title="从文件加载参考歌词">
+                        <IconButton onClick={handleLoadLyricsFromFile}>
+                            <UploadFileIcon />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="保存修改到本地">
+                        <IconButton onClick={handleSaveLyric} title="保存歌词修改">
+                            <SaveIcon></SaveIcon>
+                        </IconButton>
+                    </Tooltip>
+                    {inElectron && isCloudServiceAdmin && <Tooltip title="上传到云端(管理员)">
+                        <IconButton onClick={handleSaveToCloud}>
+                            <BackupIcon></BackupIcon>
+                        </IconButton>
+                    </Tooltip>}
                 </Box>
             </Toolbar>
         </Box>

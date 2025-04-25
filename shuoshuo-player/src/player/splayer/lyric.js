@@ -1,5 +1,5 @@
 import React, {useState, useCallback, useMemo} from 'react';
-import { Typography, Box, Toolbar, IconButton, Popover } from '@mui/material';
+import { Typography, Box, Toolbar, IconButton, Popover, Tooltip } from '@mui/material';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import { Lrc as ReactLRC } from "react-lrc";
 import PropTypes from "prop-types";
@@ -122,12 +122,16 @@ function LyricViewer(props) {
                         >
                             <Typography sx={{ p: 1 }}>当前偏移量：{LrcInfo?.offset ?? '0'}s</Typography>
                         </Popover>
-                        <IconButton title="编辑歌词" onClick={() => setEditorMode(true)}>
-                            <ModeEditIcon></ModeEditIcon>
-                        </IconButton>
-                        <IconButton title="拉取云端歌词" onClick={handleRefreshLyricFromCloudService}>
-                            <RefreshIcon></RefreshIcon>
-                        </IconButton>
+                        <Tooltip title="手动编辑歌词">
+                            <IconButton onClick={() => setEditorMode(true)}>
+                                <ModeEditIcon></ModeEditIcon>
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="从云服务获取歌词">
+                            <IconButton  onClick={handleRefreshLyricFromCloudService}>
+                                <RefreshIcon></RefreshIcon>
+                            </IconButton>
+                        </Tooltip>
                     </Box>
                 </Toolbar>
             </Box>

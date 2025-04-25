@@ -2,7 +2,10 @@ import React, {useEffect, useState, useCallback, useMemo, useRef} from 'react';
 import {Howl} from 'howler';
 import "@styles/splayer.scss";
 import { useTheme } from '@mui/material/styles';
-import {Grid, IconButton, Stack, Slider, Popover, CircularProgress, Drawer} from '@mui/material';
+import {
+    Grid, IconButton, Stack, Slider, Popover,
+    CircularProgress, Drawer, Box, Tooltip
+} from '@mui/material';
 import {useDispatch, useSelector} from "react-redux";
 import Marquee from '../components/marquee';
 import {PlayingVideoListSelector} from "@/store/selectors/play_list";
@@ -20,7 +23,6 @@ import SkipNextIcon from '@mui/icons-material/SkipNext';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import AddIcon from '@mui/icons-material/Add';
 import InfoIcon from '@mui/icons-material/Info';
-// import ShareIcon from '@mui/icons-material/Share';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import AddFavDialog from "@player/dialogs/add_fav_dialog";
 import PlayingList from "@player/splayer/playing_list";
@@ -31,6 +33,12 @@ import API from "@/api";
 import {LyricSlice} from "@/store/lyric";
 import { Lrc as LrcKit } from 'lrc-kit';
 import {createLyricsFinder} from "@/utils";
+
+const playerLoopModeNameMapping = {
+    'single': '单曲循环',
+    'loop': '列表循环',
+    'random': '随机播放'
+}
 
 function SPlayer() {
     const theme = useTheme();
@@ -284,11 +292,13 @@ function SPlayer() {
         }))
     }, [dispatch, playerLoopMode])
 
-    const handleGotoBilibili = useCallback(() => {
+    const handleGotoBilibili = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         if (currentMusic) {
             window.open('https://bilibili.com/video/' + currentMusic.bvid);
         }
-    }, [currentMusic])
+    }
 
     const durationToTime = (duration) => {
         if (isNaN(duration)|| !duration) return '0:00';
@@ -314,6 +324,14 @@ function SPlayer() {
         }
         return '';
     }, [lrcParsedFinder, howlPlaying, howlProcess])
+
+    const handleShowLyricBoard = () =>{
+        if (!currentMusic) return;
+        setLyricView(!lyricView)
+    }
+    const handleMiddleCardClick = () =>{
+        handleShowLyricBoard();
+    }
 
     return <>
         {currentMusic && <Drawer className="player-lyric-drawer" open={lyricView} anchor="bottom">
@@ -358,31 +376,39 @@ function SPlayer() {
                         className="splayer-controller-bar"
                     >
                         <Stack direction="row" spacing={2}>
-                            <div className="controller-bar-button">
-                                <IconButton size="small" onClick={handlePlayLoopModeClick}>
-                                    {playerLoopMode === 'single' && <RepeatOneIcon/>}
-                                    {playerLoopMode === 'loop' && <RepeatIcon/>}
-                                    {playerLoopMode === 'random' && <ShuffleIcon/>}
-                                </IconButton>
-                            </div>
-                            <div className="controller-bar-button">
-                                <IconButton size="small" onClick={() => playNextItem('prev')}>
-                                    <SkipPreviousIcon/>
-                                </IconButton>
-                            </div>
-                            <div className="controller-bar-button">
-                                <IconButton size="large" aria-label="play" onClick={handlePlayClick}>
-                                    {isMusicLoading ?
-                                        <CircularProgress /> :
-                                        ((howlPausing || !howlPlaying) ? <PlayArrowIcon fontSize="large"/> : <PauseIcon fontSize="large"/>)
-                                    }
-                                </IconButton>
-                            </div>
-                            <div className="controller-bar-button">
-                                <IconButton size="small" onClick={() => playNextItem(playerLoopMode === 'random' ? 'random' : 'next')}>
-                                    <SkipNextIcon/>
-                                </IconButton>
-                            </div>
+                            <Box className="controller-bar-button">
+                                <Tooltip title={playerLoopModeNameMapping[playerLoopMode]}>
+                                    <IconButton size="small" onClick={handlePlayLoopModeClick}>
+                                        {playerLoopMode === 'single' && <RepeatOneIcon/>}
+                                        {playerLoopMode === 'loop' && <RepeatIcon/>}
+                                        {playerLoopMode === 'random' && <ShuffleIcon/>}
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
+                            <Box className="controller-bar-button">
+                                <Tooltip title="上一首">
+                                    <IconButton size="small" onClick={() => playNextItem('prev')}>
+                                        <SkipPreviousIcon/>
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
+                            <Box className="controller-bar-button">
+                                <Tooltip title={((howlPausing || !howlPlaying) ? '播放' : '暂停')}>
+                                    <IconButton size="large" aria-label="play" onClick={handlePlayClick}>
+                                        {isMusicLoading ?
+                                            <CircularProgress /> :
+                                            ((howlPausing || !howlPlaying) ? <PlayArrowIcon fontSize="large"/> : <PauseIcon fontSize="large"/>)
+                                        }
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
+                            <Box className="controller-bar-button">
+                                <Tooltip title="下一首">
+                                    <IconButton size="small" onClick={() => playNextItem(playerLoopMode === 'random' ? 'random' : 'next')}>
+                                        <SkipNextIcon/>
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
                             <div className="controller-bar-button">
                                 <Popover
                                     id="volume-popover"
@@ -420,7 +446,7 @@ function SPlayer() {
                 </Grid>
                 <Grid item md={6} lg={6} xs={12}>
                     {currentMusic && <div className="splayer-middle-side">
-                        <div className="splayer-music-card">
+                        <div className="splayer-music-card" onClick={handleMiddleCardClick}>
                             <div className="splayer-music-card-cover">
                                 <img src={currentMusic.cover} alt="cover"/>
                             </div>
@@ -438,11 +464,13 @@ function SPlayer() {
                                 </>}
                             </div>
                             <div className="splayer-music-card-extra">
-                                <div className="splayer-music-card-extra-item">
-                                    <IconButton size="small" onClick={handleGotoBilibili}>
-                                        <InfoIcon  fontSize="12px" />
-                                    </IconButton>
-                                </div>
+                                <Box className="splayer-music-card-extra-item">
+                                    <Tooltip  title="视频详情">
+                                        <IconButton size="small" onClick={handleGotoBilibili}>
+                                            <InfoIcon fontSize="12px" />
+                                        </IconButton>
+                                    </Tooltip>
+                                </Box>
                                 {/*<div className="splayer-music-card-extra-item">*/}
                                 {/*    <IconButton size="small">*/}
                                 {/*        <ShareIcon fontSize="12px"/>*/}
@@ -455,22 +483,28 @@ function SPlayer() {
                 <Grid item md={2} lg={3} xs={12}>
                     <div className="splayer-right-side">
                         <div className="splayer-operator-bar">
-                            <div className="splayer-operator-bar-item">
-                                <IconButton  onClick={() => setLyricView(!lyricView)}>
-                                    <LyricsIcon sx={{ color: lyricView ? blue[500] : null }} />
-                                </IconButton>
-                            </div>
-                            <div className="splayer-operator-bar-item">
-                                <IconButton onClick={() => setFavListDialogOpen(true)}>
-                                    <AddIcon />
-                                </IconButton>
-                            </div>
+                            <Box className="splayer-operator-bar-item">
+                                <Tooltip  title="歌词">
+                                    <IconButton onClick={handleShowLyricBoard}>
+                                        <LyricsIcon sx={{ color: lyricView ? blue[500] : null }} />
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
+                            <Box className="splayer-operator-bar-item">
+                                <Tooltip title="添加到歌单">
+                                    <IconButton onClick={() => setFavListDialogOpen(true)}>
+                                        <AddIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
                             <div className="splayer-operator-bar-item">
                                 <PlayingList>
                                     {({ open }) => {
-                                        return <IconButton onClick={open}>
-                                            <QueueMusicIcon />
-                                        </IconButton>
+                                        return <Tooltip title="播放列表">
+                                            <IconButton onClick={open}>
+                                                <QueueMusicIcon />
+                                            </IconButton>
+                                        </Tooltip>
                                     }}
                                 </PlayingList>
                             </div>
