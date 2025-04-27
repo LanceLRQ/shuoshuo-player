@@ -167,7 +167,7 @@ const VideoItem = (props) => {
             </Stack>}
         />
         {fromSearch ? <div className="bilibili-video-item-sider">
-            <Tooltip title="添加到收藏">
+            <Tooltip title="添加到歌单">
                 <IconButton onClick={() => handleAddToFavClick()}>
                     <AddIcon />
                 </IconButton>
@@ -197,7 +197,7 @@ const VideoItem = (props) => {
             onClose={() => setFavListDialogOpen(false)}
             excludeFavId={favId}
             video={video}
-            formSearch={fromSearch}
+            fromSearch={fromSearch}
         />
     </ListItem>;
 }

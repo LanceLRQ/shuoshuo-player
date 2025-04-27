@@ -210,7 +210,7 @@ const LyricEditor = (props) => {
                 duration: 3000,
             }));
         })
-    }, [dispatch, currentLyric, lyricsChanged, currentMusic])
+    }, [dispatch, currentLyric, lyricsChanged, currentMusic, handleSaveLyric])
 
     // 撤销一步操作
     const handleUndoClick = useCallback(() => {

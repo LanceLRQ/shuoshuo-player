@@ -55,7 +55,10 @@ const DiscoveryPage = () => {
         return <VideoItem
             style={style}
             key={video.bvid}
-            video={video}
+            video={{
+                ...video,
+                comment: video.review
+            }}
             htmlTitle
             fromSearch
         />

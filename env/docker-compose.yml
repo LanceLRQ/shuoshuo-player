@@ -8,7 +8,22 @@ services:
     ports:
       - "27017:27017"  # 映射宿主机 27017 -> 容器 27017
     volumes:
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
       - ./mongo:/data/db  # 持久化数据到 ./mongo 目录
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin  # 可选：初始化 root 用户
       - MONGO_INITDB_ROOT_PASSWORD=12345678
+
+  dev_server:
+    build: ./dev_server
+    container_name: ssplayer_cloud_service_dev_server
+    volumes:
+      - ../cloud-services:/app
+    ports:
+      - "10715:10715"  # 映射宿主机 10715 -> 容器 10715
+    depends_on:
+      - mongodb
+    links:
+      - mongodb:mongodb
+    working_dir: /app
+    command: ["air"]
