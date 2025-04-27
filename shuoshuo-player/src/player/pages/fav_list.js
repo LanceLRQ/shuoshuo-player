@@ -25,6 +25,7 @@ export const FavListPage = (props) => {
     const dispatch = useDispatch();
     const favBannerRef = useRef();
     const [searchKey, setSearchKey] = useState('');
+    const [loadDataTip, setLoadDataTip] = useState(false);
 
     let favId =  params?.id ?? 'main';
 
@@ -64,6 +65,12 @@ export const FavListPage = (props) => {
         }
         return favListInfo.bv_ids.map((bvId) => biliVideoEntities[bvId]).filter(item => !!item);
     }, [favId, biliVideoListAll, favListInfo, biliVideoEntities, biliFavFolderListInfos]);
+
+    useEffect(() => {
+        if ((isTypeUploader || isTypeBiliFav) && !favVideoList.length) {
+            setLoadDataTip(true);
+        }
+    }, [isTypeUploader, isTypeBiliFav, favVideoList, setLoadDataTip]);
 
     const favVideoListSearched = useMemo(() => {
         if (searchKey) {
@@ -197,6 +204,16 @@ export const FavListPage = (props) => {
             <DialogActions>
                 <Button onClick={closeDelDg}>取消</Button>
                 <Button onClick={confirmRemoveSong} color="error">确认</Button>
+            </DialogActions>
+        </Dialog>
+        <Dialog open={loadDataTip} onClose={() => { setLoadDataTip(false)}}>
+            <DialogTitle>更新数据提示</DialogTitle>
+            <DialogContent>
+                <DialogContentText>是否要从B站获取歌曲数据？</DialogContentText>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => { setLoadDataTip(false)}}>稍后再说</Button>
+                <Button onClick={() => { setLoadDataTip(false); favBannerRef.current.updateMasterVideoList('fully');}} variant="contained" color="primary">全量加载</Button>
             </DialogActions>
         </Dialog>
     </section> : <section className="player-fav-list">

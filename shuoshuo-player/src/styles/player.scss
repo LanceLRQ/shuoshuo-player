@@ -262,11 +262,10 @@ body, html, #root {
             }
         }
         &.playing {
-            //background-color:  $blue-8;
-            color: $red-6;
+            color:  $blue-4;
             font-weight: bolder;
             .bilibili-video-item-avatar {
-                color: rgba(255,0,0, 0.8);
+                color: white;
                 .playing-cover {
                     display: flex;
                     justify-content: center;
@@ -595,9 +594,10 @@ body, html, #root {
             background-color: $grey-3 !important;
         }
         &.playing {
-
+            color: $blue-7 !important;
         }
         .bilibili-video-item-avatar {
+            color: rgba(0, 0, 255, 0.5) !important;
             .playing-cover {
                 background: rgba(255, 255, 255, .8) !important;
             }

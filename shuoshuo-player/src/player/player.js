@@ -78,13 +78,6 @@ const PlayerIndex = () => {
     const muiTheme = createTheme({
         palette: {
             mode: theme ?? 'light',
-            ...(theme === 'light' ? {
-                primary: {
-                    main: '#ff4d4f',
-                    light: '#ff7875',
-                    dark: '#cf1322'
-                }
-            } : {}),
         }
     });
 

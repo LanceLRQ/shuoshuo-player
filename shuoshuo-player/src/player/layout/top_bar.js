@@ -27,12 +27,15 @@ const drawerWidth = 240;
 const AppBar = styled(MuiAppBar, {
     shouldForwardProp: (prop) => prop !== 'open',
 })(({ theme, open }) => ({
-    color: theme.palette.text.primary,
+    color: "#fff",
     zIndex: theme.zIndex.drawer + 1,
     transition: theme.transitions.create(['width', 'margin'], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen,
     }),
+    "& .MuiButtonBase-root": {
+        color: "#fff",
+    },
     ...(open && {
         marginLeft: drawerWidth,
         width: `calc(100% - ${drawerWidth}px)`,
