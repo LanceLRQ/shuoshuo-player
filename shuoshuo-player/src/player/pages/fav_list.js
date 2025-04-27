@@ -160,7 +160,7 @@ export const FavListPage = (props) => {
             </Grid>
         </Grid> : null}
         <Box className="fav_item_list">
-            {favVideoListSearched.length > 0 ? <Box sx={{ width: '100%', height: '100%', bgcolor: 'background.paper' }}>
+            {favVideoListSearched.length > 0 ? <Box sx={{ width: '100%', height: '100%' }}>
                 <AutoSizer>
                     {({height, width}) => {
                         return <FixedSizeList

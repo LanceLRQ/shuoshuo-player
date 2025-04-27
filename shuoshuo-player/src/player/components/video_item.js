@@ -9,7 +9,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PlayCircleIcon from '@mui/icons-material/PlayCircleOutline';
 import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeFilledIcon from '@mui/icons-material/AccessTimeFilled';
-import ChatIcon from '@mui/icons-material/Chat';
+import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import PlayCircleFilledIcon from '@mui/icons-material/PlayCircleFilled';
 import AddIcon from '@mui/icons-material/Add';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -144,24 +144,23 @@ const VideoItem = (props) => {
                 /> : null}
                 <Chip
                     component="span"
-                    color="primary"
                     size="small"
                     variant="outlined"
-                    icon={<AccessTimeFilledIcon />}
+                    icon={<AccessTimeFilledIcon fontSize="small" />}
                     label={fullCreateTime ? dayjs(video.created * 1000).format("YYYY年MM月DD日 HH:mm") : dayjs(video.created * 1000).fromNow()}
                 />
                 <Chip
                     component="span"
                     size="small"
                     variant="outlined"
-                    icon={<PlayCircleFilledIcon />}
+                    icon={<PlayCircleFilledIcon fontSize="small" />}
                     label={formatNumber10K(video.play)}
                 />
                 <Chip
                     component="span"
                     size="small"
                     variant="outlined"
-                    icon={<ChatIcon />}
+                    icon={<ChatRoundedIcon sx={{ fontSize: 8 }} />}
                     label={formatNumber10K(video.comment)}
                 />
             </Stack>}

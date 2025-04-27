@@ -255,18 +255,18 @@ body, html, #root {
 
     .bilibili-video-item {
         cursor: pointer;
-        &:nth-child(2n+1) {
-            background-color: darken($blue-8, 30%);
-        }
         &:hover {
-            background-color: $blue-10;
+            background-color: rgba(255, 255, 255, 0.1);
             .bilibili-video-item-sider {
                 opacity: 1;
             }
         }
         &.playing {
-            background-color:  $blue-8;
+            //background-color:  $blue-8;
+            color: $red-6;
+            font-weight: bolder;
             .bilibili-video-item-avatar {
+                color: rgba(255,0,0, 0.8);
                 .playing-cover {
                     display: flex;
                     justify-content: center;
@@ -584,18 +584,18 @@ body, html, #root {
             @include custom-webkit-scroll-light;
         }
         .fav_list_banner {
-            background: rgba(255, 255, 255, .6) !important;
+            background: rgba(255, 255, 255, .8) !important;
         }
     }
     .bilibili-video-item {
         &:nth-child(2n+1) {
-            background-color: $blue-1 !important;
+            //background-color: $blue-1 !important;
         }
         &:hover {
-            background-color: $blue-4 !important;
+            background-color: $grey-3 !important;
         }
         &.playing {
-            background-color:  $blue-2 !important;
+
         }
         .bilibili-video-item-avatar {
             .playing-cover {
