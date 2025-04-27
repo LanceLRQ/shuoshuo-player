@@ -78,7 +78,7 @@ const PlayerIndex = () => {
     const muiTheme = createTheme({
         palette: {
             mode: theme ?? 'light',
-        },
+        }
     });
 
     const randomLoadingTip = useMemo(() => {

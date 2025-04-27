@@ -1,4 +1,4 @@
-import React, {forwardRef, useCallback, useImperativeHandle, useMemo, useState, useRef} from "react";
+import React, {forwardRef, useCallback, useImperativeHandle, useMemo, useState, useRef, useEffect} from "react";
 import {useDispatch, useSelector} from "react-redux";
 import {BilibiliUserVideoListSlice} from "@/store/bilibili";
 import dayjs from 'dayjs';
@@ -21,6 +21,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddSongDialog from "@player/dialogs/fav_add_song";
 import {PlayerNoticesSlice} from "@/store/ui";
+import {TimeStampNow} from "@/utils";
 
 const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const { mid, favId, favListInfo } = props;
@@ -85,6 +86,21 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
         }
     }, [mid, dispatch, isUpdating, isTypeUploader, isTypeBiliFav, favListInfo])
 
+
+    const favListLastUpdateTime = favListInfo?.update_time ?? 0
+
+    useEffect(() => {
+        if (isTypeUploader || isTypeBiliFav) {
+            // 自动更新只对UP主歌单和收藏夹歌单有效，如果歌单没数据，不会去更新。
+            const isOutdated = (favListLastUpdateTime + 86400) < TimeStampNow();
+            const videoList = favListInfo?.bv_ids ?? []
+            if (videoList.length > 0 && isOutdated) {
+                // 如果更新时间超过一天，则更新列表（前30）
+                updateMasterVideoList('default');
+            }
+        }
+    }, [isTypeUploader, isTypeBiliFav, updateMasterVideoList, favListLastUpdateTime, favListInfo]);
+
     // 播放歌单
     const playFavList = useCallback(() => {
         handleExtraMenuClose();
@@ -125,7 +141,8 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
 
     useImperativeHandle(ref, () => ({
         openUpdateDialog: () => setUpdateDialogOpen(true),
-        addVideo: () => addVideo(),
+        addVideo: addVideo,
+        updateMasterVideoList: updateMasterVideoList,
     }))
 
     const renderMenu = () => {
@@ -215,7 +232,7 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
         <Dialog open={delDg} onClose={closeDelFavListDg}>
             <DialogTitle>重要操作提示</DialogTitle>
             <DialogContent>
-                <DialogContentText>确定要删除这个歌单吗？如果是自定义歌单，添加的歌曲将不会被恢复！</DialogContentText>
+                <DialogContentText>确定要删除这个歌单吗？{isTypeCustom ? <Typography color="error"><br />请注意这是一个自定义歌单，删除后数据将无法被恢复！</Typography> : ''}</DialogContentText>
             </DialogContent>
             <DialogActions>
                 <Button onClick={closeDelFavListDg}>取消</Button>
