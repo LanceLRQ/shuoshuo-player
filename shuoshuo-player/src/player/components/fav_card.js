@@ -90,13 +90,16 @@ const BilibiliUpSpaceCard = forwardRef((props, ref) => {
     const favListLastUpdateTime = favListInfo?.update_time ?? 0
 
     useEffect(() => {
-        const isOutdated = (favListLastUpdateTime + 86400) < TimeStampNow();
-        const videoList = favListInfo?.bv_ids ?? []
-        if (videoList.length > 0 && isOutdated) {
-            // 如果更新时间超过一天，则更新列表（前30）
-            updateMasterVideoList('default');
+        if (isTypeUploader || isTypeBiliFav) {
+            // 自动更新只对UP主歌单和收藏夹歌单有效，如果歌单没数据，不会去更新。
+            const isOutdated = (favListLastUpdateTime + 86400) < TimeStampNow();
+            const videoList = favListInfo?.bv_ids ?? []
+            if (videoList.length > 0 && isOutdated) {
+                // 如果更新时间超过一天，则更新列表（前30）
+                updateMasterVideoList('default');
+            }
         }
-    }, [updateMasterVideoList, favListLastUpdateTime, favListInfo]);
+    }, [isTypeUploader, isTypeBiliFav, updateMasterVideoList, favListLastUpdateTime, favListInfo]);
 
     // 播放歌单
     const playFavList = useCallback(() => {
