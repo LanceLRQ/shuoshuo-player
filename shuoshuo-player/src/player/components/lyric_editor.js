@@ -35,6 +35,14 @@ import {CloudServiceUserRole, NoticeTypes} from "@/constants";
 import {PlayerNoticesSlice} from "@/store/ui";
 import API from "@/api";
 
+const suggestLyricSetId = (suggestLyric) => {
+    const b = +new Date();
+    return suggestLyric.map((item, index) => ({
+        ...item,
+        id: `${b + index}`
+    }));
+}
+
 const LyricEditor = (props) => {
     const { currentMusic, setEditorMode, duration } = props;
 
@@ -120,12 +128,10 @@ const LyricEditor = (props) => {
     // 设置参考歌词的数据
     const handleReceiveSuggestLyric = useCallback((lrc) => {
         const lrcParser = LrcKit.parse(lrc);
-        setSuggestedLyrics(lrcParser.lyrics.map((item, index) => ({
-            ...item, id: index
-        })))
+        setSuggestedLyrics(suggestLyricSetId(lrcParser.lyrics ?? []))
         // 如果当前歌词为空，直接搞进去
         if (!currentLyric.length) {
-            setCurrentLyric(lrcParser.lyrics)
+            setCurrentLyric(suggestLyricSetId(lrcParser.lyrics ?? []))
         }
     }, [setSuggestedLyrics, currentLyric, setCurrentLyric]);
 
@@ -152,7 +158,7 @@ const LyricEditor = (props) => {
     }, [currentLyric, setCurrentLyric, currentLyricSelected, setCurrentLyricSelected, pushHistory])
 
     // 插入歌词
-    const handleInsertLyric = useCallback((targets) => {
+    const handleInsertLyric = useCallback((targets, customDuration=null) => {
         let ret = [...currentLyric];
         const b = +new Date();
         if (targets === 'current') {
@@ -163,18 +169,18 @@ const LyricEditor = (props) => {
             })
         } else if (targets === 'suggested') {
             suggestedLyricSelected.forEach((index) => {
-                ret.push({
+                const obj = {
                     ...suggestedLyrics[index],
-                    id: `${b + index}`
-                })
+                    id: `${b + index}`,
+                }
+                if (customDuration !== null) {
+                    obj.timestamp = customDuration || 0;
+                }
+                ret.push(obj)
             })
         } else if (targets === 'suggested_all') {
-            suggestedLyrics.forEach((item, index) => {
-                ret.push({
-                    ...item,
-                    id: `${b + index}`
-                })
-            })
+            const r = suggestLyricSetId(suggestedLyrics);
+            r.forEach(i => ret.push(i));
         }
         ret.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
         pushHistory(currentLyric);
@@ -263,10 +269,10 @@ const LyricEditor = (props) => {
         createLyricFileLoader((result) => {
             try {
                 const lrcParser = LrcKit.parse(result.replace(/\r\n/g, '\n'));
-                setSuggestedLyrics(lrcParser.lyrics)
+                setSuggestedLyrics(suggestLyricSetId(lrcParser.lyrics ?? []));
                 // 如果当前歌词为空，直接搞进去
                 if (!currentLyric.length) {
-                    setCurrentLyric(lrcParser.lyrics)
+                    setCurrentLyric(suggestLyricSetId(lrcParser.lyrics ?? []))
                 }
             } catch (e) {
                 alert('无法解析歌词文件，请检查格式是否正确');
@@ -358,9 +364,15 @@ const LyricEditor = (props) => {
                         >
                             <Button
                                 disabled={isLineEditing || !suggestedLyricSelected.length}
-                                onClick={() => {handleInsertLyric('suggested');}}
+                                onClick={() => {handleInsertLyric('suggested', null);}}
                             >
                                 <KeyboardArrowLeftIcon fontSize="small" /> 插入所选行
+                            </Button>
+                            <Button
+                                disabled={isLineEditing || !suggestedLyricSelected.length}
+                                onClick={() => {handleInsertLyric('suggested', 0);}}
+                            >
+                                <KeyboardArrowLeftIcon fontSize="small" /> 在0秒插入所选行
                             </Button>
                             <Button
                                 disabled={isLineEditing || !suggestedLyrics.length}
@@ -391,6 +403,12 @@ const LyricEditor = (props) => {
                             </Button>
                             <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(0.5);}}>
                                 <AddIcon fontSize="small" />  {currentLyricSelected.length > 0 ?'选中' : '整体'}后移0.5秒
+                            </Button>
+                            <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(-1);}}>
+                                <RemoveIcon fontSize="small" /> {currentLyricSelected.length > 0 ?'选中' : '整体'}前移1秒
+                            </Button>
+                            <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(1);}}>
+                                <AddIcon fontSize="small" />  {currentLyricSelected.length > 0 ?'选中' : '整体'}后移1秒
                             </Button>
                             <Button disabled={isLineEditing|| !editHistory.length} onClick={handleUndoClick}>
                                 <UndoIcon fontSize="small" />  撤销一步操作
