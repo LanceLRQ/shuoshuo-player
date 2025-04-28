@@ -41,7 +41,7 @@ yarn                                  # 安装依赖
 ```shell
 yarn start  # 启动开发环境
 # or
-API_MODE=production yarn start  # 如果你不想部署本地服务端，可以使用线上接口
+yarn start:prod  # 如果你不想部署本地服务端，可以使用线上接口
 
 # 此时访问 http://localhost:3000/player.html 即可看到播放器
 ```

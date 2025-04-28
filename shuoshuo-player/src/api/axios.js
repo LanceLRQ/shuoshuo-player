@@ -10,7 +10,7 @@ const bilibiliService = axios.create({
 });
 
 let apiBase = process.env.NODE_ENV === 'development' ? 'http://localhost:10715/api' : 'https://player.ss.sikong.ren/api';
-if (process.env.API_MODE === 'production') {
+if (process.env.REACT_APP_API_MODE === 'production') {
     apiBase = 'https://player.ss.sikong.ren/api';
 }
 
