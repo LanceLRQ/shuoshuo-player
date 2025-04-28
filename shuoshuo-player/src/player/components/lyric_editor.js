@@ -47,6 +47,7 @@ const LyricEditor = (props) => {
     const [suggestedLyricSelected, setSuggestedLyricSelected] = React.useState([]);
     const [editHistory, setEditHistory] = React.useState([]);
     const [lyricsChanged, setLyricsChanged] = React.useState(false);
+    const [isLineEditing, setIsLineEditing] = React.useState(false);
     const isDebug = process.env.NODE_ENV === 'development';
 
     const isCloudServiceLogin = useSelector(CloudServiceSlice.selectors.isLogin);
@@ -54,7 +55,8 @@ const LyricEditor = (props) => {
     const isCloudServiceAdmin = useMemo(() => {
         if (!isCloudServiceLogin) return false;
         return CheckCloudUserPermission(cloudServiceAccount, CloudServiceUserRole.WebMaster | CloudServiceUserRole.Admin);
-    }, [cloudServiceAccount, isCloudServiceLogin])
+    }, [cloudServiceAccount, isCloudServiceLogin]);
+    const [cloudServiceLyricLibraryHasUploaded, setCloudServiceLyricLibraryHasUploaded] = React.useState(false)
 
     const LrcInfos = useSelector(LyricSlice.selectors.lyricMaps)
     const LrcInfo = useMemo(() => {
@@ -65,11 +67,24 @@ const LyricEditor = (props) => {
     useEffect(() => {
         if (LrcInfo) {
             const lrcP = LrcKit.parse(LrcInfo?.lrc ?? '');
-            setCurrentLyric(lrcP.lyrics);
+            const b = +new Date();
+            setCurrentLyric(lrcP.lyrics.map(item => ({
+               ...item, id: `${b + item.timestamp * 1000 + (Math.random() * 1000)}`
+            })));
         } else {
             setCurrentLyric([])
         }
     }, [LrcInfo])
+
+    // 检查云服务器是否有歌词信息(管理员)
+    useEffect(() => {
+        if (!currentMusic || !isCloudServiceAdmin) return;
+        API.CloudService.Lyric.getLyricByBvid(currentMusic.bvid)({}).then(() => {
+            setCloudServiceLyricLibraryHasUploaded(true);
+        }).catch(() => {
+            setCloudServiceLyricLibraryHasUploaded(false)
+        });
+    }, [LrcInfo, currentMusic, isCloudServiceAdmin, setCloudServiceLyricLibraryHasUploaded])
 
     // 创建一条历史编辑记录
     const pushHistory = useCallback((lyrics) => {
@@ -105,7 +120,9 @@ const LyricEditor = (props) => {
     // 设置参考歌词的数据
     const handleReceiveSuggestLyric = useCallback((lrc) => {
         const lrcParser = LrcKit.parse(lrc);
-        setSuggestedLyrics(lrcParser.lyrics)
+        setSuggestedLyrics(lrcParser.lyrics.map((item, index) => ({
+            ...item, id: index
+        })))
         // 如果当前歌词为空，直接搞进去
         if (!currentLyric.length) {
             setCurrentLyric(lrcParser.lyrics)
@@ -127,7 +144,7 @@ const LyricEditor = (props) => {
             ret = [];
         } else {
             if (!window.confirm('确定要删除所选歌词吗？')) return
-            ret = ret.filter((_, index) => !currentLyricSelected.includes(index));
+            ret = ret.filter((row) => !currentLyricSelected.includes(row.id));
         }
         pushHistory(currentLyric);
         setCurrentLyric(ret);
@@ -137,18 +154,26 @@ const LyricEditor = (props) => {
     // 插入歌词
     const handleInsertLyric = useCallback((targets) => {
         let ret = [...currentLyric];
+        const b = +new Date();
         if (targets === 'current') {
             ret.push({
+                id: `${+new Date()}`,
                 content: '',
                 timestamp: duration
             })
         } else if (targets === 'suggested') {
             suggestedLyricSelected.forEach((index) => {
-                ret.push(suggestedLyrics[index])
+                ret.push({
+                    ...suggestedLyrics[index],
+                    id: `${b + index}`
+                })
             })
         } else if (targets === 'suggested_all') {
-            suggestedLyrics.forEach((item) => {
-                ret.push(item)
+            suggestedLyrics.forEach((item, index) => {
+                ret.push({
+                    ...item,
+                    id: `${b + index}`
+                })
             })
         }
         ret.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
@@ -164,7 +189,7 @@ const LyricEditor = (props) => {
     const handleOffsetChange = useCallback((offset) => {
         let ret = [...currentLyric];
         ret = ret.map((item, index) => {
-            if (currentLyricSelected.length > 0 && !currentLyricSelected.includes(index)) {
+            if (currentLyricSelected.length > 0 && !currentLyricSelected.includes(item.id)) {
                 return item;
             }
             const val = item?.timestamp + offset;
@@ -173,6 +198,7 @@ const LyricEditor = (props) => {
                 timestamp: val < 0 ? 0 : val,
             }
         })
+        ret.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
         pushHistory(currentLyric);
         setCurrentLyric(ret);
     }, [currentLyric, setCurrentLyric, currentLyricSelected, pushHistory])
@@ -270,7 +296,7 @@ const LyricEditor = (props) => {
                 </Typography>
                 <Box sx={{display: {xs: 'none', md: 'flex'}}}>
                     {isDebug && <Tooltip title="下载当前歌词(调试)">
-                        <IconButton onClick={handleSaveLyricToFile} title="下载当前歌词(调试)">
+                        <IconButton onClick={handleSaveLyricToFile}>
                             <DownloadIcon></DownloadIcon>
                         </IconButton>
                     </Tooltip>}
@@ -289,12 +315,12 @@ const LyricEditor = (props) => {
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="保存修改到本地">
-                        <IconButton onClick={handleSaveLyric} title="保存歌词修改">
+                        <IconButton onClick={handleSaveLyric}>
                             <SaveIcon></SaveIcon>
                         </IconButton>
                     </Tooltip>
                     {inElectron && isCloudServiceAdmin && <Tooltip title="上传到云端(管理员)">
-                        <IconButton onClick={handleSaveToCloud}>
+                        <IconButton onClick={handleSaveToCloud} color={cloudServiceLyricLibraryHasUploaded ? 'primary' : 'default'}>
                             <BackupIcon></BackupIcon>
                         </IconButton>
                     </Tooltip>}
@@ -314,6 +340,7 @@ const LyricEditor = (props) => {
             <Grid container spacing={2} className="player-lyric-editor">
                 <Grid item xs={6} className="player-lyric-editor-left">
                     <LyricEditorTable
+                        setIsLineEditing={setIsLineEditing}
                         onUpdate={handleUpdateLyric}
                         selectedRows={currentLyricSelected}
                         onSelectChange={setCurrentLyricSelected}
@@ -330,13 +357,13 @@ const LyricEditor = (props) => {
                             variant="text"
                         >
                             <Button
-                                disabled={!suggestedLyricSelected.length}
+                                disabled={isLineEditing || !suggestedLyricSelected.length}
                                 onClick={() => {handleInsertLyric('suggested');}}
                             >
                                 <KeyboardArrowLeftIcon fontSize="small" /> 插入所选行
                             </Button>
                             <Button
-                                disabled={!suggestedLyrics.length}
+                                disabled={isLineEditing || !suggestedLyrics.length}
                                 onClick={() => {
                                     if (window.confirm('确定要插入所有参考歌词吗')) {
                                         handleInsertLyric('suggested_all');
@@ -355,30 +382,31 @@ const LyricEditor = (props) => {
                             aria-label="歌词操作"
                             variant="text"
                         >
-                            <Button onClick={() => {handleInsertLyric('current');}}>
+                            <Button disabled={isLineEditing} onClick={() => {handleInsertLyric('current');}}>
                                 <KeyboardArrowLeftIcon fontSize="small" /> 插入空白行
                                 <br />{formatTimeLyric(duration)}
                             </Button>
-                            <Button onClick={() => {handleOffsetChange(-0.5);}}>
+                            <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(-0.5);}}>
                                 <RemoveIcon fontSize="small" /> {currentLyricSelected.length > 0 ?'选中' : '整体'}前移0.5秒
                             </Button>
-                            <Button onClick={() => {handleOffsetChange(0.5);}}>
+                            <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(0.5);}}>
                                 <AddIcon fontSize="small" />  {currentLyricSelected.length > 0 ?'选中' : '整体'}后移0.5秒
                             </Button>
-                            <Button disabled={!editHistory.length} onClick={handleUndoClick}>
+                            <Button disabled={isLineEditing|| !editHistory.length} onClick={handleUndoClick}>
                                 <UndoIcon fontSize="small" />  撤销一步操作
                             </Button>
-                            <Button disabled={currentLyricSelected.length === 0} onClick={() => {setCurrentLyricSelected([])}}>
+                            <Button disabled={isLineEditing||currentLyricSelected.length === 0} onClick={() => {setCurrentLyricSelected([])}}>
                                 <PlaylistRemoveIcon fontSize="small" />  取消选择
                             </Button>
                             <Button
                                 color="warning"
-                                disabled={!currentLyricSelected.length}
+                                disabled={isLineEditing || !currentLyricSelected.length}
                                 onClick={() => {handleDeleteLyric('current');}}
                             >
                                 <CloseIcon fontSize="small" /> 删除所选
                             </Button>
                             <Button
+                                disabled={isLineEditing}
                                 color="error"
                                 onClick={() => {handleDeleteLyric('all');}}
                             >
