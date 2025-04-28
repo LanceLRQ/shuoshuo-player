@@ -12,7 +12,7 @@ import {FavFoldersVideoListSelector, MasterVideoListSelector} from "@/store/sele
 import {FavListType, MasterUpInfo, NoticeTypes} from "@/constants";
 import { FavListSlice} from "@/store/play_list";
 import FavBannerCard from '../components/fav_card';
-import {BilibiliUserVideoListSlice, BilibiliVideoEntitiesSlice} from "@/store/bilibili";
+import {BilibiliUserInfoSlice, BilibiliUserVideoListSlice, BilibiliVideoEntitiesSlice} from "@/store/bilibili";
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import {PlayerNoticesSlice} from "@/store/ui";
@@ -49,7 +49,8 @@ export const FavListPage = (props) => {
             }
         }
         return favList.find(item => item.id === favId);
-    }, [favId, favList])
+    }, [favId, favList]);
+    const isLogin = useSelector(BilibiliUserInfoSlice.selectors.isLogin);
     const isTypeUploader = favListInfo?.type === FavListType.UPLOADER;
     const isTypeCustom = favListInfo?.type === FavListType.CUSTOM;
     const isTypeBiliFav = favListInfo.type === FavListType.BILI_FAV;
@@ -67,10 +68,11 @@ export const FavListPage = (props) => {
     }, [favId, biliVideoListAll, favListInfo, biliVideoEntities, biliFavFolderListInfos]);
 
     useEffect(() => {
+        if (!isLogin) return;
         if ((isTypeUploader || isTypeBiliFav) && !favVideoList.length) {
             setLoadDataTip(true);
         }
-    }, [isTypeUploader, isTypeBiliFav, favVideoList, setLoadDataTip]);
+    }, [isTypeUploader, isTypeBiliFav, favVideoList, setLoadDataTip, isLogin]);
 
     const favVideoListSearched = useMemo(() => {
         if (searchKey) {
@@ -100,7 +102,6 @@ export const FavListPage = (props) => {
         if (isTypeUploader) {
             return biliUpVideoListInfo?.update_time * 1000;
         } else if (isTypeBiliFav) {
-            console.log(biliFavFolderInfo)
             return biliFavFolderInfo?.update_time * 1000;
         }
         return favListInfo?.update_time || 0;

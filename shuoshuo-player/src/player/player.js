@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import {Box, Button, Typography, Stack} from '@mui/material';
+import {Box, Button, Typography, Stack, Avatar} from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Outlet } from 'react-router-dom';
 import '@styles/player.scss';
@@ -15,6 +15,7 @@ import {MasterUpInfo, StartupLoadingTip} from "@/constants";
 import isElectron from "is-electron";
 import CloudLoginDialog from "@player/dialogs/cloud_login";
 import {CloudServiceSlice} from "@/store/cloud_service";
+import LogoImg from '@/images/logo.png';
 
 const PlayerIndex = () => {
     const dispatch = useDispatch();
@@ -86,7 +87,34 @@ const PlayerIndex = () => {
     }, [])
 
     if (inited) {
-        if (isLogin) {
+        if (!isLogin) {
+            return <>
+                <Box className="b-login-require">
+                    <Box className="b-login-header">
+                        <Avatar src={LogoImg} alt="logo" />
+                        <Typography variant="h5">说说播放器</Typography>
+                    </Box>
+                    <Box sx={{marginTop: 6}}>
+                        <Typography variant="body">由于需要拉取<a href={`https://space.bilibili.com/${MasterUpInfo.mid}`} target="_blank" rel="noreferrer">@{MasterUpInfo.uname}</a>的投稿列表需要登录B站，请先前往B站登录自己的账号，然后刷新本页面</Typography>
+                    </Box>
+                    <Box sx={{marginTop: 4}}>
+                        <Typography variant="body" sx={{fontWeight: "bolder"}}>所有B站的数据的访问均由浏览器代为完成，播放器仅是模拟访问B站公开的数据接口，缓存均在本地完成，不会访问您的登录信息，请放心。</Typography>
+                    </Box>
+                    <Box sx={{marginTop: 4}}>
+                        <Stack spacing={2} direction="row" sx={{justifyContent: "center"}} >
+                            <Button variant="contained" onClick={() => {
+                                if (inElectron) {
+                                    window.ElectronAPI.Bilibili.Login();
+                                } else {
+                                    window.open('https://passport.bilibili.com/pc/passport/login')
+                                }
+                            }}>去B站</Button>
+                            <Button variant="outlined" onClick={() => window.location.reload()}>刷新</Button>
+                        </Stack>
+                    </Box>
+                </Box>
+            </>
+        } else {
             return <ThemeProvider theme={muiTheme}>
                 <CssBaseline/>
                 <Box className={`player-layout-main player-theme-${theme}`}>
@@ -101,23 +129,6 @@ const PlayerIndex = () => {
                 <SPlayerIndex />
                 <CloudLoginDialog ref={cloudLoginDialogRef} />
             </ThemeProvider>;
-        } else {
-            return <Box className="b-login-require">
-                <Typography variant="h4">请登录B站账号</Typography>
-                <Typography variant="body">请先前往B站登录自己的账号，然后返回刷新页面即可正常使用</Typography>
-                <Box sx={{marginTop: 4}}>
-                    <Stack spacing={2} direction="row" >
-                        <Button variant="contained" onClick={() => {
-                            if (inElectron) {
-                                window.ElectronAPI.Bilibili.Login();
-                            } else {
-                                window.open('https://passport.bilibili.com/pc/passport/login')
-                            }
-                        }}>去B站</Button>
-                        <Button variant="outlined" onClick={() => window.location.reload()}>刷新</Button>
-                    </Stack>
-                </Box>
-            </Box>
         }
     }
 

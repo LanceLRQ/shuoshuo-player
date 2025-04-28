@@ -616,13 +616,22 @@ body, html, #root {
     }
 }
 
+.b-login-header {
+    width: $width-15;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    .MuiTypography-root {
+        line-height: $width-8;
+        margin-left: $width-4;
+    }
+}
 .b-login-require {
     box-sizing: border-box;
-    width: $width-19;
-    min-height: $width-17;
+    width: $width-20;
+    min-height: $width-16;
     border-radius: 8px;
-    padding: $width-10 $width-12;
-    background-image: url(https://s1.hdslb.com/bfs/seed/jinkela/short/mini-login-v2/img/22_open.4ea5f239.png),url(https://s1.hdslb.com/bfs/seed/jinkela/short/mini-login-v2/img/33_open.f7d7f655.png);
+    padding: $width-6 $width-10;
     background-position: 0 100%,100% 100%;
     background-repeat: no-repeat,no-repeat;
     background-size: 14%;

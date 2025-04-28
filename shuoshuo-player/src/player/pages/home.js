@@ -10,7 +10,7 @@ import VideoItem from "@player/components/video_item";
 import {MasterUpInfo} from "@/constants";
 import {TimeStampNow} from "@/utils";
 import RefreshIcon from '@mui/icons-material/Refresh';
-import {BilibiliUserVideoListSlice} from "@/store/bilibili";
+import {BilibiliUserInfoSlice, BilibiliUserVideoListSlice} from "@/store/bilibili";
 import {MasterVideoListSelector} from "@/store/selectors/bilibili";
 import UpdateIcon from "@mui/icons-material/Update";
 
@@ -22,6 +22,7 @@ const HomePage = () => {
     const masterVideoListInfos = useSelector(BilibiliUserVideoListSlice.selectors.videoListInfo);
     const masterVideoList = useMemo(() => masterVideoListAll[MasterUpInfo.mid] ?? [], [masterVideoListAll]);
     const masterVideoListInfo = useMemo(() => masterVideoListInfos[MasterUpInfo.mid] ?? {}, [masterVideoListInfos]);
+    const isLogin = useSelector(BilibiliUserInfoSlice.selectors.isLogin);
 
     const masterLastUpdateTime = masterVideoListInfo?.update_time ?? 0;
     const masterUpdateType = masterVideoListInfo?.update_type ?? 0;
@@ -44,13 +45,14 @@ const HomePage = () => {
     }, [dispatch, isUpdating])
 
     useEffect(() => {
+        if (!isLogin) return;
         const isOutdated = (masterLastUpdateTime + 86400) < TimeStampNow(); 
         if (!masterLastUpdateTime || isOutdated) {
             // 如果更新时间超过一天，则重新获取视频数据
             // 如果列表为空，则全量更新
             updateMasterVideoList(masterVideoList.length === 0 ? 'fully' : 'default');
         }
-    }, [updateMasterVideoList, masterLastUpdateTime, masterVideoList]);
+    }, [updateMasterVideoList, masterLastUpdateTime, masterVideoList, isLogin]);
 
     const slidesList = useMemo(() => {
         const ret = [];
