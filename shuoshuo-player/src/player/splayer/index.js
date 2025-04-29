@@ -272,11 +272,11 @@ function SPlayer() {
         }
     }, [howlPausing, howlPlaying, initHowl, currentMusic, setHowlPausing, isMusicLoading])
 
-    const handleSeekChange = useCallback((event, value) => {
+    const handleSeekChange =(event, value) => {
         if (howlInstance.current) {
             howlInstance.current.seek(howlDuration * (value / 100));
         }
-    }, [howlDuration])
+    }
 
     const handlePlayLoopModeClick = useCallback(() => {
         let loopMode = playerLoopMode;
@@ -352,7 +352,7 @@ function SPlayer() {
                     min={0}
                     max={100}
                     value={howlPercentage}
-                    onChange={handleSeekChange}
+                    onChangeCommitted={handleSeekChange}
                     aria-label="time-indicator"
                     valueLabelDisplay="off"
                     sx={{
@@ -433,7 +433,7 @@ function SPlayer() {
                                             step={0.01}
                                             value={playerSetting.volume}
                                             valueLabelDisplay="off"
-                                            onChange={handleAudioVolumeChange}
+                                            onChangeCommitted={handleAudioVolumeChange}
                                         />
                                     </div>
                                 </Popover>
@@ -454,7 +454,7 @@ function SPlayer() {
                                 {(howlPlaying && !howlPausing) && playerCardDescWithLrc ? <>
                                     <div className="splayer-music-card-title lrc-mode">{playerCardDescWithLrc}</div>
                                     <div className="splayer-music-card-desc">
-                                        <Marquee text={currentMusic.name} speed={0.2}/>
+                                        {currentMusic.name}
                                     </div>
                                 </> : <>
                                     <div className="splayer-music-card-title">{currentMusic.name}</div>

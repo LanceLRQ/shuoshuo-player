@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useCallback} from 'react';
 import {
     Grid, Box, Chip, IconButton, Toolbar, Typography,
-    ButtonGroup, Button, Divider, Tooltip
+    ButtonGroup, Button, Divider, Tooltip, TextField,
 } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LRCSearchDialog from "@player/dialogs/lrc_search";
@@ -56,6 +56,7 @@ const LyricEditor = (props) => {
     const [editHistory, setEditHistory] = React.useState([]);
     const [lyricsChanged, setLyricsChanged] = React.useState(false);
     const [isLineEditing, setIsLineEditing] = React.useState(false);
+    const [customStep, setCustomStep] = React.useState('0.5');
     const isDebug = process.env.NODE_ENV === 'development';
 
     const isCloudServiceLogin = useSelector(CloudServiceSlice.selectors.isLogin);
@@ -289,6 +290,9 @@ const LyricEditor = (props) => {
         textToDownload(lrcResp, `${filterInvalidFileNameChars(currentMusic.name)}.lrc`)
     }, [currentLyric, currentMusic]);
 
+    let moveStep = parseFloat(customStep, 10) || 0.5;
+    if (moveStep < 0) moveStep = 0.5;
+
     return <>
         <Box className="player-lyric-top-bar" sx={{flexGrow: 1}}>
             <Toolbar>
@@ -398,11 +402,24 @@ const LyricEditor = (props) => {
                                 <KeyboardArrowLeftIcon fontSize="small" /> 插入空白行
                                 <br />{formatTimeLyric(duration)}
                             </Button>
-                            <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(-0.5);}}>
-                                <RemoveIcon fontSize="small" /> {currentLyricSelected.length > 0 ?'选中' : '整体'}前移0.5秒
+                            <Button sx={{textAlign: 'center'}}>
+                                <TextField
+                                    label="偏移量时间"
+                                    type="number"
+                                    inputProps={{ min: 0 }}
+                                    size="small"
+                                    sx={{width: '100px'}}
+                                    variant="outlined"
+                                    value={customStep}
+                                    onChange={(e) => setCustomStep(e.target.value)}
+                                    placeholder="偏移量时间"
+                                />
                             </Button>
-                            <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(0.5);}}>
-                                <AddIcon fontSize="small" />  {currentLyricSelected.length > 0 ?'选中' : '整体'}后移0.5秒
+                            <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(-moveStep);}}>
+                                <RemoveIcon fontSize="small" /> {currentLyricSelected.length > 0 ?'选中' : '整体'}前移{moveStep}秒
+                            </Button>
+                            <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(moveStep);}}>
+                                <AddIcon fontSize="small" />  {currentLyricSelected.length > 0 ?'选中' : '整体'}后移{moveStep}秒
                             </Button>
                             <Button disabled={isLineEditing} onClick={() => {handleOffsetChange(-1);}}>
                                 <RemoveIcon fontSize="small" /> {currentLyricSelected.length > 0 ?'选中' : '整体'}前移1秒
