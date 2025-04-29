@@ -10,8 +10,8 @@ const isDev = process.env.NODE_ENV === 'development';
 
 require('dotenv').config();
 
-console.log(`云服务API：${(process.env.REACT_APP_API_MODE === 'production') ? '生产' : '开发'}`)
 console.log(`播放器：${(process.env.NODE_ENV === 'production') ? '生产' : '开发'}`)
+console.log(`云服务API：${(process.env.REACT_APP_API_MODE === 'production') ? '生产' : (process.env.NODE_ENV === 'production') ? '生产' : '开发'}`)
 
 module.exports = {
     eslint: {
