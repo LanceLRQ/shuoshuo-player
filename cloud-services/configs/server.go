@@ -34,7 +34,7 @@ func GetDefaultServerConfig() ServerConfigStruct {
 	}
 }
 
-// ReadConfig 读取配置
+// ReadServerConfig 读取配置
 func ReadServerConfig(path string) (*ServerConfigStruct, error) {
 	data, err := os.ReadFile(path)
 	cfg := GetDefaultServerConfig()
@@ -49,7 +49,7 @@ func ReadServerConfig(path string) (*ServerConfigStruct, error) {
 	return &cfg, err
 }
 
-// WriteConfig 写入配置
+// WriteServerConfig 写入配置
 func WriteServerConfig(path string, config *ServerConfigStruct) error {
 	// 先进行校验
 	// if err := config.Validate(); err != nil {
