@@ -1,7 +1,7 @@
 {
   "name": "shuoshuo-player-pc",
   "productName": "说说播放器PC版",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "说说播放器是一款基于Bilibili的第三方音乐播放器，把喜欢的Up主的视频投稿变成你的歌单，沉浸式享受音乐盛宴",
   "main": ".webpack/main",
   "scripts": {
