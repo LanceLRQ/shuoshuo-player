@@ -156,6 +156,8 @@ const TopBar = (props) => {
                     window.SHOW_CLOUD_LOGIN();
                 }
             }
+        }).catch((e) => {
+            alert('网络异常');
         })
     }
 

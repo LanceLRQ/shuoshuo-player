@@ -74,7 +74,7 @@ export const bilibiliApiCall = (config) => {
                 }
             }
         }).catch(e => {
-            console.error('[DEBUG]' + e);
+            console.debug('[DEBUG]', e);
             reject({code: -1, message: '网络异常，请重试'})
         })
     })
@@ -112,7 +112,7 @@ export const apiCall = (config) => {
                 }
             }
         }).catch(e => {
-            console.error('[DEBUG]' + e);
+            console.debug('[DEBUG]', e);
             reject( {code: -1, errno: -1, message: '网络异常，请重试'})
         })
     })

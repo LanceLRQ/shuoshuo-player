@@ -10,6 +10,7 @@ import { Lrc as ReactLRC } from "react-lrc";
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import isElectron from 'is-electron';
 import {formatMillisecond, removeEmptyLRCItem} from "@/utils";
+import { SearchMusicInfoFromQQMusic, GetLyricFromQQMusic } from '@/plugins/lrc_search'
 
 
 const LRCSearchDialog = (props) => {
@@ -22,7 +23,13 @@ const LRCSearchDialog = (props) => {
     const inElectron = isElectron();
 
     const searchSongByKeyword = (keyword) => {
-        window.ElectronAPI.Spider.QQMusic.SearchSong(keyword, 10).then(res => {
+        let SearchSong;
+        if (inElectron) {
+            SearchSong = window.ElectronAPI.Spider.QQMusic.SearchSong;
+        } else {
+            SearchSong = SearchMusicInfoFromQQMusic;
+        }
+        SearchSong(keyword, 10).then(res => {
             if (!res.length) {
                 alert('没有找到歌曲信息');
                 return;
@@ -32,7 +39,13 @@ const LRCSearchDialog = (props) => {
     }
 
     const getSongLrcByMid = (mid) => {
-        window.ElectronAPI.Spider.QQMusic.GetLRC(mid).then(res => {
+        let GetLRC;
+        if (inElectron) {
+            GetLRC = window.ElectronAPI.Spider.QQMusic.GetLRC;
+        } else {
+            GetLRC = GetLyricFromQQMusic;
+        }
+        GetLRC(mid).then(res => {
             if (!res) {
                 alert('读取歌词像信息错误');
                 return;
@@ -43,9 +56,6 @@ const LRCSearchDialog = (props) => {
     }
 
     const handleOpen = (defaultKeyword) => {
-        if (!inElectron) {
-            return;
-        }
         setOpen(true);
         if (defaultKeyword) {
             setKeyword(defaultKeyword);

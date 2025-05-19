@@ -310,7 +310,7 @@ const LyricEditor = (props) => {
                             <DownloadIcon></DownloadIcon>
                         </IconButton>
                     </Tooltip>}
-                    {inElectron ? <LRCSearchDialog onLyricResponse={handleReceiveSuggestLyric}>
+                    <LRCSearchDialog onLyricResponse={handleReceiveSuggestLyric}>
                         {(slot) => {
                             return <Tooltip title="搜索参考歌词(来源：QQ音乐)">
                                 <IconButton onClick={() => slot.handleOpen(currentMusic?.name ?? '')}>
@@ -318,7 +318,7 @@ const LyricEditor = (props) => {
                                 </IconButton>
                             </Tooltip>
                         }}
-                    </LRCSearchDialog> : null}
+                    </LRCSearchDialog>
                     <Tooltip title="从文件加载参考歌词">
                         <IconButton onClick={handleLoadLyricsFromFile}>
                             <UploadFileIcon />

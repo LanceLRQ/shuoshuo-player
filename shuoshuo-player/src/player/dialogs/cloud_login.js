@@ -38,7 +38,6 @@ const CloudLoginDialog =  forwardRef((props, ref) => {
                 }));
                 handleClose();
             }).catch(resp => {
-                console.error(resp);
                 dispatch(PlayerNoticesSlice.actions.sendNotice({
                     type: NoticeTypes.ERROR,
                     message: resp.message,
@@ -103,7 +102,8 @@ const CloudLoginDialog =  forwardRef((props, ref) => {
                     variant="standard"
                 />
                 <DialogContentText sx={{margin: "16px 0"}}>
-                    我们不会记录你的B站登录信息，请放心使用。
+                    此功能为内部管理员登录云平台使用。 <br />
+                    并且，我们不会记录你的B站登录信息，请放心使用。
                 </DialogContentText>
             </DialogContent>
             <DialogActions>

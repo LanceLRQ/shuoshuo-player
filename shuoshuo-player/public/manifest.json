@@ -18,8 +18,7 @@
   "permissions": [
     "storage",
     "unlimitedStorage",
-    "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess"
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "*://*.acgvideo.com/*",
