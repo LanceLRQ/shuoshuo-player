@@ -1,6 +1,8 @@
 # 说说播放器
 
-说说播放器 是一款基于Bilibili的第三方音乐播放器，把喜欢的Up主的视频投稿变成你的歌单，沉浸式享受音乐盛宴。
+“说说播放器”是一款基于Bilibili的第三方音乐播放器。此播放器为粉丝定制版本，可以将说宝或者其他Up主的B站视频投稿变成你的歌单。
+
+"Shuoshuo Player" is a third-party music player based on Bilibili.This player is a customized version for fans, allowing you to turn "说说Crystal" or other Bilibili creators' video submissions into your playlist.
 
 ![预览图1](./docs/player-1.jpg)
 ![预览图2](./docs/player-2.jpg)
@@ -70,12 +72,13 @@ yarn start      # 启动开发环境(默认会自动同步文件到build目录�
 ```
 ### 2、在Chrome浏览器插件页面加载`build`目录
 
+### 3、更改Up主
+
+访问`shuoshuo-player/src/constants.js`，修改`MasterUpInfo`变量内的信息
 
 ## 云服务端指南
 
 服务端基于Go 1.23版本开发
-
-### 1、启动环境
 
 ```shell
 cd env
