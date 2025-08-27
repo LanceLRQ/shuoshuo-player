@@ -7,7 +7,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LRCSearchDialog from "@player/dialogs/lrc_search";
 import SearchIcon from "@mui/icons-material/Search";
 import SaveIcon from "@mui/icons-material/Save";
-import isElectron from "is-electron";
 import {useDispatch, useSelector} from "react-redux";
 import {LyricSlice} from "@/store/lyric";
 import { Lrc as LrcKit } from 'lrc-kit';
@@ -48,7 +47,6 @@ const LyricEditor = (props) => {
 
     const dispatch = useDispatch();
 
-    const inElectron = isElectron();
     const [currentLyric, setCurrentLyric] = React.useState([]);
     const [suggestedLyrics, setSuggestedLyrics] = React.useState([]);
     const [currentLyricSelected, setCurrentLyricSelected] = React.useState([]);
@@ -329,7 +327,7 @@ const LyricEditor = (props) => {
                             <SaveIcon></SaveIcon>
                         </IconButton>
                     </Tooltip>
-                    {inElectron && isCloudServiceAdmin && <Tooltip title="上传到云端(管理员)">
+                    {isCloudServiceAdmin && <Tooltip title="上传到云端(管理员)">
                         <IconButton onClick={handleSaveToCloud} color={cloudServiceLyricLibraryHasUploaded ? 'primary' : 'default'}>
                             <BackupIcon></BackupIcon>
                         </IconButton>
