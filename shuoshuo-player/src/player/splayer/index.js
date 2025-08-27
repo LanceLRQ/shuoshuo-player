@@ -59,6 +59,7 @@ function SPlayer() {
     const playingInfo = useSelector(PlayingListSlice.selectors.current);
     const playNext = useSelector(PlayingListSlice.selectors.playNext);
     const playerSetting = useSelector(PlayerProfileSlice.selectors.playerSetting);
+    const [hasLyricFetchTry, setHasLyricFetchTry] = useState(false);
     const playerLoopMode = useMemo(() => {
         return playerSetting.loopMode;
     }, [playerSetting])
@@ -237,8 +238,8 @@ function SPlayer() {
 
     // 自动从云服务拉取歌词信息
     useEffect(() => {
-        if (!currentMusic) return;
-        if (LrcInfo && LrcInfo.lrc) return;
+        if (!currentMusic || (LrcInfo && LrcInfo.lrc) || hasLyricFetchTry) return;
+        setHasLyricFetchTry(true);
         API.CloudService.Lyric.getLyricByBvid(currentMusic.bvid)({}).then(resp => {
             const lrcContent = resp?.content;
             dispatch(LyricSlice.actions.updateLyric({
@@ -255,7 +256,7 @@ function SPlayer() {
             //     duration: 3000,
             // }));
         });
-    }, [LrcInfo, currentMusic, dispatch])
+    }, [LrcInfo, currentMusic, dispatch, hasLyricFetchTry, setHasLyricFetchTry])
 
     const handlePlayClick = useCallback(() => {
         if (isMusicLoading || !currentMusic) return;
