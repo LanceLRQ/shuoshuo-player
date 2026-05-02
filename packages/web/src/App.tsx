@@ -9,6 +9,8 @@ import { AddToFavDialog } from '@/components/dialogs/add-to-fav-dialog';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { HomePage } from '@/pages/home';
 import { LiveSlicersPage } from '@/pages/live-slicers';
+import { FavListPage } from '@/pages/fav-list';
+import { DiscoveryPage } from '@/pages/discovery';
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -43,8 +45,8 @@ const router = createHashRouter([
     children: [
       { index: true, element: <Navigate to="/index" replace /> },
       { path: 'index', element: <HomePage /> },
-      { path: 'fav/:id', element: <PlaceholderPage title="收藏歌单" /> },
-      { path: 'discovery', element: <PlaceholderPage title="搜索发现" /> },
+      { path: 'fav/:id', element: <FavListPage /> },
+      { path: 'discovery', element: <DiscoveryPage /> },
       { path: 'live-slicers', element: <LiveSlicersPage /> },
       {
         path: 'cloud-services',
