@@ -78,6 +78,7 @@ const ENUM_TO_TYPE: Record<FavListType, FavEditFormData['type']> = {
 export function FavEditDialog() {
   const open = useUIShell((s) => s.favEditOpen);
   const targetId = useUIShell((s) => s.favEditTargetId);
+  const prefill = useUIShell((s) => s.favEditPrefill);
   const close = useUIShell((s) => s.closeFavEdit);
   const favList = useFavListStore((s) => s.list);
   const addFavList = useFavListStore((s) => s.addFavList);
@@ -107,9 +108,14 @@ export function FavEditDialog() {
         biliFavFolderId: editing.biliFavFolderId ?? '',
       });
     } else {
-      form.reset({ name: '', type: 'custom', midInput: '', biliFavFolderId: '' });
+      form.reset({
+        name: prefill?.name ?? '',
+        type: prefill?.type !== undefined ? ENUM_TO_TYPE[prefill.type] : 'custom',
+        midInput: prefill?.midInput ?? '',
+        biliFavFolderId: '',
+      });
     }
-  }, [open, editing, form]);
+  }, [open, editing, prefill, form]);
 
   const onSubmit = (data: FavEditFormData) => {
     if (isEdit && editing) {

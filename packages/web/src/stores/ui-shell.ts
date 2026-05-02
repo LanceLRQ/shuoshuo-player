@@ -1,4 +1,13 @@
 import { create } from 'zustand';
+import type { FavListType } from '@shuoshuo-player/shared';
+
+/** 新建模式下预填字段（仅 type/mid/name；编辑模式忽略） */
+export interface FavEditPrefill {
+  type?: FavListType;
+  /** UPLOADER 类型时填入空间 UID 或 URL（getBilibiliMidByURL 解析） */
+  midInput?: string;
+  name?: string;
+}
 
 interface UIShellState {
   menuOpen: boolean;
@@ -12,7 +21,9 @@ interface UIShellState {
   favEditOpen: boolean;
   /** 编辑现有歌单时携带 id，新建时为 null */
   favEditTargetId: string | null;
-  openFavEdit: (id?: string | null) => void;
+  /** 新建模式下的预填字段（来自直播切片页"一键关注"等场景） */
+  favEditPrefill: FavEditPrefill | null;
+  openFavEdit: (id?: string | null, prefill?: FavEditPrefill) => void;
   closeFavEdit: () => void;
 
   addSongOpen: boolean;
@@ -58,8 +69,15 @@ export const useUIShell = create<UIShellState>((set) => ({
 
   favEditOpen: false,
   favEditTargetId: null,
-  openFavEdit: (id = null) => set({ favEditOpen: true, favEditTargetId: id }),
-  closeFavEdit: () => set({ favEditOpen: false, favEditTargetId: null }),
+  favEditPrefill: null,
+  openFavEdit: (id = null, prefill) =>
+    set({
+      favEditOpen: true,
+      favEditTargetId: id,
+      favEditPrefill: prefill ?? null,
+    }),
+  closeFavEdit: () =>
+    set({ favEditOpen: false, favEditTargetId: null, favEditPrefill: null }),
 
   addSongOpen: false,
   addSongTargetFavId: null,

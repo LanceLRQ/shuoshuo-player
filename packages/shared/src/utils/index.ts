@@ -4,3 +4,4 @@ export * from './lyric';
 export * from './file-io';
 export * from './permission';
 export * from './music-url';
+export * from './platform';
