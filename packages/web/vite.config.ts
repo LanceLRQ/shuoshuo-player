@@ -10,6 +10,8 @@ export default defineConfig(({ mode }): UserConfig => {
 
   return {
     plugins: [react()],
+    // packages/web/public 内的 manifest.json / rules.json / logo*.png 由 Vite 默认 publicDir
+    // 行为复制到 outDir 根（既适用 dev 也适用 build），扩展模式无需额外插件
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
