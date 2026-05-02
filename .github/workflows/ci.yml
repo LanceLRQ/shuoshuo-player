@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev_v2]
+  pull_request:
+    branches: [main, dev_v2]
+
+jobs:
+  quality:
+    name: Lint / Typecheck / Test / Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: TypeScript typecheck
+        run: pnpm typecheck
+
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            packages/shared/coverage/
+            packages/web/coverage/
+          retention-days: 14
+
+      - name: Build Chrome extension
+        run: pnpm build:extension
+
+      - name: Verify extension size
+        run: |
+          TOTAL_BYTES=$(find packages/web/dist-extension -type f -print0 | xargs -0 wc -c | tail -1 | awk '{print $1}')
+          TOTAL_KIB=$((TOTAL_BYTES / 1024))
+          echo "Extension total: ${TOTAL_BYTES} bytes (${TOTAL_KIB} KiB)"
+          # Phase 7 §7.3 体积目标：dist-extension < 1024 KiB（按 1024 基数 < 1MB）
+          if [ "$TOTAL_KIB" -gt 1024 ]; then
+            echo "::error::Extension size ${TOTAL_KIB} KiB exceeds 1024 KiB budget"
+            exit 1
+          fi
+          echo "::notice::Extension size ${TOTAL_KIB} KiB (under 1024 KiB budget)"
+
+      - name: Upload extension artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension
+          path: packages/web/dist-extension/
+          retention-days: 14
