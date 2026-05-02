@@ -10,8 +10,5 @@
       "@web/*": ["../web/src/*"]
     }
   },
-  "include": ["src/**/*", "src/**/*.tsx"],
-  "references": [
-    { "path": "../shared" }
-  ]
+  "include": ["src/**/*", "src/**/*.tsx"]
 }

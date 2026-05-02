@@ -10,8 +10,5 @@
     }
   },
   "include": ["src/**/*", "src/**/*.tsx"],
-  "exclude": ["src/**/*.node.ts"],
-  "references": [
-    { "path": "../shared" }
-  ]
+  "exclude": ["src/**/*.node.ts"]
 }
