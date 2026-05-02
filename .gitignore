@@ -134,3 +134,15 @@ dist
 .DS_Store
 plans
 CLAUDE.local.md
+
+# v2 Monorepo / Tauri / 扩展产物
+packages/*/dist/
+packages/*/dist-extension/
+packages/desktop/src-tauri/target/
+packages/desktop/src-tauri/gen/
+*.tsbuildinfo
+
+# IDE 临时文件
+*.swp
+*.swo
+

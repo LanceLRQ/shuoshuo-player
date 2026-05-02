@@ -1,0 +1,32 @@
+{
+  "name": "shuoshuo-player",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "说说播放器 - 基于 Bilibili 的第三方音乐播放器",
+  "scripts": {
+    "dev:web": "pnpm --filter @shuoshuo-player/web dev",
+    "dev:desktop": "pnpm --filter @shuoshuo-player/desktop tauri dev",
+    "build:web": "pnpm --filter @shuoshuo-player/web build",
+    "build:desktop": "pnpm --filter @shuoshuo-player/desktop tauri build",
+    "build:extension": "pnpm --filter @shuoshuo-player/web build:extension",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,css}\""
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@10.28.2",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.3.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3",
+    "typescript-eslint": "^8.59.1"
+  }
+}
