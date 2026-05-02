@@ -11,6 +11,9 @@ import { HomePage } from '@/pages/home';
 import { LiveSlicersPage } from '@/pages/live-slicers';
 import { FavListPage } from '@/pages/fav-list';
 import { DiscoveryPage } from '@/pages/discovery';
+import { CloudServicesLayout } from '@/pages/cloud-services/layout';
+import { CloudSettingsPage } from '@/pages/cloud-services/settings';
+import { LyricListPage } from '@/pages/cloud-services/lyric-list';
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -50,13 +53,13 @@ const router = createHashRouter([
       { path: 'live-slicers', element: <LiveSlicersPage /> },
       {
         path: 'cloud-services',
-        element: <PlaceholderPage title="云服务" />,
+        element: <CloudServicesLayout />,
         children: [
           { index: true, element: <Navigate to="lyrics" replace /> },
-          { path: 'lyrics', element: <PlaceholderPage title="歌词管理" /> },
+          { path: 'lyrics', element: <LyricListPage /> },
           { path: 'live-slicer-men', element: <PlaceholderPage title="切片管理" /> },
           { path: 'accounts', element: <PlaceholderPage title="账户管理" /> },
-          { path: 'settings', element: <PlaceholderPage title="服务设置" /> },
+          { path: 'settings', element: <CloudSettingsPage /> },
         ],
       },
       // v1 旧路径兼容重定向
