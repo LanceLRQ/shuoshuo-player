@@ -56,10 +56,11 @@ export const usePlayingListStore = create<PlayingListState>((set, get) => ({
   clearPlaylist: () => set({ favId: '', bvIds: [], current: '', playNext: false }),
 
   updateCurrentPlaying: (index, playNext = true) =>
-    set((state) => ({
-      current: state.bvIds[index] || '',
-      playNext,
-    })),
+    set((state) => {
+      const next = state.bvIds[index] || '';
+      if (next === state.current && !playNext) return state;
+      return { current: next, playNext };
+    }),
 
   clearPlayNext: () => set({ playNext: false }),
 

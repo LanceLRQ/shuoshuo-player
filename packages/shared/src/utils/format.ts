@@ -34,6 +34,14 @@ export function formatTimeStampFromServer(d: string | number): string {
   )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+/** 格式化秒数为 m:SS 播放时间 */
+export function formatPlayTime(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 /** 过滤非法文件名字符 */
 export function filterInvalidFileNameChars(input: string, replacement = ''): string {
   // eslint-disable-next-line no-control-regex

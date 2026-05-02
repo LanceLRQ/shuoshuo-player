@@ -18,6 +18,7 @@ import {
 import {
   usePlayerProfileStore,
   urlPrefixFixed,
+  formatPlayTime,
   type LoopMode,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
@@ -181,7 +182,7 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
           <TooltipProvider delayDuration={200}>
             <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
               <span className="hidden tabular-nums md:inline">
-                {formatTime(player.progress)} / {formatTime(player.duration)}
+                {formatPlayTime(player.progress)} / {formatPlayTime(player.duration)}
               </span>
               <Popover>
                 <PopoverTrigger asChild>
@@ -264,11 +265,4 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
       />
     </>
   );
-}
-
-function formatTime(sec: number): string {
-  if (!Number.isFinite(sec) || sec <= 0) return '0:00';
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
 }

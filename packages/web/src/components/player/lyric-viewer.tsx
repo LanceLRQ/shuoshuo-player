@@ -10,6 +10,12 @@ import {
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+
+interface CloudLyricResponse {
+  content?: string;
+  id?: number;
+  [k: string]: unknown;
+}
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
@@ -54,13 +60,13 @@ export function LyricViewer({
     if (!currentVideo) return;
     LyricApi.getLyricByBvid(currentVideo.bvid)
       .then((resp) => {
-        const content = (resp as { content?: string; id?: number })?.content;
-        if (content) {
+        const lyric = resp as CloudLyricResponse;
+        if (lyric?.content) {
           updateLyric({
             bvid: currentVideo.bvid,
-            lyricText: content,
+            lyricText: lyric.content,
             offset: 0,
-            cloudLyricId: (resp as { id?: number })?.id,
+            cloudLyricId: lyric.id,
           });
           sendNotice({ type: NoticeType.SUCCESS, message: '歌词已刷新', duration: 2000 });
         } else {

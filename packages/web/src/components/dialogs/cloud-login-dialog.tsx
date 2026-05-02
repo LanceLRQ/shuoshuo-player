@@ -60,8 +60,8 @@ export function CloudLoginDialog() {
       });
       form.reset();
       closeDialog();
-    } catch (e) {
-      const message = (e as { message?: string })?.message ?? '登录失败';
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '登录失败';
       sendNotice({ type: NoticeType.ERROR, message, duration: 3000 });
     } finally {
       setSubmitting(false);
