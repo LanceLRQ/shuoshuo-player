@@ -31,6 +31,19 @@ interface LyricEditorProps {
   spider?: SpiderAdapter;
 }
 
+/**
+ * 撤销栈追加：超过 LYRIC_EDITOR_UNDO_STACK_MAX 时丢弃最早一条（FIFO）
+ * 抽出为纯函数以便单元测试覆盖深度溢出场景
+ */
+export function appendLyricHistory(
+  prev: LyricLine[][],
+  snapshot: LyricLine[],
+): LyricLine[][] {
+  const next = [...prev, snapshot];
+  if (next.length > LYRIC_EDITOR_UNDO_STACK_MAX) next.shift();
+  return next;
+}
+
 export function LyricEditor({
   currentVideo,
   currentTime,
@@ -61,11 +74,7 @@ export function LyricEditor({
 
   const pushHistory = useCallback(
     (snapshot: LyricLine[]) => {
-      setHistory((prev) => {
-        const next = [...prev, snapshot];
-        if (next.length > LYRIC_EDITOR_UNDO_STACK_MAX) next.shift();
-        return next;
-      });
+      setHistory((prev) => appendLyricHistory(prev, snapshot));
     },
     [],
   );

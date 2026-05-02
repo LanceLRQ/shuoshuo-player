@@ -17,13 +17,12 @@ export default defineConfig({
         'src/index.ts',
         'src/**/index.ts',
       ],
-      // 阈值随测试落地分批提升：当前仅覆盖"关键路径"（详见 plans/phase-7 §7.0.4）
-      // 目标值（Phase 7 验收时回拉）：lines/functions/statements 60、branches 55
+      // Phase 7 验收门槛（与 plans/phase-7 §7.0.5 对齐）
       thresholds: {
-        lines: 35,
-        functions: 35,
-        branches: 25,
-        statements: 35,
+        lines: 60,
+        functions: 60,
+        branches: 55,
+        statements: 60,
       },
     },
   },
