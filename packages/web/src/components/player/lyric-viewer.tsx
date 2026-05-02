@@ -60,7 +60,7 @@ export function LyricViewer({
     if (!currentVideo) return;
     LyricApi.getLyricByBvid(currentVideo.bvid)
       .then((resp) => {
-        const lyric = resp as CloudLyricResponse;
+        const lyric = resp as unknown as CloudLyricResponse;
         if (lyric?.content) {
           updateLyric({
             bvid: currentVideo.bvid,
