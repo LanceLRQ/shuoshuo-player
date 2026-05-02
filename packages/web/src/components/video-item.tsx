@@ -1,4 +1,4 @@
-import { type CSSProperties, useCallback, useState } from 'react';
+import { type CSSProperties, memo, useCallback, useState } from 'react';
 import dayjs from 'dayjs';
 import {
   Play,
@@ -51,7 +51,7 @@ export interface VideoItemProps {
   className?: string;
 }
 
-export function VideoItem({
+function VideoItemImpl({
   video,
   favId,
   showAuthor = false,
@@ -233,3 +233,9 @@ export function VideoItem({
     </div>
   );
 }
+
+/**
+ * 列表项组件，外层使用虚拟列表/普通列表都会高频重渲染。memo 包装可避免父组件刷新
+ * 时无变化的行重复 render；上层回调用 useCallback 包裹是 memo 生效的前提。
+ */
+export const VideoItem = memo(VideoItemImpl);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
@@ -49,7 +49,7 @@ interface FavCardProps {
  * - 24h 内未刷新则在 useEffect 自动触发 readUserVideos('default')
  * - 三种类型差异化菜单（CUSTOM 显示"添加歌曲"，UPLOADER/BILI_FAV 显示"更新前 30/更新全部"）
  */
-export function FavCard({ favId, fav, className }: FavCardProps) {
+function FavCardImpl({ favId, fav, className }: FavCardProps) {
   const navigate = useNavigate();
   const space = useBilibiliUserVideosStore((s) => (fav.mid ? s.space[String(fav.mid)] : undefined));
   const favFolder = useBilibiliUserVideosStore((s) =>
@@ -264,6 +264,9 @@ export function FavCard({ favId, fav, className }: FavCardProps) {
     </div>
   );
 }
+
+/** 列表中卡片高频出现，memo 包装避免无关 store 字段变更触发重渲染 */
+export const FavCard = memo(FavCardImpl);
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
