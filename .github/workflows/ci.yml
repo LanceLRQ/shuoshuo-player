@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, dev_v2]
+    tags: ['v*']
   pull_request:
     branches: [main, dev_v2]
 
@@ -17,8 +17,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

@@ -147,6 +147,27 @@ Hash Router，路径用短横线（`/live-slicers` / `/cloud-services`）。v1 �
 - `git add <file>` 与 `git commit` 分两步执行（避免 index.lock 冲突）
 - 提交信息遵循 conventional commits 风格（feat / fix / refactor / docs / chore）
 
+### 提交前 CI 检查（必须）
+
+> CI 仅在 **PR** 和 **tag (`v*`)** 时触发；dev 分支直接 push 不跑 CI。
+> 因此**每次 `git commit` 之前**，必须在本地按顺序执行下列命令，全部通过才允许提交。
+> 任一项失败 → 修复后再提交，不允许通过 `--no-verify` 跳过。
+
+```bash
+pnpm install --frozen-lockfile   # 1. 锁文件一致性
+pnpm lint                        # 2. ESLint
+pnpm typecheck                   # 3. TS 类型检查（递归 -r）
+pnpm test:coverage               # 4. 测试 + 覆盖率
+pnpm build:extension             # 5. Chrome 扩展构建（含体积 < 1024 KiB 校验）
+```
+
+**体积自检**（构建后执行，对应 CI 中的 Verify extension size 步骤）：
+
+```bash
+TOTAL_KIB=$(($(find packages/web/dist-extension -type f -print0 | xargs -0 wc -c | tail -1 | awk '{print $1}') / 1024))
+echo "Extension: ${TOTAL_KIB} KiB"; [ "$TOTAL_KIB" -le 1024 ] || echo "❌ 超出 1024 KiB 预算"
+```
+
 ### 危险动作前必须停下来确认
 
 - 删除文件 / 分支 / 数据库表
