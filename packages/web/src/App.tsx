@@ -14,6 +14,8 @@ import { DiscoveryPage } from '@/pages/discovery';
 import { CloudServicesLayout } from '@/pages/cloud-services/layout';
 import { CloudSettingsPage } from '@/pages/cloud-services/settings';
 import { LyricListPage } from '@/pages/cloud-services/lyric-list';
+import { LiveSlicerMenPage } from '@/pages/cloud-services/live-slicer-men';
+import { AccountsPage } from '@/pages/cloud-services/accounts';
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -57,8 +59,8 @@ const router = createHashRouter([
         children: [
           { index: true, element: <Navigate to="lyrics" replace /> },
           { path: 'lyrics', element: <LyricListPage /> },
-          { path: 'live-slicer-men', element: <PlaceholderPage title="切片管理" /> },
-          { path: 'accounts', element: <PlaceholderPage title="账户管理" /> },
+          { path: 'live-slicer-men', element: <LiveSlicerMenPage /> },
+          { path: 'accounts', element: <AccountsPage /> },
           { path: 'settings', element: <CloudSettingsPage /> },
         ],
       },
