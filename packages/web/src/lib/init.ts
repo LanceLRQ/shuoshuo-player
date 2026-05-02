@@ -12,6 +12,7 @@ import {
   restoreState,
   CLOUD_API_BASE_URL_STORAGE_KEY,
   DEFAULT_CLOUD_API_BASE_URL,
+  WBI_REFRESH_MESSAGE_TYPE,
   setCloudApiBaseUrl,
   type BilibiliVideo,
   type CloudServiceSession,
@@ -49,43 +50,47 @@ interface PersistedLyricsShape {
 }
 interface PersistedCloudServiceShape {
   session?: CloudServiceSession;
-  apiBaseUrl?: string;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 }
 
+function isWbiRefreshMessage(msg: unknown): boolean {
+  return (
+    typeof msg === 'object' &&
+    msg !== null &&
+    (msg as { type?: unknown }).type === WBI_REFRESH_MESSAGE_TYPE
+  );
+}
+
 /**
- * 应用初始化：在 createRoot.render() 之前调用，确保 store 状态先于 UI 渲染恢复
+ * 应用初始化：在 createRoot.render() 之前调用，store 状态需先于 UI 渲染恢复。
  *
- * 关键步骤（顺序敏感）：
- * 1. 优先单独恢复 baseURL（独立 storage key），早于任何云服务调用
- * 2. restoreState 读取 player_data 整体快照
- * 3. 按 store 拆分恢复，bili_user_videos.isLoading 强制重置为 false
- * 4. cloud_service.apiBaseUrl 触发 setApiBaseUrl，同步到 client + store
- * 5. 注册 7 个 store 的 subscribe → 节流写入 storage
- * 6. cloud_service.apiBaseUrl 单独 subscribe 到独立 storage key
- * 7. 监听 chrome.runtime onMessage 处理 wbi:refresh 事件
+ * 顺序敏感的两条不变量：
+ * - baseURL 必须早于任何云服务调用恢复（否则首屏请求会落到默认 baseURL 再被覆盖）
+ * - bili_user_videos.isLoading 必须强制重置为 false（避免恢复时停在加载态）
+ *
+ * apiBaseUrl 仅以独立 storage key 为唯一真相，不进入 player_data 快照，
+ * 防止节流写入与即时写入两份数据漂移。
  */
 export async function initializeApp(): Promise<void> {
   const bridge = getPlatformBridge();
   const { storage } = bridge;
 
-  // 1. 优先恢复 baseURL（早于任何云服务请求）
-  const savedBaseUrl = await storage.getItem(CLOUD_API_BASE_URL_STORAGE_KEY);
+  // baseURL 与 player_data 是两个独立的 storage key，并行读取减少冷启动 IPC 串行
+  const [savedBaseUrl, snapshot] = await Promise.all([
+    storage.getItem(CLOUD_API_BASE_URL_STORAGE_KEY),
+    restoreState(storage),
+  ]);
   setCloudApiBaseUrl(savedBaseUrl?.trim() || DEFAULT_CLOUD_API_BASE_URL);
 
-  // 2. 读取整体持久化快照
-  const snapshot = await restoreState(storage);
-
-  // 3. 分别恢复各 store
   const userVideos = asRecord(snapshot.bili_user_videos) as PersistedUserVideosShape | null;
   if (userVideos) {
-    // bili_user_videos 内部类型未在 shared/types 公开导出，
-    // 这里走 unknown 转换，运行时形态由 persistSnapshot 写入端保证
+    // bili_user_videos 内部 entry 类型未在 shared/types 公开，转 unknown 以匹配 setState；
+    // 运行时形态由写入侧 persistSnapshot() 保证
     useBilibiliUserVideosStore.setState({
-      isLoading: false, // 强制重置：恢复时不应停留在加载态
+      isLoading: false,
       infos: (userVideos.infos ?? {}) as never,
       space: (userVideos.space ?? {}) as never,
       favFolders: (userVideos.favFolders ?? {}) as never,
@@ -117,12 +122,8 @@ export async function initializeApp(): Promise<void> {
 
   const uiProfile = asRecord(snapshot.ui_profile) as PersistedUiProfileShape | null;
   if (uiProfile) {
-    const partial: Partial<PersistedUiProfileShape> = {};
-    if (uiProfile.theme !== undefined) partial.theme = uiProfile.theme;
-    if (uiProfile.volume !== undefined) partial.volume = uiProfile.volume;
-    if (uiProfile.autoPlay !== undefined) partial.autoPlay = uiProfile.autoPlay;
-    if (uiProfile.loopMode !== undefined) partial.loopMode = uiProfile.loopMode;
-    usePlayerProfileStore.setState(partial);
+    // JSON.parse 不会产生 undefined 字段，setState 直接合并即可
+    usePlayerProfileStore.setState(uiProfile);
   }
 
   const lyrics = asRecord(snapshot.lyrics) as PersistedLyricsShape | null;
@@ -131,17 +132,10 @@ export async function initializeApp(): Promise<void> {
   }
 
   const cloudService = asRecord(snapshot.cloud_service) as PersistedCloudServiceShape | null;
-  if (cloudService) {
-    if (cloudService.session) {
-      useCloudServiceStore.getState().updateSession(cloudService.session);
-    }
-    if (cloudService.apiBaseUrl !== undefined) {
-      // setApiBaseUrl 内部会同步 client（覆盖步骤 1 的兜底值）
-      useCloudServiceStore.getState().setApiBaseUrl(cloudService.apiBaseUrl);
-    }
+  if (cloudService?.session) {
+    useCloudServiceStore.getState().updateSession(cloudService.session);
   }
 
-  // 4. 注册自动持久化（节流 1s 写入 player_data）
   const { persistState } = createPersistMiddleware(storage);
   const flushAll = () => persistState(collectPersistableState());
 
@@ -153,7 +147,7 @@ export async function initializeApp(): Promise<void> {
   useLyricsStore.subscribe(flushAll);
   useCloudServiceStore.subscribe(flushAll);
 
-  // 5. cloud_service.apiBaseUrl 单独同步到独立 storage key
+  // apiBaseUrl 走独立 storage key（即时写），与 player_data（节流写）解耦
   let lastBaseUrl = useCloudServiceStore.getState().apiBaseUrl;
   useCloudServiceStore.subscribe((state) => {
     if (state.apiBaseUrl === lastBaseUrl) return;
@@ -161,14 +155,9 @@ export async function initializeApp(): Promise<void> {
     void storage.setItem(CLOUD_API_BASE_URL_STORAGE_KEY, state.apiBaseUrl || '');
   });
 
-  // 6. 订阅 background 的 wbi:refresh 广播
   if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
     chrome.runtime.onMessage.addListener((msg: unknown) => {
-      if (
-        msg &&
-        typeof msg === 'object' &&
-        (msg as { type?: string }).type === 'wbi:refresh'
-      ) {
+      if (isWbiRefreshMessage(msg)) {
         void useBilibiliUserStore.getState().getLoginUserInfo();
       }
     });
@@ -176,8 +165,9 @@ export async function initializeApp(): Promise<void> {
 }
 
 /**
- * 聚合所有可持久化 store 的当前状态
- * 注意：bili_user_videos 必须走 persistSnapshot() 清理 isLoading 等瞬态字段
+ * 聚合可持久化 store 的当前状态。
+ * bili_user_videos 必须走 persistSnapshot() 清理 isLoading 等瞬态字段；
+ * apiBaseUrl 由独立 storage key 维护，故不在此快照中（避免双源漂移）。
  */
 function collectPersistableState(): Record<string, unknown> {
   const userVideosSnap = useBilibiliUserVideosStore.getState().persistSnapshot();
@@ -202,9 +192,6 @@ function collectPersistableState(): Record<string, unknown> {
       loopMode: profile.loopMode,
     },
     lyrics: { lyricMaps: useLyricsStore.getState().lyricMaps },
-    cloud_service: {
-      session: cloud.session,
-      apiBaseUrl: cloud.apiBaseUrl,
-    },
+    cloud_service: { session: cloud.session },
   };
 }

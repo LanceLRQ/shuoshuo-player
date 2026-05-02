@@ -127,6 +127,12 @@ export const DEFAULT_CLOUD_API_BASE_URL = 'https://shuoshuo.sikong.ren/api';
 /** 用户自定义 baseURL 在 storage 中的 key */
 export const CLOUD_API_BASE_URL_STORAGE_KEY = 'cloud_api_base_url';
 
+/** WBI 密钥刷新事件类型（background SW 广播 / 前端订阅统一引用） */
+export const WBI_REFRESH_MESSAGE_TYPE = 'wbi:refresh';
+
+/** WBI 刷新 alarm 名称（仅 Chrome 扩展 SW 使用） */
+export const WBI_REFRESH_ALARM_NAME = 'wbi-refresh';
+
 /** 撤销栈最大深度（歌词编辑器，对齐 v1 行为） */
 export const LYRIC_EDITOR_UNDO_STACK_MAX = 999;
 
