@@ -7,8 +7,14 @@
     "paths": {
       "@/*": ["./src/*"],
       "@shared/*": ["../shared/src/*"]
-    }
+    },
+    "types": []
   },
   "include": ["src/**/*", "src/**/*.tsx"],
-  "exclude": ["src/**/*.node.ts"]
+  "exclude": [
+    "src/**/*.node.ts",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/test/**"
+  ]
 }

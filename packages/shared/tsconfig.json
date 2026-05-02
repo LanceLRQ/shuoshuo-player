@@ -5,7 +5,8 @@
     "rootDir": "./src",
     "composite": true,
     "noEmit": false,
-    "emitDeclarationOnly": true
+    "emitDeclarationOnly": true,
+    "types": ["vitest/globals"]
   },
   "include": ["src/**/*"]
 }

@@ -12,7 +12,12 @@
     "build:extension": "pnpm --filter @shuoshuo-player/web build:extension",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
-    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,css}\""
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,css}\"",
+    "test": "pnpm -r --parallel --aggregate-output --reporter-hide-prefix run test",
+    "test:watch": "pnpm --filter @shuoshuo-player/shared test:watch",
+    "test:coverage": "pnpm -r --aggregate-output run test:coverage",
+    "test:shared": "pnpm --filter @shuoshuo-player/shared test",
+    "test:web": "pnpm --filter @shuoshuo-player/web test"
   },
   "engines": {
     "node": ">=20.0.0",
