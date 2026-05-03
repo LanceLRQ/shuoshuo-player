@@ -1,4 +1,5 @@
 mod commands;
+mod tray;
 
 use tauri::Manager;
 
@@ -16,6 +17,11 @@ pub fn run() {
             if let Err(e) = commands::auth::restore_cookies(handle, &state) {
                 eprintln!("[startup] restore_cookies failed: {}", e);
             }
+
+            if let Err(e) = tray::setup_tray(handle) {
+                eprintln!("[startup] tray setup failed: {}", e);
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

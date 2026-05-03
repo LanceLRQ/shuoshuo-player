@@ -30,12 +30,32 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "category": "Music",
+    "shortDescription": "B 站音乐播放器",
+    "longDescription": "说说播放器：将 B 站 UP 主的视频投稿、收藏夹、直播切片转换为音频播放列表。",
+    "copyright": "© 2025 Lance LRQ. MIT License + project addendum",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "wix": {
+        "language": ["zh-CN", "en-US"]
+      },
+      "nsis": {
+        "languages": ["SimpChinese", "English"]
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
   }
 }
