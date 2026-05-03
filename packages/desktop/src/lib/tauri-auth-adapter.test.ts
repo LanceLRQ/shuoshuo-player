@@ -4,11 +4,8 @@
  * 验证：
  * - login → invoke('bilibili_login')
  * - logout → invoke('bilibili_logout')
- * - onLoginSuccess 注册 listen 监听并把 unlistener 收纳到实例
- * - dispose 调用所有 unlistener
- *
- * Tauri 端会保证：登录 URL 正确、cookie session 剥离、登出后重弹登录。
- * 这些 Rust 行为已由 cargo test 覆盖；前端只验证 invoke 与事件订阅契约。
+ * - onLoginSuccess 同步返回 unsubscribe，事件触发执行回调
+ * - unsubscribe 等待异步注册完成后调 unlisten（避免取消时机早于注册的竞态）
  */
 
 const mockInvoke = vi.fn();
@@ -54,15 +51,10 @@ describe('TauriAuthAdapter', () => {
   });
 
   describe('onLoginSuccess', () => {
-    it('订阅 bilibili:login_success 事件', async () => {
-      const unlisten = vi.fn();
-      mockListen.mockResolvedValueOnce(unlisten);
+    it('订阅 bilibili:login_success 事件', () => {
+      mockListen.mockResolvedValueOnce(vi.fn());
 
-      const cb = vi.fn();
-      adapter.onLoginSuccess(cb);
-
-      // listen 是 async，等微任务 flush
-      await new Promise((r) => setTimeout(r, 0));
+      adapter.onLoginSuccess(vi.fn());
 
       expect(mockListen).toHaveBeenCalledTimes(1);
       expect(mockListen.mock.calls[0][0]).toBe('bilibili:login_success');
@@ -71,10 +63,12 @@ describe('TauriAuthAdapter', () => {
     it('事件触发时执行用户回调', async () => {
       const unlisten = vi.fn();
       let registered: ((event: unknown) => void) | undefined;
-      mockListen.mockImplementationOnce(async (_name: string, handler: (event: unknown) => void) => {
-        registered = handler;
-        return unlisten;
-      });
+      mockListen.mockImplementationOnce(
+        async (_name: string, handler: (event: unknown) => void) => {
+          registered = handler;
+          return unlisten;
+        },
+      );
 
       const cb = vi.fn();
       adapter.onLoginSuccess(cb);
@@ -84,32 +78,46 @@ describe('TauriAuthAdapter', () => {
       expect(cb).toHaveBeenCalledTimes(1);
     });
 
-    it('多次注册各自独立持有 unlistener', async () => {
+    it('返回的 unsubscribe 等待 listen 完成后调 unlisten', async () => {
+      const unlisten = vi.fn();
+      mockListen.mockResolvedValueOnce(unlisten);
+
+      const unsubscribe = adapter.onLoginSuccess(vi.fn());
+      // 异步注册尚未 resolve 时取消
+      unsubscribe();
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(unlisten).toHaveBeenCalledTimes(1);
+    });
+
+    it('多次 unsubscribe 幂等', async () => {
+      const unlisten = vi.fn();
+      mockListen.mockResolvedValueOnce(unlisten);
+
+      const unsubscribe = adapter.onLoginSuccess(vi.fn());
+      await new Promise((r) => setTimeout(r, 0));
+
+      unsubscribe();
+      unsubscribe();
+      // 等待 registerPromise.then(unlisten()) 这条 microtask 链 flush
+      await new Promise((r) => setTimeout(r, 0));
+      expect(unlisten).toHaveBeenCalledTimes(1);
+    });
+
+    it('多次注册各自独立', async () => {
       const u1 = vi.fn();
       const u2 = vi.fn();
       mockListen.mockResolvedValueOnce(u1).mockResolvedValueOnce(u2);
 
-      adapter.onLoginSuccess(vi.fn());
-      adapter.onLoginSuccess(vi.fn());
+      const cancel1 = adapter.onLoginSuccess(vi.fn());
+      const cancel2 = adapter.onLoginSuccess(vi.fn());
       await new Promise((r) => setTimeout(r, 0));
 
-      adapter.dispose();
+      cancel1();
+      cancel2();
+      await new Promise((r) => setTimeout(r, 0));
       expect(u1).toHaveBeenCalledTimes(1);
       expect(u2).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('dispose', () => {
-    it('清空 unlistener 列表，重复 dispose 安全', async () => {
-      const unlisten = vi.fn();
-      mockListen.mockResolvedValueOnce(unlisten);
-
-      adapter.onLoginSuccess(vi.fn());
-      await new Promise((r) => setTimeout(r, 0));
-
-      adapter.dispose();
-      adapter.dispose();
-      expect(unlisten).toHaveBeenCalledTimes(1);
     });
   });
 });

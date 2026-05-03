@@ -51,6 +51,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   const howlRef = useRef<Howl | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastClearedBvRef = useRef<string>('');
+  // mediaSession.setPositionState 用 ref 读最新进度，避免高频 setProgress 让 effect 反复重建定时器
+  const progressRef = useRef(0);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -58,6 +60,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [hasLyricFetchTry, setHasLyricFetchTry] = useState(false);
+
+  progressRef.current = progress;
 
   const biliMid = useBilibiliUserStore((s) => s.current?.mid);
   const currentBvId = usePlayingListStore((s) => s.current);
@@ -68,7 +72,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   const getPrevIndex = usePlayingListStore((s) => s.getPrevIndex);
 
   const videoEntities = useBilibiliVideosStore((s) => s.entities);
-  const currentVideo = currentBvId ? videoEntities[currentBvId] ?? null : null;
+  const currentVideo = currentBvId ? (videoEntities[currentBvId] ?? null) : null;
 
   const volume = usePlayerProfileStore((s) => s.volume);
   const autoPlay = usePlayerProfileStore((s) => s.autoPlay);
@@ -136,11 +140,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       setIsLoading(true);
 
       // mediaSession 元数据：MediaMetadata 在某些 WebView / jsdom 环境下未提供，做能力探测
-      if (
-        'mediaSession' in navigator &&
-        typeof MediaMetadata !== 'undefined' &&
-        video.title
-      ) {
+      if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined' && video.title) {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: video.title,
           artist: video.author,
@@ -382,7 +382,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     else ms.playbackState = 'none';
   }, [isPlaying, currentVideo]);
 
-  // 进度同步到 setPositionState（让锁屏滚动条跟随播放进度；每秒一次避免 RAF 高频开销）
+  // 进度同步到 setPositionState（每秒采样 progressRef，避免 RAF 60Hz setProgress 让 effect 反复重建定时器）
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
@@ -393,7 +393,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       try {
         ms.setPositionState!({
           duration,
-          position: Math.min(progress, duration),
+          position: Math.min(progressRef.current, duration),
           playbackRate: 1,
         });
       } catch {
@@ -404,7 +404,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     sync();
     const id = setInterval(sync, 1000);
     return () => clearInterval(id);
-  }, [duration, progress, isPlaying]);
+  }, [duration, isPlaying]);
 
   return {
     isLoading,

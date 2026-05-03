@@ -7,11 +7,17 @@
 // 3. Headers 必须设置 Referer/Origin 为 https://y.qq.com，否则触发反爬
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+// HTTP Client 与 JSONP 正则全程复用：避免每次命令调用都重建 TLS 连接池 / 重新编译正则
+static HTTP_CLIENT: Lazy<Client> = Lazy::new(Client::new);
+static JSONP_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?s)MusicJsonCallback\((.*)\)").expect("invalid JSONP regex"));
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Singer {
@@ -82,9 +88,7 @@ fn build_search_payload(keyword: &str, limit: u32) -> Value {
 ///
 /// 抽出为独立函数便于 cargo test 单测（无需起 HTTP 服务）。
 pub fn parse_lrc_jsonp(text: &str) -> Result<String, String> {
-    // (?s) 让 . 匹配换行；非贪婪避免吃掉错误位置的 ')'
-    let re = Regex::new(r"(?s)MusicJsonCallback\((.*)\)").map_err(|e| e.to_string())?;
-    let json_str = re
+    let json_str = JSONP_RE
         .captures(text)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str())
@@ -104,10 +108,9 @@ pub async fn qqmusic_search(
     limit: Option<u32>,
 ) -> Result<Vec<QQMusicSong>, String> {
     let limit = limit.unwrap_or(10);
-    let client = Client::new();
     let payload = build_search_payload(&keyword, limit);
 
-    let resp = client
+    let resp = HTTP_CLIENT
         .post(SEARCH_URL)
         .header("Host", "u.y.qq.com")
         .header("Content-Type", "application/json")
@@ -134,8 +137,7 @@ pub async fn qqmusic_search(
 /// 获取 QQ 音乐歌词
 #[tauri::command]
 pub async fn qqmusic_get_lrc(mid: String) -> Result<String, String> {
-    let client = Client::new();
-    let resp = client
+    let resp = HTTP_CLIENT
         .get(LRC_URL)
         .header("Origin", "https://y.qq.com/")
         .header("Referer", "https://y.qq.com/")

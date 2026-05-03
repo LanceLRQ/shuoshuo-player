@@ -7,6 +7,7 @@ import {
   useUIStore,
   EXPORT_KEYS,
   NoticeType,
+  PERSIST_DATA_KEY,
   getPlatformBridge,
 } from '@shuoshuo-player/shared';
 import { Button } from '@/components/ui/button';
@@ -32,12 +33,7 @@ const GITHUB_URL = 'https://github.com/LanceLRQ/shuoshuo-player';
 
 function GithubIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.305-5.467-1.334-5.467-5.93 0-1.31.467-2.38 1.235-3.22-.124-.303-.535-1.524.117-3.176 0 0 1.008-.323 3.3 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.29-1.553 3.297-1.23 3.297-1.23.653 1.652.242 2.873.118 3.176.77.84 1.234 1.91 1.234 3.22 0 4.61-2.807 5.622-5.48 5.92.43.372.823 1.102.823 2.222 0 1.604-.014 2.896-.014 3.293 0 .322.218.694.825.576C20.565 22.092 24 17.598 24 12.297c0-6.627-5.373-12-12-12" />
     </svg>
   );
@@ -61,20 +57,16 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
     setTheme(effectiveTheme === 'dark' ? 'light' : 'dark');
   }, [effectiveTheme, setTheme]);
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async () => {
     try {
-      const raw = localStorage.getItem('player_data');
+      const raw = await getPlatformBridge().storage.getItem(PERSIST_DATA_KEY);
       const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
       const filtered: Record<string, unknown> = {};
       for (const key of EXPORT_KEYS) {
         if (key in all) filtered[key] = all[key];
       }
       const text = JSON.stringify(filtered, null, 2);
-      const stamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, '-')
-        .replace('T', '_')
-        .slice(0, 19);
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
       const blob = new Blob([text], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -97,13 +89,14 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (loadEvent) => {
+      reader.onload = async (loadEvent) => {
         if (!window.confirm('确定要导入数据吗？导入后当前数据将被覆盖')) return;
         try {
           const data = JSON.parse(loadEvent.target?.result as string);
-          const raw = localStorage.getItem('player_data');
+          const { storage } = getPlatformBridge();
+          const raw = await storage.getItem(PERSIST_DATA_KEY);
           const merged = { ...(raw ? JSON.parse(raw) : {}), ...data };
-          localStorage.setItem('player_data', JSON.stringify(merged));
+          await storage.setItem(PERSIST_DATA_KEY, JSON.stringify(merged));
           sendNotice({ type: NoticeType.SUCCESS, message: '导入成功，即将刷新', duration: 1500 });
           setTimeout(() => window.location.reload(), 1500);
         } catch {
@@ -148,12 +141,7 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleToggleTheme}
-                aria-label="切换主题"
-              >
+              <Button variant="ghost" size="icon" onClick={handleToggleTheme} aria-label="切换主题">
                 <ThemeIcon className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
@@ -168,9 +156,7 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
             <Button variant="ghost" size="icon" aria-label="账户菜单">
               <Avatar className="h-8 w-8">
                 {user?.face ? <AvatarImage src={user.face} alt={user.uname} /> : null}
-                <AvatarFallback className="text-xs">
-                  {user?.uname?.[0] ?? '?'}
-                </AvatarFallback>
+                <AvatarFallback className="text-xs">{user?.uname?.[0] ?? '?'}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

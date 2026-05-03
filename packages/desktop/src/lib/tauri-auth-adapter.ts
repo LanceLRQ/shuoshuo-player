@@ -14,11 +14,10 @@ const LOGIN_SUCCESS_EVENT = 'bilibili:login_success';
  *
  * 关键不变量：
  * - 登录 URL（passport.bilibili.com/pc/passport/login）由 Rust 端控制，前端无法覆盖
- * - onLoginSuccess 注册多次时，每次都会拿到一个独立的 unlisten 句柄
+ * - onLoginSuccess 同步返回 unsubscribe 函数；底层 listen 是异步的，
+ *   unsubscribe 内部 await 注册 Promise 后再调 unlisten，避免取消时机早于注册完成的竞态
  */
 export class TauriAuthAdapter implements AuthAdapter {
-  private unlisteners: UnlistenFn[] = [];
-
   async login(): Promise<void> {
     await invoke('bilibili_login');
   }
@@ -27,17 +26,14 @@ export class TauriAuthAdapter implements AuthAdapter {
     await invoke('bilibili_logout');
   }
 
-  onLoginSuccess(callback: () => void): void {
-    // listen 是异步的，但 AuthAdapter 接口约定同步注册；用 fire-and-forget 模式
-    // 把 unlistener 缓存到实例上，便于 dispose() 时清理
-    void listen(LOGIN_SUCCESS_EVENT, () => callback()).then((unlisten) => {
-      this.unlisteners.push(unlisten);
-    });
-  }
+  onLoginSuccess(callback: () => void): () => void {
+    let cancelled = false;
+    const registerPromise: Promise<UnlistenFn> = listen(LOGIN_SUCCESS_EVENT, () => callback());
 
-  /** 释放所有 onLoginSuccess 订阅 */
-  dispose(): void {
-    this.unlisteners.forEach((u) => u());
-    this.unlisteners = [];
+    return () => {
+      if (cancelled) return;
+      cancelled = true;
+      void registerPromise.then((unlisten) => unlisten()).catch(() => {});
+    };
   }
 }

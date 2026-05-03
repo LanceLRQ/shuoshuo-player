@@ -29,8 +29,9 @@ class ChromeAuthAdapter implements AuthAdapter {
     // 浏览器 Cookie 由用户在浏览器设置中清理；扩展层不主动操作 Cookie
   }
 
-  onLoginSuccess(_callback: () => void): void {
+  onLoginSuccess(_callback: () => void): () => void {
     // Chrome 扩展无独立登录流程，cookie 即时生效，无需回调
+    return () => {};
   }
 }
 

@@ -12,7 +12,8 @@ export interface StorageAdapter {
 export interface AuthAdapter {
   login(): Promise<void>;
   logout(): Promise<void>;
-  onLoginSuccess(callback: () => void): void;
+  /** 注册登录成功回调，返回取消订阅函数（调用方负责在卸载时调用以避免泄漏） */
+  onLoginSuccess(callback: () => void): () => void;
 }
 
 /** QQ 音乐搜索结果 */

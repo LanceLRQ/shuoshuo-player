@@ -272,18 +272,14 @@ export async function bootstrapPersistence(): Promise<void> {
 
   // Hot-path 优化：订阅回调高频触发（如 SPlayer 进度更新），
   // 直接同步执行 collectPersistableSnapshot 会在每次 setState 都遍历 7 个 store。
-  // 用 dirty-flag + microtask 调度让同帧内的多次 setState 合并为单次快照收集，
+  // 用 microtask 调度让同帧内的多次 setState 合并为单次快照收集，
   // 再交给已有的 trailingThrottle 写盘（避免重复抓取快照内容）。
-  let dirty = false;
   let scheduled = false;
   const scheduleFlush = (): void => {
-    dirty = true;
     if (scheduled) return;
     scheduled = true;
     queueMicrotask(() => {
       scheduled = false;
-      if (!dirty) return;
-      dirty = false;
       persistState(collectPersistableSnapshot());
     });
   };
