@@ -169,6 +169,10 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
 
       const howl = new Howl({
         src: [url],
+        // B 站 dash 音频流是 .m4s（fragmented mp4 segment）容器，但 Howler 默认按文件后缀
+        // 推断 codec，不识别 .m4s → 触发误报 onloaderror "No codec support"。
+        // 显式指定 format 让 Howler 跳过后缀推断，按 mp4 解码（浏览器原生支持 audio/mp4）
+        format: ['mp4'],
         html5: true,
         volume,
         onload: () => {
