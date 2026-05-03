@@ -350,4 +350,66 @@ describe('F2: initializeApp', () => {
     const { init } = await loadFreshModules();
     await expect(init.initializeApp()).resolves.toBeUndefined();
   });
+
+  /* ─── 失败降级（Phase 5 审查遗留）：模拟存储抛错 / hydrate 失败 ─── */
+
+  it('chrome.storage.local.get 抛错时 initializeApp reject，调用方 catch.finally 仍能继续', async () => {
+    // 替换 storage.local.get 为永远抛错的实现（IO 异常 / quota 等场景）
+    chromeMock.storage.local.get = vi.fn(async () => {
+      throw new Error('storage IO failure');
+    });
+
+    const { init } = await loadFreshModules();
+
+    // initializeApp 应当 reject
+    await expect(init.initializeApp()).rejects.toThrow(/storage IO failure/);
+
+    // 仿 main.tsx 的降级模式：catch 错误 + finally 继续渲染
+    let finallyRan = false;
+    let caughtError: unknown = null;
+    await init
+      .initializeApp()
+      .catch((err: unknown) => {
+        caughtError = err;
+      })
+      .finally(() => {
+        finallyRan = true;
+      });
+    expect(finallyRan).toBe(true);
+    expect(caughtError).toBeInstanceOf(Error);
+  });
+
+  it('单 store hydrate 抛错时 initializeApp reject，调用方仍能渲染 UI', async () => {
+    // 注入会触发 hydrate 异常的快照：cloud_service.session 缺关键字段
+    // 通过劫持 useCloudServiceStore.updateSession 抛错来模拟 store hydrate 失败
+    chromeMock = installChromeMock({
+      player_data: JSON.stringify({
+        cloud_service: { session: { token: 'tk' } },
+      }),
+    });
+
+    const { init, shared } = await loadFreshModules();
+    const original = shared.useCloudServiceStore.getState().updateSession;
+    shared.useCloudServiceStore.setState({
+      updateSession: () => {
+        throw new Error('hydrate failure');
+      },
+    });
+
+    try {
+      await expect(init.initializeApp()).rejects.toThrow(/hydrate failure/);
+
+      // 调用方降级模式：catch + finally 模拟 main.tsx 渲染路径
+      let renderRan = false;
+      await init
+        .initializeApp()
+        .catch(() => {})
+        .finally(() => {
+          renderRan = true;
+        });
+      expect(renderRan).toBe(true);
+    } finally {
+      shared.useCloudServiceStore.setState({ updateSession: original });
+    }
+  });
 });

@@ -17,7 +17,17 @@
     "test:watch": "pnpm --filter @shuoshuo-player/shared test:watch",
     "test:coverage": "pnpm -r --aggregate-output run test:coverage",
     "test:shared": "pnpm --filter @shuoshuo-player/shared test",
-    "test:web": "pnpm --filter @shuoshuo-player/web test"
+    "test:web": "pnpm --filter @shuoshuo-player/web test",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "packages/*/src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "packages/*/src/**/*.css": [
+      "prettier --write"
+    ]
   },
   "engines": {
     "node": ">=20.0.0",
@@ -31,6 +41,8 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "typescript-eslint": "^8.59.1"
   }

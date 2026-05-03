@@ -151,7 +151,86 @@ describe('B2: buildCloudApiCall 行为', () => {
     (cloudPure.request as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       data: buf,
     });
-    const out = await buildCloudApiCall<ArrayBuffer>({ url: '/x' })({ responseType: 'arraybuffer' });
+    const out = await buildCloudApiCall<ArrayBuffer>({ url: '/x' })({
+      responseType: 'arraybuffer',
+    });
     expect(out).toBe(buf);
+  });
+});
+
+/**
+ * A8: 错误码 fallback 路径
+ *
+ * 覆盖 client.ts 中两层 fallback：
+ * 1. cloudService 响应拦截器：网络异常时把 error 转成 `{ code: -1, message: '网络异常，请重试' }`
+ *    使调用方拿到统一形状而不是 axios 原生 AxiosError
+ * 2. buildCloudApiCall：响应缺 code 字段、未知 code、非会话失效 code 时一律透传 throw，
+ *    由 UI 决定 message 展示策略（client 不内置错误码到 message 的字典）
+ */
+describe('A8: 云服务错误码 fallback', () => {
+  beforeEach(() => {
+    setCloudServiceToken('');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('网络异常 fallback：拦截器 catch 后 buildCloudApiCall 拒绝（含 code=-1 与中文文案）', async () => {
+    // 模拟拦截器 catch 后把 error 转成 fallback 对象的形状
+    vi.spyOn(cloudPure, 'request').mockResolvedValueOnce({
+      data: { code: -1, message: '网络异常，请重试' },
+    });
+    const call = buildCloudApiCall({ url: '/network-fail' });
+    await expect(call()).rejects.toMatchObject({
+      code: -1,
+      message: '网络异常，请重试',
+    });
+  });
+
+  it('真实拦截器：axios adapter 抛错时 response interceptor 把 error 转成 fallback', async () => {
+    const originalAdapter = cloudPure.defaults.adapter;
+    cloudPure.defaults.adapter = vi.fn(async () => {
+      throw new Error('ECONNRESET');
+    });
+    try {
+      const call = buildCloudApiCall({ url: '/network-down' });
+      await expect(call()).rejects.toMatchObject({
+        code: -1,
+        message: '网络异常，请重试',
+      });
+    } finally {
+      cloudPure.defaults.adapter = originalAdapter;
+    }
+  });
+
+  it('响应缺 code 字段时直接 throw 整个 respData（不会误判为 code===0）', async () => {
+    vi.spyOn(cloudPure, 'request').mockResolvedValueOnce({
+      data: { unexpected: 'shape' },
+    });
+    const call = buildCloudApiCall({ url: '/malformed' });
+    await expect(call()).rejects.toMatchObject({ unexpected: 'shape' });
+  });
+
+  it('未知错误码（非 0、非会话失效）：透传 throw，session handler 不触发', async () => {
+    vi.spyOn(cloudPure, 'request').mockResolvedValueOnce({
+      data: { code: 9999999, message: 'totally new error' },
+    });
+    const handler = vi.fn();
+    setSessionExpiredHandler(handler);
+    await expect(buildCloudApiCall({ url: '/unknown' })()).rejects.toMatchObject({
+      code: 9999999,
+    });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('code 类型为 string 时不命中 SESSION_EXPIRED_CODES（typeof 检查防御）', async () => {
+    vi.spyOn(cloudPure, 'request').mockResolvedValueOnce({
+      data: { code: '4010000', message: 'string typed code' },
+    });
+    const handler = vi.fn();
+    setSessionExpiredHandler(handler);
+    await expect(buildCloudApiCall({ url: '/string-code' })()).rejects.toBeDefined();
+    expect(handler).not.toHaveBeenCalled();
   });
 });
