@@ -315,4 +315,39 @@ describe('F2: initializeApp', () => {
 
     await expect(init.initializeApp()).resolves.toBeUndefined();
   });
+
+  it('chrome.runtime 不存在时跳过 wbi:refresh 监听（普通 Web 平台）', async () => {
+    // 不安装 chrome mock，模拟普通浏览器环境
+    delete (globalThis as any).chrome;
+    delete (window as any).chrome;
+
+    const { init } = await loadFreshModules();
+    // 应用仍应正常初始化（走 LocalStorageAdapter）
+    await expect(init.initializeApp()).resolves.toBeUndefined();
+  });
+
+  it('chrome.runtime.onMessage 缺失时不抛错（兼容旧版扩展上下文）', async () => {
+    Object.defineProperty(globalThis, 'chrome', {
+      value: {
+        storage: {
+          local: {
+            get: vi.fn(async () => ({})),
+            set: vi.fn(async () => {}),
+            remove: vi.fn(async () => {}),
+          },
+        },
+        runtime: { id: 'ext' }, // 没有 onMessage
+      },
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'chrome', {
+      value: (globalThis as any).chrome,
+      writable: true,
+      configurable: true,
+    });
+
+    const { init } = await loadFreshModules();
+    await expect(init.initializeApp()).resolves.toBeUndefined();
+  });
 });

@@ -8,6 +8,10 @@ import {
 import { ChromeStorageAdapter } from './chrome-storage-adapter';
 import { LocalStorageAdapter } from './local-storage-adapter';
 
+// PlatformBridge 单例已下沉到 shared/platform/bridge.ts；
+// web 包仅负责构造对应平台的实现并通过 setPlatformBridge() 注入。
+export { setPlatformBridge, getPlatformBridge, resetPlatformBridge } from '@shuoshuo-player/shared';
+
 /**
  * Chrome 扩展认证适配器
  *
@@ -28,8 +32,6 @@ class ChromeAuthAdapter implements AuthAdapter {
     // Chrome 扩展无独立登录流程，cookie 即时生效，无需回调
   }
 }
-
-let cachedBridge: PlatformBridge | null = null;
 
 /**
  * 创建跨平台桥接（按当前运行平台返回对应实现）
@@ -61,12 +63,4 @@ export function createPlatformBridge(): PlatformBridge {
   }
 
   return { type, storage, auth };
-}
-
-/** 获取（或惰性初始化）单例桥接 */
-export function getPlatformBridge(): PlatformBridge {
-  if (!cachedBridge) {
-    cachedBridge = createPlatformBridge();
-  }
-  return cachedBridge;
 }

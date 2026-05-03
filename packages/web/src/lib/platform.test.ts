@@ -48,12 +48,20 @@ describe('createPlatformBridge / getPlatformBridge', () => {
     expect(bridge.storage.constructor.name).toBe('LocalStorageAdapter');
   });
 
-  it('getPlatformBridge 缓存单例', async () => {
+  it('setPlatformBridge → getPlatformBridge 返回同一实例', async () => {
     delete (window as any).chrome;
     const m = await loadFreshPlatform();
-    const a = m.getPlatformBridge();
-    const b = m.getPlatformBridge();
-    expect(a).toBe(b);
+    const bridge = m.createPlatformBridge();
+    m.setPlatformBridge(bridge);
+    expect(m.getPlatformBridge()).toBe(bridge);
+    expect(m.getPlatformBridge()).toBe(m.getPlatformBridge());
+  });
+
+  it('未 setPlatformBridge 时 getPlatformBridge 抛错', async () => {
+    delete (window as any).chrome;
+    const m = await loadFreshPlatform();
+    m.resetPlatformBridge();
+    expect(() => m.getPlatformBridge()).toThrow(/未初始化/);
   });
 });
 

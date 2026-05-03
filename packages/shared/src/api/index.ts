@@ -4,6 +4,7 @@ export { encWbi, extractWbiKey } from './bilibili/wbi';
 export { LyricApi } from './cloud/lyric';
 export { AccountApi } from './cloud/account';
 export { LiveSlicerApi } from './cloud/live-slicer';
+export { triggerWbiRefresh } from './wbi-refresh';
 
 export type { LyricListParams, LyricSavePayload } from './cloud/lyric';
 export type {

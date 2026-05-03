@@ -14,4 +14,20 @@ export type {
   NoticeVertical,
   NoticeHorizontal,
 } from './ui';
-export { createPersistMiddleware, restoreState, PERSIST_DATA_KEY } from './middleware/persist';
+export {
+  createPersistMiddleware,
+  restoreState,
+  PERSIST_DATA_KEY,
+  STORE_PERSIST_REGISTRY,
+  collectPersistableSnapshot,
+  bootstrapPersistence,
+} from './middleware/persist';
+export type {
+  PersistedBilibiliVideosShape,
+  PersistedBilibiliUserVideosShape,
+  PersistedPlayingListShape,
+  PersistedFavListShape,
+  PersistedPlayerProfileShape,
+  PersistedLyricsShape,
+  PersistedCloudServiceShape,
+} from './persisted-types';
