@@ -23,6 +23,7 @@ reqwest = { version = "0.12", features = ["json", "cookies"] }
 tokio = { version = "1", features = ["full"] }
 base64 = "0.22"
 regex = "1"
+url = "2"
 
 [features]
 default = ["custom-protocol"]
