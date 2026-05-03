@@ -19,13 +19,25 @@ export const useBilibiliUserStore = create<BilibiliUserState>((set) => ({
   getLoginUserInfo: async () => {
     try {
       const data = await UserApi.getUserInfo();
+      if (__DEV_LOG__) {
+        console.debug('[WBI-DEBUG] getUserInfo resolved', {
+          isLogin: data.isLogin,
+          hasWbiImg: Boolean(data.wbi_img),
+          wbi_img: data.wbi_img,
+        });
+      }
       const isLogin = data.isLogin ?? false;
 
-      if (isLogin && data.wbi_img) {
-        setWbiInfo({
+      // WBI 密钥与登录态无关；nav 接口即使返回 -101 也会回传 wbi_img
+      if (data.wbi_img) {
+        const extracted = {
           img_key: extractWbiKey(data.wbi_img.img_url),
           sub_key: extractWbiKey(data.wbi_img.sub_url),
-        });
+        };
+        if (__DEV_LOG__) console.debug('[WBI-DEBUG] extracted keys', extracted);
+        setWbiInfo(extracted);
+      } else if (__DEV_LOG__) {
+        console.debug('[WBI-DEBUG] no wbi_img in nav response');
       }
 
       set({
@@ -33,7 +45,8 @@ export const useBilibiliUserStore = create<BilibiliUserState>((set) => ({
         isLogin,
         current: isLogin ? data : null,
       });
-    } catch {
+    } catch (err) {
+      if (__DEV_LOG__) console.debug('[WBI-DEBUG] getUserInfo failed', err);
       set({ isInited: true, isLogin: false, current: null });
     }
   },

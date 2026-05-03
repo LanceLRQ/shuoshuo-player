@@ -10,7 +10,7 @@
     },
     "types": []
   },
-  "include": ["src/**/*", "src/**/*.tsx"],
+  "include": ["src/**/*", "src/**/*.tsx", "../shared/src/types/env.d.ts"],
   "exclude": [
     "src/**/*.node.ts",
     "src/**/*.test.ts",

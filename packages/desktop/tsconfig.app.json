@@ -9,7 +9,7 @@
       "@web/*": ["../web/src/*"]
     }
   },
-  "include": ["src/**/*", "src/**/*.tsx", "../web/src/**/*", "../web/src/**/*.tsx"],
+  "include": ["src/**/*", "src/**/*.tsx", "../web/src/**/*", "../web/src/**/*.tsx", "../shared/src/types/env.d.ts"],
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",

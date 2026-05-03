@@ -18,6 +18,7 @@ let wbiInfo: WbiInfo | null = null;
 
 export function setWbiInfo(info: WbiInfo) {
   wbiInfo = info;
+  if (__DEV_LOG__) console.debug('[WBI-DEBUG] setWbiInfo', info);
 }
 
 export function getWbiInfo(): WbiInfo | null {
@@ -72,12 +73,32 @@ export const bilibiliService: AxiosInstance = axios.create({
 
 bilibiliService.interceptors.request.use((config) => {
   const cfg = config as InternalRequestConfigWithWbi;
+  if (__DEV_LOG__) {
+    console.debug('[WBI-DEBUG] interceptor entry', {
+      url: cfg.url,
+      method: cfg.method,
+      __useWbi: cfg.__useWbi,
+      wbiInfo,
+      paramsBefore: cfg.params,
+    });
+  }
   if (cfg.__useWbi && wbiInfo) {
     cfg.params = encWbi(
       (cfg.params as Record<string, unknown> | undefined) ?? {},
       wbiInfo.img_key,
       wbiInfo.sub_key,
     );
+    if (__DEV_LOG__) {
+      console.debug('[WBI-DEBUG] params after encWbi', {
+        url: cfg.url,
+        paramsAfter: cfg.params,
+      });
+    }
+  } else if (__DEV_LOG__) {
+    console.debug('[WBI-DEBUG] skip signing', {
+      url: cfg.url,
+      reason: !cfg.__useWbi ? '__useWbi=false' : 'wbiInfo=null',
+    });
   }
   if (cfg.method?.toLowerCase() === 'post' && cfg.data && typeof cfg.data === 'object') {
     cfg.data = qs.stringify(cfg.data as Record<string, unknown>);

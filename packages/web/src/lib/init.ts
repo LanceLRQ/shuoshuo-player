@@ -30,6 +30,11 @@ export async function initializeApp(): Promise<void> {
   setPlatformBridge(createPlatformBridge());
   await bootstrapPersistence();
   listenChromeWbiRefresh();
+  // 启动时立即同步一次 WBI 密钥；alarms 仅负责后续 30 分钟周期刷新。
+  // 不等待（nav 接口异步加载，避免阻塞 UI 渲染）。
+  void triggerWbiRefresh().catch((err) => {
+    if (__DEV_LOG__) console.debug('[WBI-DEBUG] initial triggerWbiRefresh failed', err);
+  });
 }
 
 function listenChromeWbiRefresh(): void {

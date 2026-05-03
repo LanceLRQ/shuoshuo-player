@@ -6,6 +6,7 @@
   "description": "说说播放器 - 基于 Bilibili 的第三方音乐播放器",
   "scripts": {
     "dev:web": "pnpm --filter @shuoshuo-player/web dev",
+    "dev:extension": "pnpm --filter @shuoshuo-player/web dev:extension",
     "dev:desktop": "pnpm --filter @shuoshuo-player/desktop tauri dev",
     "build:web": "pnpm --filter @shuoshuo-player/web build",
     "build:desktop": "pnpm --filter @shuoshuo-player/desktop tauri build",

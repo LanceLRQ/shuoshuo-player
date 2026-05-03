@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:extension": "vite build --mode extension-dev --watch",
     "build": "tsc -b && vite build",
     "build:extension": "tsc -b && vite build --mode extension",
     "build:analyze": "tsc -b && ANALYZE=1 vite build",

@@ -33,9 +33,10 @@ export interface VideoSearchResponse {
 }
 
 export const VideoApi = {
-  /** 视频详情 */
+  /** 视频详情（WBI） */
   getVideoViewInfo: buildBilibiliApiCall<VideoViewInfo>({
-    url: 'https://api.bilibili.com/x/web-interface/view',
+    url: 'https://api.bilibili.com/x/web-interface/wbi/view',
+    useWbi: true,
   }),
 
   /** DASH 音频流（WBI） */
@@ -51,8 +52,9 @@ export const VideoApi = {
     useWbi: true,
   }),
 
-  /** 视频搜索 */
+  /** 视频搜索（WBI） */
   searchVideo: buildBilibiliApiCall<VideoSearchResponse>({
-    url: 'https://api.bilibili.com/x/web-interface/search/type',
+    url: 'https://api.bilibili.com/x/web-interface/wbi/search/type',
+    useWbi: true,
   }),
 };

@@ -239,6 +239,10 @@ describe('F2: initializeApp', () => {
     shared.useBilibiliUserStore.setState({ getLoginUserInfo: spy });
 
     await init.initializeApp();
+    // initializeApp 启动时会 fire-and-forget 调用一次 triggerWbiRefresh，
+    // 等微任务 flush 后 mockClear，再独立验证 listener 触发的调用
+    await new Promise((r) => setTimeout(r, 0));
+    spy.mockClear();
 
     const listener = chromeMock.runtime.onMessage._listeners[0];
     listener({ type: shared.WBI_REFRESH_MESSAGE_TYPE }, {}, () => {});
@@ -252,6 +256,8 @@ describe('F2: initializeApp', () => {
     shared.useBilibiliUserStore.setState({ getLoginUserInfo: spy });
 
     await init.initializeApp();
+    await new Promise((r) => setTimeout(r, 0));
+    spy.mockClear();
 
     const listener = chromeMock.runtime.onMessage._listeners[0];
     listener({ type: 'other' }, {}, () => {});

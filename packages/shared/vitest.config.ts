@@ -2,6 +2,10 @@ import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
 export default defineConfig({
+  // 与 web/vite.config.ts 的 define 对齐：测试默认走非 dev 路径，关闭调试日志
+  define: {
+    __DEV_LOG__: 'false',
+  },
   test: {
     globals: true,
     environment: 'node',

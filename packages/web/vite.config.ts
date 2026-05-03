@@ -36,7 +36,11 @@ function manualChunks(id: string): string | undefined {
 }
 
 export default defineConfig(({ mode }): UserConfig => {
-  const isExtension = mode === 'extension';
+  // 'extension' = 生产扩展构建；'extension-dev' = 开发 watch 模式（保留 console.debug）
+  // 注意：不通过 NODE_ENV=development 区分，避免 axios/qs 等库走 dev path
+  // 引入 Node 内置模块（util.inspect.custom 等）导致浏览器运行时报错
+  const isExtension = mode === 'extension' || mode === 'extension-dev';
+  const isExtensionDev = mode === 'extension-dev';
   // ANALYZE=1 启用：构建后 stats.html 可视化每个 chunk 的依赖来源
   const enableAnalyze = process.env.ANALYZE === '1';
 
@@ -58,6 +62,11 @@ export default defineConfig(({ mode }): UserConfig => {
 
   return {
     plugins,
+    // 编译期常量：__DEV_LOG__ = true 时保留 [WBI-DEBUG] 链路日志
+    // 仅 dev:extension（mode=extension-dev）置 true；prod 构建时整段 if (false) {} 被 DCE
+    define: {
+      __DEV_LOG__: JSON.stringify(isExtensionDev),
+    },
     // packages/web/public 内的 manifest.json / rules.json / logo*.png 由 Vite 默认 publicDir
     // 行为复制到 outDir 根（既适用 dev 也适用 build），扩展模式无需额外插件
     resolve: {

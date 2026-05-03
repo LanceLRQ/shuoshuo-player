@@ -24,6 +24,10 @@ bootstrapPersistence()
     console.error('[shuoshuo-desktop] bootstrap 失败，使用空状态启动：', err);
   })
   .finally(() => {
+    // 启动时立即同步一次 WBI 密钥；setInterval 仅负责后续 30 分钟周期刷新
+    void triggerWbiRefresh().catch(() => {
+      /* noop */
+    });
     // 桌面端用前端 setInterval 触发 WBI 刷新（无 Service Worker / chrome.alarms）
     setInterval(() => {
       void triggerWbiRefresh();

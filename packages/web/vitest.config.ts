@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  // 与 vite.config.ts 的 define 对齐：测试默认走非 dev 路径，关闭调试日志
+  define: {
+    __DEV_LOG__: 'false',
+  },
   plugins: [react()],
   resolve: {
     alias: {
