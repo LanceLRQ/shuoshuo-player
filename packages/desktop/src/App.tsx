@@ -1,18 +1,4 @@
-export default function App() {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'system-ui',
-      }}
-    >
-      <div style={{ textAlign: 'center' }}>
-        <h1>说说播放器 v2 · 桌面端</h1>
-        <p style={{ color: '#888' }}>Tauri 骨架已就绪～完整 UI 将在 Phase 6 接入</p>
-      </div>
-    </div>
-  );
-}
+// 桌面端 App 是 web 包 App 的薄重导出。
+// 路由 / 布局 / 弹窗 / 播放器全部跑在 packages/web/src/App.tsx 中，
+// 让 Chrome 扩展端与 Tauri 桌面端共用同一份 UI 与状态管理代码。
+export { default } from '@/App';

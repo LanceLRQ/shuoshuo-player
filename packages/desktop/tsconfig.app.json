@@ -1,15 +1,21 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "composite": true,
-    "outDir": "./dist",
+    "rootDir": "..",
     "paths": {
-      "@/*": ["./src/*"],
+      "@/*": ["../web/src/*"],
+      "@desktop/*": ["./src/*"],
       "@shared/*": ["../shared/src/*"],
       "@web/*": ["../web/src/*"]
     }
   },
-  "include": ["src/**/*", "src/**/*.tsx"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+  "include": ["src/**/*", "src/**/*.tsx", "../web/src/**/*", "../web/src/**/*.tsx"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "../web/src/**/*.test.ts",
+    "../web/src/**/*.test.tsx",
+    "../web/src/test/**",
+    "../web/src/background/**"
+  ]
 }

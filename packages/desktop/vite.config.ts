@@ -12,7 +12,10 @@ export default defineConfig(async (): Promise<UserConfig> => ({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      // 桌面端复用 packages/web 的所有页面/组件/store，因此 @ 直接指向 web/src，
+      // 让 web 内部的 @/components/... 等 import 在 desktop 编译上下文下可解析
+      '@': path.resolve(__dirname, '../web/src'),
+      '@desktop': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../shared/src'),
       '@web': path.resolve(__dirname, '../web/src'),
     },
