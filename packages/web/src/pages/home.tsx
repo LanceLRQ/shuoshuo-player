@@ -64,7 +64,6 @@ export function HomePage() {
       void readUserSpaceInfo(MASTER_MID);
     }
     // 仅依赖 store 引用，不在 update_time 变化时重复触发
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSlideClick = (video: BilibiliVideo) => {
