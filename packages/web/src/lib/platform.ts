@@ -3,6 +3,7 @@ import {
   detectPlatformType,
   type AuthAdapter,
   type PlatformBridge,
+  type ShellAdapter,
   type StorageAdapter,
 } from '@shuoshuo-player/shared';
 import { ChromeStorageAdapter } from './chrome-storage-adapter';
@@ -34,17 +35,30 @@ class ChromeAuthAdapter implements AuthAdapter {
 }
 
 /**
+ * 浏览器端外链适配器：window.open + noopener,noreferrer
+ *
+ * Chrome 扩展和 Web 端共用此实现；Tauri 端独立实装走 plugin-shell::open。
+ */
+class WebShellAdapter implements ShellAdapter {
+  async openExternal(url: string): Promise<void> {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
+/**
  * 创建跨平台桥接（按当前运行平台返回对应实现）
  *
- * - chrome-extension：ChromeStorageAdapter + ChromeAuthAdapter
+ * - chrome-extension：ChromeStorageAdapter + ChromeAuthAdapter + WebShellAdapter
  * - tauri：在 packages/desktop 内单独构造，此处不应被命中
- * - web：LocalStorageAdapter + ChromeAuthAdapter（开发态复用）
+ * - web：LocalStorageAdapter + ChromeAuthAdapter + WebShellAdapter（开发态复用）
  */
 export function createPlatformBridge(): PlatformBridge {
   const type = detectPlatformType();
 
   let storage: StorageAdapter;
   let auth: AuthAdapter;
+  const shell: ShellAdapter = new WebShellAdapter();
 
   switch (type) {
     case 'chrome-extension':
@@ -62,5 +76,5 @@ export function createPlatformBridge(): PlatformBridge {
       break;
   }
 
-  return { type, storage, auth };
+  return { type, storage, auth, shell };
 }

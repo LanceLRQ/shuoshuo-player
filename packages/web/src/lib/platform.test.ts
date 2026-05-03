@@ -84,3 +84,25 @@ describe('ChromeAuthAdapter（间接覆盖）', () => {
     expect(() => bridge.auth.onLoginSuccess(() => {})).not.toThrow();
   });
 });
+
+describe('WebShellAdapter', () => {
+  it('openExternal 调用 window.open(url, _blank, noopener,noreferrer)', async () => {
+    delete (window as any).chrome;
+    const m = await loadFreshPlatform();
+    const bridge = m.createPlatformBridge();
+    const spy = vi.spyOn(window, 'open').mockReturnValue(null);
+    await bridge.shell.openExternal('https://example.com');
+    expect(spy).toHaveBeenCalledWith('https://example.com', '_blank', 'noopener,noreferrer');
+    spy.mockRestore();
+  });
+
+  it('openExternal 收到空字符串时静默返回，不调用 window.open', async () => {
+    delete (window as any).chrome;
+    const m = await loadFreshPlatform();
+    const bridge = m.createPlatformBridge();
+    const spy = vi.spyOn(window, 'open').mockReturnValue(null);
+    await bridge.shell.openExternal('');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});

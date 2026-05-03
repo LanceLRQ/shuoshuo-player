@@ -5,6 +5,7 @@ import {
   useLyricsStore,
   LyricApi,
   useUIStore,
+  getPlatformBridge,
   NoticeType,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
@@ -148,14 +149,12 @@ export function LyricViewer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() =>
-                    currentVideo &&
-                    window.open(
+                  onClick={() => {
+                    if (!currentVideo) return;
+                    void getPlatformBridge().shell.openExternal(
                       `https://www.bilibili.com/video/${currentVideo.bvid}`,
-                      '_blank',
-                      'noopener,noreferrer',
-                    )
-                  }
+                    );
+                  }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>

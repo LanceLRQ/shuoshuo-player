@@ -6,6 +6,7 @@ import {
   urlPrefixFixed,
   NoticeType,
   FavListType,
+  getPlatformBridge,
   type LiveSlicerMan,
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
@@ -87,14 +88,17 @@ export function LiveSlicersPage() {
                   <Plus className="mr-1 h-3 w-3" />
                   关注
                 </Button>
-                <Button variant="ghost" size="icon" asChild title="访问 B 站空间">
-                  <a
-                    href={`https://space.bilibili.com/${slicer.mid}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="访问 B 站空间"
+                  onClick={() =>
+                    void getPlatformBridge().shell.openExternal(
+                      `https://space.bilibili.com/${slicer.mid}`,
+                    )
+                  }
+                >
+                  <ExternalLink className="h-3 w-3" />
                 </Button>
               </div>
             </Card>

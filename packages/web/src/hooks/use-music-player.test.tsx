@@ -405,3 +405,152 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(result.current.isPlaying).toBe(false);
   });
 });
+
+describe('H1: useMusicPlayer 媒体会话 API 接入', () => {
+  // 用 Map 记录已注册的 actionHandler，便于断言并重放
+  const handlers = new Map<string, MediaSessionActionHandler | null>();
+  let originalMediaSession: MediaSession | undefined;
+
+  beforeEach(() => {
+    howlerState.HowlMock.mockClear();
+    howlerState.lastCb = {};
+    howlerState.lastInstance = null as never;
+    howlerState.isPlayingMock = false;
+    howlerState.seekValueMock = 0;
+    howlerState.durationMock = 240;
+    handlers.clear();
+    resetStores();
+
+    originalMediaSession = (navigator as unknown as { mediaSession?: MediaSession }).mediaSession;
+    Object.defineProperty(navigator, 'mediaSession', {
+      configurable: true,
+      writable: true,
+      value: {
+        playbackState: 'none' as MediaSessionPlaybackState,
+        metadata: null,
+        setActionHandler: (action: string, h: MediaSessionActionHandler | null) => {
+          handlers.set(action, h);
+        },
+        setPositionState: vi.fn(),
+      },
+    });
+    // jsdom 不提供 MediaMetadata 全局类，stub 一个允许 `new MediaMetadata()` 不抛错的存根
+    vi.stubGlobal(
+      'MediaMetadata',
+      vi.fn(function MockMediaMetadata() {
+        return {} as MediaMetadata;
+      }),
+    );
+
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  });
+
+  afterEach(() => {
+    if (originalMediaSession === undefined) {
+      delete (navigator as unknown as { mediaSession?: MediaSession }).mediaSession;
+    } else {
+      (navigator as unknown as { mediaSession: MediaSession }).mediaSession =
+        originalMediaSession;
+    }
+    vi.unstubAllGlobals();
+  });
+
+  it('挂载后注册 6 个 ActionHandler（play/pause/previoustrack/nexttrack/seekto/stop）', () => {
+    renderHook(() => useMusicPlayer());
+    expect(handlers.has('play')).toBe(true);
+    expect(handlers.has('pause')).toBe(true);
+    expect(handlers.has('previoustrack')).toBe(true);
+    expect(handlers.has('nexttrack')).toBe(true);
+    expect(handlers.has('seekto')).toBe(true);
+    expect(handlers.has('stop')).toBe(true);
+  });
+
+  it('nexttrack 触发后切到下一首（与系统媒体键 / 锁屏行为对齐）', async () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1Test00001', 'BV1Test00002'],
+      entities: {
+        BV1Test00001: TEST_VIDEO,
+        BV1Test00002: { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Track 2' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'main',
+      bvIds: ['BV1Test00001', 'BV1Test00002'],
+      current: 'BV1Test00001',
+      playNext: false,
+    });
+
+    renderHook(() => useMusicPlayer());
+
+    act(() => {
+      handlers.get('nexttrack')?.({ action: 'nexttrack' } as MediaSessionActionDetails);
+    });
+
+    expect(usePlayingListStore.getState().current).toBe('BV1Test00002');
+  });
+
+  it('seekto 触发后调用内部 seek（progress 同步）', async () => {
+    const { result } = renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+
+    act(() => {
+      handlers.get('seekto')?.({ action: 'seekto', seekTime: 88 } as MediaSessionActionDetails);
+    });
+
+    expect(howlerState.lastInstance!.seek).toHaveBeenCalledWith(88);
+    expect(result.current.progress).toBe(88);
+  });
+
+  it('stop 触发后调用 howl.stop()', async () => {
+    renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+
+    act(() => {
+      handlers.get('stop')?.({ action: 'stop' } as MediaSessionActionDetails);
+    });
+
+    expect(howlerState.lastInstance!.stop).toHaveBeenCalled();
+  });
+
+  it('isPlaying 切换时同步 playbackState 到 mediaSession', async () => {
+    renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+    expect(navigator.mediaSession.playbackState).toBe('playing');
+
+    act(() => {
+      howlerState.lastCb.onpause?.();
+    });
+    expect(navigator.mediaSession.playbackState).toBe('paused');
+  });
+
+  it('卸载时清理所有 ActionHandler（防内存泄漏 / 跨页面冲突）', () => {
+    const { unmount } = renderHook(() => useMusicPlayer());
+    expect(handlers.get('play')).not.toBeNull();
+
+    unmount();
+
+    expect(handlers.get('play')).toBeNull();
+    expect(handlers.get('pause')).toBeNull();
+    expect(handlers.get('nexttrack')).toBeNull();
+    expect(handlers.get('previoustrack')).toBeNull();
+    expect(handlers.get('seekto')).toBeNull();
+    expect(handlers.get('stop')).toBeNull();
+  });
+});

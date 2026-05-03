@@ -254,7 +254,12 @@ describe('bootstrapPersistence', () => {
   it('恢复 cloud_api_base_url 到 client，并行读取 baseURL + player_data', async () => {
     const adapter = makeAdapter();
     await adapter.setItem(CLOUD_API_BASE_URL_STORAGE_KEY, 'https://my.api/v3');
-    setPlatformBridge({ type: 'web', storage: adapter, auth: makeAuthAdapter() });
+    setPlatformBridge({
+      type: 'web',
+      storage: adapter,
+      auth: makeAuthAdapter(),
+      shell: makeShellAdapter(),
+    });
 
     await bootstrapPersistence();
 
@@ -266,7 +271,12 @@ describe('bootstrapPersistence', () => {
   it('cloud_api_base_url 为空白时 fallback 到默认值', async () => {
     const adapter = makeAdapter();
     await adapter.setItem(CLOUD_API_BASE_URL_STORAGE_KEY, '   ');
-    setPlatformBridge({ type: 'web', storage: adapter, auth: makeAuthAdapter() });
+    setPlatformBridge({
+      type: 'web',
+      storage: adapter,
+      auth: makeAuthAdapter(),
+      shell: makeShellAdapter(),
+    });
 
     await bootstrapPersistence();
     expect(getCloudApiBaseUrl()).toBe(DEFAULT_CLOUD_API_BASE_URL);
@@ -281,7 +291,12 @@ describe('bootstrapPersistence', () => {
         ui_profile: { theme: 'dark', volume: 0.4, autoPlay: true, loopMode: 'random' },
       }),
     );
-    setPlatformBridge({ type: 'web', storage: adapter, auth: makeAuthAdapter() });
+    setPlatformBridge({
+      type: 'web',
+      storage: adapter,
+      auth: makeAuthAdapter(),
+      shell: makeShellAdapter(),
+    });
 
     await bootstrapPersistence();
 
@@ -292,7 +307,12 @@ describe('bootstrapPersistence', () => {
 
   it('apiBaseUrl 变更后立即写入独立 storage key（与 player_data 节流通道解耦）', async () => {
     const adapter = makeAdapter();
-    setPlatformBridge({ type: 'web', storage: adapter, auth: makeAuthAdapter() });
+    setPlatformBridge({
+      type: 'web',
+      storage: adapter,
+      auth: makeAuthAdapter(),
+      shell: makeShellAdapter(),
+    });
     await bootstrapPersistence();
 
     (adapter.setItem as unknown as { mockClear: () => void }).mockClear();
@@ -315,7 +335,12 @@ describe('bootstrapPersistence', () => {
 
   it('hot-path 优化：单帧多次 setState 合并为一次 microtask flush', async () => {
     const adapter = makeAdapter();
-    setPlatformBridge({ type: 'web', storage: adapter, auth: makeAuthAdapter() });
+    setPlatformBridge({
+      type: 'web',
+      storage: adapter,
+      auth: makeAuthAdapter(),
+      shell: makeShellAdapter(),
+    });
     await bootstrapPersistence();
 
     // 启用 fake timer 拦截内部 trailingThrottle 的 setTimeout
@@ -362,5 +387,11 @@ function makeAuthAdapter() {
     login: vi.fn(async () => {}),
     logout: vi.fn(async () => {}),
     onLoginSuccess: vi.fn(),
+  };
+}
+
+function makeShellAdapter() {
+  return {
+    openExternal: vi.fn(async () => {}),
   };
 }

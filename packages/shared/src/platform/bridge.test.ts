@@ -3,7 +3,12 @@ import {
   getPlatformBridge,
   resetPlatformBridge,
 } from './bridge';
-import type { PlatformBridge, StorageAdapter, AuthAdapter } from '../types';
+import type {
+  AuthAdapter,
+  PlatformBridge,
+  ShellAdapter,
+  StorageAdapter,
+} from '../types';
 
 function makeBridge(): PlatformBridge {
   const storage: StorageAdapter = {
@@ -16,7 +21,10 @@ function makeBridge(): PlatformBridge {
     logout: vi.fn(async () => {}),
     onLoginSuccess: vi.fn(),
   };
-  return { type: 'web', storage, auth };
+  const shell: ShellAdapter = {
+    openExternal: vi.fn(async () => {}),
+  };
+  return { type: 'web', storage, auth, shell };
 }
 
 describe('PlatformBridge 单例', () => {

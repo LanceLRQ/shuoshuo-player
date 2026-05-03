@@ -15,6 +15,7 @@ import {
   useUIStore,
   formatNumber10K,
   bilibiliThumbUrl,
+  getPlatformBridge,
   NoticeType,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
@@ -93,7 +94,9 @@ function VideoItemImpl({
   }, [onAddToFav, video, fromSearch]);
 
   const handleOpenBilibili = useCallback(() => {
-    window.open(`https://www.bilibili.com/video/${video.bvid}`, '_blank', 'noopener,noreferrer');
+    void getPlatformBridge().shell.openExternal(
+      `https://www.bilibili.com/video/${video.bvid}`,
+    );
   }, [video.bvid]);
 
   const createdLabel = video.created

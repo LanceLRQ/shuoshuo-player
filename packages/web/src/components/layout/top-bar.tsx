@@ -7,6 +7,7 @@ import {
   useUIStore,
   EXPORT_KEYS,
   NoticeType,
+  getPlatformBridge,
 } from '@shuoshuo-player/shared';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -137,7 +138,7 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => window.open(GITHUB_URL, '_blank', 'noopener,noreferrer')}
+                onClick={() => void getPlatformBridge().shell.openExternal(GITHUB_URL)}
                 aria-label="GitHub"
               >
                 <GithubIcon className="h-5 w-5" />

@@ -29,10 +29,23 @@ export interface SpiderAdapter {
   getLRC(mid: string): Promise<string>;
 }
 
+/**
+ * 外链打开适配器
+ *
+ * - Chrome 扩展 / Web：window.open(url, '_blank', 'noopener,noreferrer')
+ * - Tauri：tauri-plugin-shell.open(url) → 调用系统默认浏览器，避免在内嵌 WebView 打开
+ *
+ * 业务代码应统一通过此接口打开外部链接，禁止直接 window.open。
+ */
+export interface ShellAdapter {
+  openExternal(url: string): Promise<void>;
+}
+
 /** 平台桥接接口 */
 export interface PlatformBridge {
   type: PlatformType;
   storage: StorageAdapter;
   auth: AuthAdapter;
+  shell: ShellAdapter;
   spider?: SpiderAdapter;
 }

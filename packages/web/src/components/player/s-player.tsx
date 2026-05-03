@@ -19,6 +19,7 @@ import {
   usePlayerProfileStore,
   urlPrefixFixed,
   formatPlayTime,
+  getPlatformBridge,
   type LoopMode,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
@@ -115,10 +116,8 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
                 size="icon"
                 className="h-8 w-8 shrink-0"
                 onClick={() =>
-                  window.open(
+                  void getPlatformBridge().shell.openExternal(
                     `https://www.bilibili.com/video/${cur.bvid}`,
-                    '_blank',
-                    'noopener,noreferrer',
                   )
                 }
                 aria-label="去 B 站"

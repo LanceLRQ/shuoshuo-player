@@ -135,8 +135,12 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       setDuration(0);
       setIsLoading(true);
 
-      // mediaSession 元数据
-      if ('mediaSession' in navigator && video.title) {
+      // mediaSession 元数据：MediaMetadata 在某些 WebView / jsdom 环境下未提供，做能力探测
+      if (
+        'mediaSession' in navigator &&
+        typeof MediaMetadata !== 'undefined' &&
+        video.title
+      ) {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: video.title,
           artist: video.author,
@@ -327,6 +331,80 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     if (!lyricFinder || !isPlaying) return '';
     return lyricFinder(progress) ?? '';
   }, [lyricFinder, isPlaying, progress]);
+
+  // === 媒体会话 API：系统媒体键 / 锁屏 / 通知中心控件 ===
+  // metadata 已在 initHowl 中按曲目设置；此处补 actionHandler + playbackState
+  // 注：浏览器需要在此前已发生用户手势（点击播放）才会真正暴露 mediaSession，
+  // jsdom 测试环境也基本支持 setActionHandler；不支持时 if 短路即可
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+
+    const safeSet = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+      // setActionHandler 对未支持的 action 会抛 NotSupportedError，吞掉即可
+      try {
+        ms.setActionHandler(action, handler);
+      } catch {
+        /* ignore: 浏览器不支持该 action */
+      }
+    };
+
+    safeSet('play', () => togglePlay());
+    safeSet('pause', () => togglePlay());
+    safeSet('previoustrack', () => goPrev());
+    safeSet('nexttrack', () => goNext());
+    safeSet('seekto', (e) => {
+      const seekTime = (e as MediaSessionActionDetails & { seekTime?: number }).seekTime;
+      if (typeof seekTime === 'number') seek(seekTime);
+    });
+    safeSet('stop', () => {
+      if (howlRef.current) {
+        howlRef.current.stop();
+      }
+    });
+
+    return () => {
+      safeSet('play', null);
+      safeSet('pause', null);
+      safeSet('previoustrack', null);
+      safeSet('nexttrack', null);
+      safeSet('seekto', null);
+      safeSet('stop', null);
+    };
+  }, [togglePlay, goNext, goPrev, seek]);
+
+  // 同步 playbackState（控制锁屏/通知中心 play/pause 图标）
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    if (isPlaying) ms.playbackState = 'playing';
+    else if (currentVideo) ms.playbackState = 'paused';
+    else ms.playbackState = 'none';
+  }, [isPlaying, currentVideo]);
+
+  // 进度同步到 setPositionState（让锁屏滚动条跟随播放进度；每秒一次避免 RAF 高频开销）
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    if (typeof ms.setPositionState !== 'function') return;
+    if (!duration || !isPlaying) return;
+
+    const sync = () => {
+      try {
+        ms.setPositionState!({
+          duration,
+          position: Math.min(progress, duration),
+          playbackRate: 1,
+        });
+      } catch {
+        /* duration 与 position 可能短暂不一致触发抛错，忽略 */
+      }
+    };
+
+    sync();
+    const id = setInterval(sync, 1000);
+    return () => clearInterval(id);
+  }, [duration, progress, isPlaying]);
 
   return {
     isLoading,
