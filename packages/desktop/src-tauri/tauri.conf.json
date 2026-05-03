@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "说说播放器",
         "width": 1280,
         "height": 800,
