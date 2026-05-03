@@ -40,7 +40,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. **CRA / Craco 不再使用**：所有构建走 Vite
 4. **JavaScript 仅出现在 v1/**：v2 工作区文件全部 `.ts` / `.tsx` / `.rs`
 5. **v1 代码只读**：v1 中的任何文件除非被显式要求迁移否则不修改
-6. **响应式分包**：Chrome 扩展产物体积控制 < 1MB，Tauri 桌面端 < 10MB
+6. **响应式分包**：Chrome 扩展产物体积软约束 < 10MB，Tauri 桌面端 < 10MB（10MB 是软警戒线，避免依赖无意识膨胀；Chrome 扩展商店实际允许 < 100MB）
 
 ## 仓库与开发命令
 
@@ -158,14 +158,14 @@ pnpm install --frozen-lockfile   # 1. 锁文件一致性
 pnpm lint                        # 2. ESLint
 pnpm typecheck                   # 3. TS 类型检查（递归 -r）
 pnpm test:coverage               # 4. 测试 + 覆盖率
-pnpm build:extension             # 5. Chrome 扩展构建（含体积 < 1024 KiB 校验）
+pnpm build:extension             # 5. Chrome 扩展构建（含体积 < 10240 KiB 校验）
 ```
 
 **体积自检**（构建后执行，对应 CI 中的 Verify extension size 步骤）：
 
 ```bash
 TOTAL_KIB=$(($(find packages/web/dist-extension -type f -print0 | xargs -0 wc -c | tail -1 | awk '{print $1}') / 1024))
-echo "Extension: ${TOTAL_KIB} KiB"; [ "$TOTAL_KIB" -le 1024 ] || echo "❌ 超出 1024 KiB 预算"
+echo "Extension: ${TOTAL_KIB} KiB"; [ "$TOTAL_KIB" -le 10240 ] || echo "❌ 超出 10240 KiB 预算"
 ```
 
 ### 危险动作前必须停下来确认

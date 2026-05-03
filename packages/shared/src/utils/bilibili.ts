@@ -1,9 +1,92 @@
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import type { BilibiliVideo } from '../types';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
+
+/**
+ * 投稿字段拾取与映射（移植 v1 pickVideosField）
+ *
+ * 三种 B 站接口返回结构差异较大，需归一化到 BilibiliVideo 形状才能存入 entity store：
+ *
+ * - `default`：UP 主投稿列表 vlist 项（/x/space/wbi/arc/search），
+ *   字段名与 BilibiliVideo 直接对应，无需映射
+ *
+ * - `view`：视频详情接口（/x/web-interface/wbi/view），需映射：
+ *     ctime → created
+ *     duration → length
+ *     stat.view → play
+ *     stat.reply → comment
+ *     owner.name → author
+ *     owner.mid → mid
+ *     desc → description
+ *
+ * - `fav_folder`：收藏夹 medias 项（/x/v3/fav/resource/list），需映射：
+ *     id → aid
+ *     cover → pic
+ *     ctime → created
+ *     duration → length
+ *     cnt_info.play → play
+ *     cnt_info.reply → comment
+ *     upper.name → author
+ *     upper.mid → mid
+ *     intro → description
+ */
+type PickMode = 'default' | 'fav_folder' | 'view';
+type RawItem = Record<string, unknown> & { bvid: string };
+type Mapped = Partial<BilibiliVideo> & { bvid: string };
+
+function mapViewItem(i: RawItem): Mapped {
+  const stat = (i.stat ?? {}) as { view?: number; reply?: number };
+  const owner = (i.owner ?? {}) as { name?: string; mid?: number };
+  return {
+    aid: i.aid as number,
+    bvid: i.bvid,
+    pic: i.pic as string,
+    title: i.title as string,
+    sub_title: i.sub_title as string,
+    is_union_video: i.is_union_video as boolean,
+    created: i.ctime as number,
+    length: i.duration as string,
+    play: stat.view,
+    comment: stat.reply,
+    author: owner.name,
+    mid: owner.mid,
+    description: (i.desc ?? i.description) as string,
+  };
+}
+
+function mapFavFolderItem(i: RawItem): Mapped {
+  const cnt = (i.cnt_info ?? {}) as { play?: number; reply?: number };
+  const upper = (i.upper ?? {}) as { name?: string; mid?: number };
+  return {
+    aid: i.id as number,
+    bvid: i.bvid,
+    pic: i.cover as string,
+    title: i.title as string,
+    sub_title: i.sub_title as string,
+    is_union_video: i.is_union_video as boolean,
+    created: i.ctime as number,
+    length: i.duration as string,
+    play: cnt.play,
+    comment: cnt.reply,
+    author: upper.name,
+    mid: upper.mid,
+    description: i.intro as string,
+  };
+}
+
+export function pickVideosFields(
+  list: { bvid: string } | Array<{ bvid: string }>,
+  mode: PickMode = 'default',
+): Mapped[] {
+  const arr = (Array.isArray(list) ? list : [list]) as RawItem[];
+  if (mode === 'default') return arr as unknown as Mapped[];
+  const mapper = mode === 'view' ? mapViewItem : mapFavFolderItem;
+  return arr.map(mapper);
+}
 
 /**
  * 从 URL 或数字字符串中提取 B 站 UID

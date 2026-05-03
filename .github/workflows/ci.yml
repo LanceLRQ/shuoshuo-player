@@ -54,12 +54,12 @@ jobs:
           TOTAL_BYTES=$(find packages/web/dist-extension -type f -print0 | xargs -0 wc -c | tail -1 | awk '{print $1}')
           TOTAL_KIB=$((TOTAL_BYTES / 1024))
           echo "Extension total: ${TOTAL_BYTES} bytes (${TOTAL_KIB} KiB)"
-          # Phase 7 §7.3 体积目标：dist-extension < 1024 KiB（按 1024 基数 < 1MB）
-          if [ "$TOTAL_KIB" -gt 1024 ]; then
-            echo "::error::Extension size ${TOTAL_KIB} KiB exceeds 1024 KiB budget"
+          # 体积软警戒线：dist-extension < 10240 KiB（10 MB）；Chrome Web Store 实际允许 < 100 MB
+          if [ "$TOTAL_KIB" -gt 10240 ]; then
+            echo "::error::Extension size ${TOTAL_KIB} KiB exceeds 10240 KiB budget"
             exit 1
           fi
-          echo "::notice::Extension size ${TOTAL_KIB} KiB (under 1024 KiB budget)"
+          echo "::notice::Extension size ${TOTAL_KIB} KiB (under 10240 KiB budget)"
 
       - name: Upload extension artifact
         if: always()

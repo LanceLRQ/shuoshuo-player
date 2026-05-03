@@ -81,7 +81,7 @@ export default defineConfig(({ mode }): UserConfig => {
       // Chrome 扩展 MV3 最低 Chrome 88，桌面同样基线（Tauri WebView 也支持）
       target: 'chrome88',
       cssCodeSplit: true,
-      // 1MB 警告与 manifest 限制对齐
+      // 单 chunk 软警告 1 MB（仅 vite 构建告警，与扩展包体积阈值 10 MB 不同步）
       chunkSizeWarningLimit: 1000,
       rollupOptions: isExtension
         ? {

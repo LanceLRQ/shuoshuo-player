@@ -81,25 +81,6 @@ export const PERSIST_THROTTLE_MS = 1000;
 /** 视频列表自动刷新阈值（秒，超过则提示更新；24 小时） */
 export const VIDEO_LIST_REFRESH_THRESHOLD = 86400;
 
-/** B 站视频列表字段拾取（v1 BilibiliUserVideoListPickup） */
-export const BILIBILI_VIDEO_LIST_FIELDS = ['bvid', 'created'] as const;
-
-/** B 站视频详情字段拾取 */
-export const BILIBILI_VIDEO_INFO_FIELDS = [
-  'aid',
-  'bvid',
-  'created',
-  'length',
-  'pic',
-  'is_union_video',
-  'title',
-  'sub_title',
-  'play',
-  'comment',
-  'author',
-  'description',
-] as const;
-
 /** B 站空间信息字段拾取 */
 export const BILIBILI_SPACE_INFO_FIELDS = [
   'name',

@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { pick } from 'lodash-es';
 import type { BilibiliSpaceInfo, VideoListCacheEntry, FavFolderCacheEntry } from '../types';
-import { BILIBILI_VIDEO_LIST_FIELDS, BILIBILI_SPACE_INFO_FIELDS, NoticeType } from '../constants';
+import { BILIBILI_SPACE_INFO_FIELDS, NoticeType } from '../constants';
 import { UserApi, VideoApi } from '../api';
 import { useBilibiliVideosStore } from './bilibili-videos';
 import { useUIStore } from './ui';
-import { timeStampNow } from '../utils';
+import { timeStampNow, pickVideosFields } from '../utils';
 
 type VideoListItem = { bvid: string; created: number };
 
@@ -41,7 +41,7 @@ const DEFAULT_ENTRY: VideoListCacheEntry = {
 function mergeVideoList(current: VideoListItem[], incoming: VideoListItem[]): VideoListItem[] {
   const next = [...current];
   for (const v of incoming) {
-    const picked = pick(v, BILIBILI_VIDEO_LIST_FIELDS) as VideoListItem;
+    const picked: VideoListItem = { bvid: v.bvid, created: v.created };
     const idx = next.findIndex((it) => it.bvid === picked.bvid);
     if (idx >= 0) next[idx] = picked;
     else next.push(picked);
@@ -82,9 +82,7 @@ export const useBilibiliUserVideosStore = create<BilibiliUserVideosState>((set, 
           return { infos: { ...state.infos, [String(mid)]: entry } };
         });
 
-        useBilibiliVideosStore
-          .getState()
-          .upsertMany(videoList.map((v) => pick(v, BILIBILI_VIDEO_LIST_FIELDS) as VideoListItem));
+        useBilibiliVideosStore.getState().upsertMany(pickVideosFields(videoList, 'default'));
         return total;
       } catch {
         ui.sendNotice({
@@ -156,9 +154,7 @@ export const useBilibiliUserVideosStore = create<BilibiliUserVideosState>((set, 
           return { favFolders: { ...state.favFolders, [String(mediaId)]: entry } };
         });
 
-        useBilibiliVideosStore
-          .getState()
-          .upsertMany(medias.map((v) => pick(v, BILIBILI_VIDEO_LIST_FIELDS) as VideoListItem));
+        useBilibiliVideosStore.getState().upsertMany(pickVideosFields(medias, 'fav_folder'));
         return total;
       } catch {
         ui.sendNotice({
@@ -237,7 +233,9 @@ export const useBilibiliUserVideosStore = create<BilibiliUserVideosState>((set, 
     });
     try {
       const data = await VideoApi.getVideoViewInfo({ params: { bvid: bvId } });
-      useBilibiliVideosStore.getState().upsertMany([data]);
+      useBilibiliVideosStore
+        .getState()
+        .upsertMany(pickVideosFields(data as unknown as { bvid: string }, 'view'));
       return true;
     } catch {
       ui.sendNotice({
