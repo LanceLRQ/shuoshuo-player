@@ -4,9 +4,8 @@ import {
   MUSIC_URL_CACHE_TTL,
   CLICK_STAT_THROTTLE,
   CLICK_STAT_DELAY_MS,
-  NoticeType,
 } from '../constants';
-import { useUIStore } from '../store/ui';
+import { useRiskControlStore } from '../store/risk-control';
 import { timeStampNow } from './format';
 import type { DashAudioStream, MusicUrlCache } from '../types';
 import type { VideoViewInfo } from '../api/bilibili/video';
@@ -98,7 +97,7 @@ export async function fetchMusicUrl(
       });
 
       // 风控检测：B 站对异常 wbi 签名 / 缺 Cookie / 频繁请求会返回 code=0 但 data 只含
-      // v_voucher（详见 docs/misc/sign/v_voucher.md）。此时无法播放，需用户介入。
+      // v_voucher（详见 docs/misc/sign/v_voucher.md）。触发全局风控对话框引导用户主站验证。
       const voucher = (playInfo as { v_voucher?: string } | undefined)?.v_voucher;
       if (voucher) {
         if (__DEV_LOG__) {
@@ -106,16 +105,10 @@ export async function fetchMusicUrl(
             '[BILI-API] playurl v_voucher 风控:',
             bvId,
             voucher,
-            '\n建议：1) 访问 bilibili.com 主站刷新登录态确保 buvid3/bili_ticket 完整',
-            '\n  2) 检查 Wbi 签名是否正确  3) 稍后重试',
+            '\n建议：1) 访问 bilibili.com 主站完成 captcha 校验  2) 稍后重试',
           );
         }
-        useUIStore.getState().sendNotice({
-          id: 'bili_v_voucher_warn',
-          type: NoticeType.ERROR,
-          message: 'B 站接口被风控，请打开 bilibili.com 主站刷新登录后再播放',
-          duration: 6000,
-        });
+        useRiskControlStore.getState().openRiskControl(voucher, bvId);
         throw new Error(`B 站风控（v_voucher）：${voucher.slice(0, 32)}`);
       }
 
@@ -220,4 +213,18 @@ export async function fetchMusicUrl(
 
   inflightRequests[bvId] = promise;
   return promise;
+}
+
+/**
+ * 清除指定 bvid 的播放 URL 缓存（用于风控重试场景）。
+ * 不传 bvid 则清空全部缓存与 inflight。
+ */
+export function invalidateMusicUrlCache(bvId?: string): void {
+  if (bvId) {
+    delete musicPlayUrlCache[bvId];
+    delete inflightRequests[bvId];
+    return;
+  }
+  Object.keys(musicPlayUrlCache).forEach((k) => delete musicPlayUrlCache[k]);
+  Object.keys(inflightRequests).forEach((k) => delete inflightRequests[k]);
 }

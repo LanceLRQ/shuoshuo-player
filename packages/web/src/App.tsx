@@ -9,6 +9,7 @@ import { FavEditDialog } from '@/components/dialogs/fav-edit-dialog';
 import { AddSongDialog } from '@/components/dialogs/add-song-dialog';
 import { AddToFavDialog } from '@/components/dialogs/add-to-fav-dialog';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
+import { RiskControlDialog } from '@/components/dialogs/risk-control-dialog';
 
 // 路由懒加载：每个页面单独 chunk（详见 vite.config manualChunks）
 // .then 包装是因为页面采用命名导出（非 default），React.lazy 需要 { default } 形态
@@ -59,6 +60,7 @@ function RootLayout() {
           <AddSongDialog />
           <AddToFavDialog />
           <ConfirmDialog />
+          <RiskControlDialog />
         </>
       }
     >

@@ -1,5 +1,6 @@
-import { fetchMusicUrl } from './music-url';
+import { fetchMusicUrl, invalidateMusicUrlCache } from './music-url';
 import { AUDIO_QUALITY } from '../constants';
+import { useRiskControlStore } from '../store/risk-control';
 
 vi.mock('../api', async () => {
   return {
@@ -107,5 +108,39 @@ describe('A7: fetchMusicUrl 音质降级链', () => {
     mockedView.mockRejectedValueOnce(new Error('network'));
     const url = await fetchMusicUrl('BV_FAIL', 999);
     expect(url).toBe('');
+  });
+
+  it('playurl 返回 v_voucher 风控：触发 useRiskControlStore.openRiskControl 并返回空字符串', async () => {
+    useRiskControlStore.setState({ open: false, voucher: null, bvid: null });
+    mockedPlay.mockResolvedValueOnce({
+      v_voucher: 'voucher_test_uuid_123',
+    });
+
+    const url = await fetchMusicUrl('BV_RISK', 999);
+
+    expect(url).toBe('');
+    const s = useRiskControlStore.getState();
+    expect(s.open).toBe(true);
+    expect(s.voucher).toBe('voucher_test_uuid_123');
+    expect(s.bvid).toBe('BV_RISK');
+  });
+
+  it('invalidateMusicUrlCache(bvid)：清除缓存后下次调用重新请求', async () => {
+    mockedView.mockResolvedValue({ aid: 1, cid: 2, bvid: 'BV_INV', desc_v2: [] });
+    mockedPlay.mockResolvedValue({
+      dash: { audio: [audioStream(AUDIO_QUALITY.HIGH)] },
+    });
+
+    await fetchMusicUrl('BV_INV', 1);
+    expect(mockedPlay).toHaveBeenCalledTimes(1);
+
+    // 命中缓存：第二次不请求
+    await fetchMusicUrl('BV_INV', 1);
+    expect(mockedPlay).toHaveBeenCalledTimes(1);
+
+    // 失效缓存：第三次重新请求
+    invalidateMusicUrlCache('BV_INV');
+    await fetchMusicUrl('BV_INV', 1);
+    expect(mockedPlay).toHaveBeenCalledTimes(2);
   });
 });
