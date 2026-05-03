@@ -92,6 +92,12 @@ export async function fetchMusicUrl(
       }
 
       const cid = viewInfo?.cid ?? 0;
+
+      // 模拟人为浏览延迟（200-500ms 随机），降低 view→playurl 短间隔触发 B 站频控/风控的概率
+      const jitterMs = 200 + Math.floor(Math.random() * 301);
+      await new Promise<void>((resolve) => setTimeout(resolve, jitterMs));
+      if (__DEV_LOG__) console.debug('[BILI-API] playurl jitter:', bvId, jitterMs, 'ms');
+
       const playInfo = await VideoApi.getVideoPlayurl({
         params: { cid, fnval: 16, bvid: bvId },
       });
