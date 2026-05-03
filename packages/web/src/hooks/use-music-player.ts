@@ -46,13 +46,22 @@ interface PlayerControls {
  * playNext 信号清除时机：
  * - initHowl 完成（onplay 首次触发）后清除
  * - currentVideo 变 null（被从队列中删除）时调用 stop + clearPlayNext
+ *
+ * 错误降级：fetchMusicUrl / onloaderror 失败时自动跳下一首，但有连续失败保护
+ * （MAX_CONSECUTIVE_FAILS）避免网络故障/B 站接口宕机时整个队列被快速跑空。
+ * 歌词加载完全独立于音频流，失败仅显示"暂无歌词"，不影响播放、不触发跳转。
  */
+/** 连续失败上限：超过则停止自动跳转，需用户手动操作 */
+const MAX_CONSECUTIVE_FAILS = 3;
+
 export function useMusicPlayer(): PlayerState & PlayerControls {
   const howlRef = useRef<Howl | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastClearedBvRef = useRef<string>('');
   // mediaSession.setPositionState 用 ref 读最新进度，避免高频 setProgress 让 effect 反复重建定时器
   const progressRef = useRef(0);
+  // 连续失败计数（fetchMusicUrl / onloaderror）；任何 onload 成功后清零
+  const consecutiveFailRef = useRef(0);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -151,13 +160,23 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       const url = await fetchMusicUrl(video.bvid, biliMid);
       if (!url) {
         setIsLoading(false);
-        sendNotice({
-          type: NoticeType.ERROR,
-          message: `获取音频地址失败：${video.bvid}`,
-          duration: 3000,
-        });
-        // 自动跳下一首避免卡住队列
-        setTimeout(() => goNext(), 500);
+        consecutiveFailRef.current += 1;
+        if (consecutiveFailRef.current < MAX_CONSECUTIVE_FAILS) {
+          sendNotice({
+            type: NoticeType.ERROR,
+            message: `获取音频地址失败：${video.bvid}`,
+            duration: 3000,
+          });
+          // 单点失败仍跳下一首（v1 行为兼容：偶发 BV 失效时不卡住队列）
+          setTimeout(() => goNext(), 500);
+        } else {
+          // 连续多次失败：网络/接口故障，停止自动跳转，等待用户处理
+          sendNotice({
+            type: NoticeType.ERROR,
+            message: `连续 ${MAX_CONSECUTIVE_FAILS} 次获取音频失败，已停止自动跳转。请检查网络或 B 站登录状态后手动重试`,
+            duration: 5000,
+          });
+        }
         return;
       }
 
@@ -168,16 +187,26 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
         onload: () => {
           setIsLoading(false);
           setDuration(howl.duration());
+          consecutiveFailRef.current = 0; // 成功加载即重置失败计数
           if (autoPlay) howl.play();
         },
         onloaderror: () => {
           setIsLoading(false);
-          sendNotice({
-            type: NoticeType.ERROR,
-            message: '音频加载失败',
-            duration: 3000,
-          });
-          setTimeout(() => goNext(), 500);
+          consecutiveFailRef.current += 1;
+          if (consecutiveFailRef.current < MAX_CONSECUTIVE_FAILS) {
+            sendNotice({
+              type: NoticeType.ERROR,
+              message: '音频加载失败',
+              duration: 3000,
+            });
+            setTimeout(() => goNext(), 500);
+          } else {
+            sendNotice({
+              type: NoticeType.ERROR,
+              message: `连续 ${MAX_CONSECUTIVE_FAILS} 次音频加载失败，已停止自动跳转。请检查网络后手动重试`,
+              duration: 5000,
+            });
+          }
         },
         onplay: () => {
           setIsPlaying(true);
@@ -242,28 +271,31 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     if (howlRef.current) howlRef.current.volume(volume);
   }, [volume]);
 
-  // 自动从云端拉取歌词（每曲仅尝试一次）
+  // 自动从云端拉取歌词（每曲仅尝试一次；失败完全独立于音频播放，仅显示"暂无歌词"）
   useEffect(() => {
     if (!currentVideo) return;
     const exist = lyricMaps[currentVideo.bvid];
     if (exist?.lyricText) return;
     if (hasLyricFetchTry) return;
     setHasLyricFetchTry(true);
+    const bvid = currentVideo.bvid;
 
-    LyricApi.getLyricByBvid(currentVideo.bvid)
+    LyricApi.getLyricByBvid(bvid)
       .then((resp) => {
         const content = (resp as { content?: string; id?: number })?.content;
         if (content) {
           updateLyric({
-            bvid: currentVideo.bvid,
+            bvid,
             lyricText: content,
             offset: 0,
             cloudLyricId: (resp as { id?: number })?.id,
           });
         }
+        // content 为空（云端无此歌词）：保持无 entry 状态，UI 显示"暂无歌词"
       })
       .catch((e: unknown) => {
-        console.debug('云端歌词获取失败：', e);
+        // 接口超时 / 4xx / 5xx / 网络错误：歌词无法加载是软降级，不影响播放
+        if (__DEV_LOG__) console.debug('[lyric] 云端歌词获取失败（已降级到无歌词模式）：', e);
       });
   }, [currentVideo, lyricMaps, hasLyricFetchTry, updateLyric]);
 
@@ -280,12 +312,18 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   }, [stopRaf]);
 
   // === 控制函数 ===
+  // 用户手动控制即视为对错误的"已知情"，重置失败计数，恢复后续自动跳转能力
+  const userControl = useCallback((action: () => void) => {
+    consecutiveFailRef.current = 0;
+    action();
+  }, []);
+
   const togglePlay = useCallback(() => {
     if (isLoading) return;
     if (!currentVideo) return;
     const howl = howlRef.current;
     if (!howl) {
-      initHowl(currentVideo);
+      userControl(() => initHowl(currentVideo));
       return;
     }
     if (howl.playing()) {
@@ -293,7 +331,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     } else {
       howl.play();
     }
-  }, [isLoading, currentVideo, initHowl]);
+  }, [isLoading, currentVideo, initHowl, userControl]);
 
   const seek = useCallback((seconds: number) => {
     const howl = howlRef.current;
@@ -415,8 +453,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     currentVideo,
     currentLyricLine,
     togglePlay,
-    next: goNext,
-    prev: goPrev,
+    next: () => userControl(goNext),
+    prev: () => userControl(goPrev),
     seek,
     setVolume: setVolumeStore,
     cycleLoopMode,

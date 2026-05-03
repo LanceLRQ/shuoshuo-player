@@ -70,12 +70,13 @@ export function LyricViewer({
             cloudLyricId: lyric.id,
           });
           sendNotice({ type: NoticeType.SUCCESS, message: '歌词已刷新', duration: 2000 });
-        } else {
-          sendNotice({ type: NoticeType.WARN, message: '云端无歌词', duration: 2000 });
+        } else if (__DEV_LOG__) {
+          // 没有歌词不打扰用户，UI 显示"暂无歌词"已足够；调试时控制台留痕
+          console.debug('[lyric] 云端无该视频歌词:', currentVideo.bvid);
         }
       })
-      .catch(() => {
-        sendNotice({ type: NoticeType.ERROR, message: '歌词获取失败', duration: 3000 });
+      .catch((e: unknown) => {
+        if (__DEV_LOG__) console.debug('[lyric] 手动刷新歌词失败:', e);
       });
   };
 
@@ -163,11 +164,7 @@ export function LyricViewer({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsFullscreen((s) => !s)}
-                >
+                <Button variant="ghost" size="icon" onClick={() => setIsFullscreen((s) => !s)}>
                   {isFullscreen ? (
                     <Minimize2 className="h-4 w-4" />
                   ) : (

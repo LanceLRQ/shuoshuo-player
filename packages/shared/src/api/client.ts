@@ -71,6 +71,24 @@ export const bilibiliService: AxiosInstance = axios.create({
   },
 });
 
+// 响应拦截器：dev 模式打印网络层错误（超时、4xx、5xx、CORS、断网），定位"接口不可用"现象
+bilibiliService.interceptors.response.use(
+  (resp) => resp,
+  (err: { config?: { url?: string }; message?: string; response?: { status?: number } }) => {
+    if (__DEV_LOG__) {
+      console.debug(
+        '[BILI-API] network error:',
+        err?.config?.url,
+        'status=',
+        err?.response?.status,
+        'msg=',
+        err?.message,
+      );
+    }
+    return Promise.reject(err);
+  },
+);
+
 bilibiliService.interceptors.request.use((config) => {
   const cfg = config as InternalRequestConfigWithWbi;
   if (__DEV_LOG__) {
@@ -169,6 +187,18 @@ export function buildBilibiliApiCall<TData = unknown>(config: {
     const respData = resp.data as { code?: number; data?: TData } & CloudErrorResponse;
     if (respData?.code === 0) {
       return respData.data as TData;
+    }
+    if (__DEV_LOG__) {
+      console.debug(
+        '[BILI-API] non-zero code:',
+        config.url,
+        'code=',
+        respData?.code,
+        'message=',
+        respData?.message,
+        'full=',
+        respData,
+      );
     }
     throw respData;
   };

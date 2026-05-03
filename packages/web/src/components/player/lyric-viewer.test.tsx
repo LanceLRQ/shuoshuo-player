@@ -148,28 +148,25 @@ describe('LyricViewer', () => {
     });
   });
 
-  it('云端无歌词 → WARN 通知', async () => {
+  it('云端无歌词 → 不弹 toast（避免打扰；UI 显示"暂无歌词"已足够）', async () => {
     mockedGetLyric.mockResolvedValueOnce({ content: '' } as never);
     render(<LyricViewer open onClose={vi.fn()} currentVideo={SAMPLE_VIDEO} currentTime={0} />);
     const buttons = screen.getAllByRole('button');
     fireEvent.click(buttons[3]);
 
-    await waitFor(() => {
-      expect(useUIStore.getState().notices.find((n) => /云端无歌词/.test(n.message))).toBeDefined();
-    });
+    await waitFor(() => expect(mockedGetLyric).toHaveBeenCalled());
+    // 不应有任何 toast 提示
+    expect(useUIStore.getState().notices).toEqual([]);
   });
 
-  it('云端 API 失败 → ERROR 通知', async () => {
+  it('云端 API 失败 → 不弹 toast（歌词降级为软失败，不打扰用户）', async () => {
     mockedGetLyric.mockRejectedValueOnce(new Error('network'));
     render(<LyricViewer open onClose={vi.fn()} currentVideo={SAMPLE_VIDEO} currentTime={0} />);
     const buttons = screen.getAllByRole('button');
     fireEvent.click(buttons[3]);
 
-    await waitFor(() => {
-      expect(
-        useUIStore.getState().notices.find((n) => /歌词获取失败/.test(n.message)),
-      ).toBeDefined();
-    });
+    await waitFor(() => expect(mockedGetLyric).toHaveBeenCalled());
+    expect(useUIStore.getState().notices).toEqual([]);
   });
 
   it('点击编辑按钮触发 onEdit prop', () => {

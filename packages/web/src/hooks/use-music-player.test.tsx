@@ -16,6 +16,8 @@ import {
   usePlayingListStore,
   usePlayerProfileStore,
   useLyricsStore,
+  useUIStore,
+  fetchMusicUrl,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
 
@@ -205,6 +207,42 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     });
 
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it('fetchMusicUrl 返回空：弹错误通知（错误降级保护）', async () => {
+    useUIStore.setState({ notices: [] });
+    vi.mocked(fetchMusicUrl).mockResolvedValueOnce('');
+
+    renderHook(() => useMusicPlayer());
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+
+    await waitFor(() =>
+      expect(useUIStore.getState().notices.some((n) => /获取音频地址失败/.test(n.message))).toBe(
+        true,
+      ),
+    );
+  });
+
+  it('连续 3 次 onloaderror：超过阈值后弹"停止自动跳转"提示', async () => {
+    useUIStore.setState({ notices: [] });
+    renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+
+    for (let i = 0; i < 3; i++) {
+      act(() => {
+        howlerState.lastCb.onloaderror?.();
+      });
+    }
+
+    await waitFor(() =>
+      expect(useUIStore.getState().notices.some((n) => /停止自动跳转/.test(n.message))).toBe(true),
+    );
   });
 
   it('onplay 触发：isPlaying=true + isPausing=false + clearPlayNext', async () => {
@@ -442,7 +480,10 @@ describe('H1: useMusicPlayer 媒体会话 API 接入', () => {
       }),
     );
 
-    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn(() => 1),
+    );
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
   });
 
@@ -450,8 +491,7 @@ describe('H1: useMusicPlayer 媒体会话 API 接入', () => {
     if (originalMediaSession === undefined) {
       delete (navigator as unknown as { mediaSession?: MediaSession }).mediaSession;
     } else {
-      (navigator as unknown as { mediaSession: MediaSession }).mediaSession =
-        originalMediaSession;
+      (navigator as unknown as { mediaSession: MediaSession }).mediaSession = originalMediaSession;
     }
     vi.unstubAllGlobals();
   });
