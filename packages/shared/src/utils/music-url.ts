@@ -4,7 +4,9 @@ import {
   MUSIC_URL_CACHE_TTL,
   CLICK_STAT_THROTTLE,
   CLICK_STAT_DELAY_MS,
+  NoticeType,
 } from '../constants';
+import { useUIStore } from '../store/ui';
 import { timeStampNow } from './format';
 import type { DashAudioStream, MusicUrlCache } from '../types';
 import type { VideoViewInfo } from '../api/bilibili/video';
@@ -13,11 +15,16 @@ import type { VideoViewInfo } from '../api/bilibili/video';
 const musicPlayUrlCache: Record<string, MusicUrlCache> = {};
 /** 模拟点击节流：bvid → 上次发送时间（秒） */
 const musicPlayClickTime: Record<string, number> = {};
+/**
+ * 同 bvid 并发请求复用同一个 Promise（避免 React strict mode useEffect 双触发或
+ * 上下游 effect 重复调用时，第二次抢到 cached.loading=true 后早返回 '' → goNext 误跳下一首）
+ */
+const inflightRequests: Record<string, Promise<string>> = {};
 
-/** 选取首个非 xy 代理的 URL */
+/** 选取首个非 xy 代理的 URL（B 站 dash 字段名是 base_url，不是 baseUrl） */
 function pickPlayableUrl(audioInfo: DashAudioStream | undefined): string {
   if (!audioInfo) return '';
-  const u1 = audioInfo.baseUrl || '';
+  const u1 = audioInfo.base_url || '';
   const u2 = audioInfo.backup_url?.[0] || '';
   const u3 = audioInfo.backup_url?.[1] || '';
   const usable = [u1, u2, u3].filter((u) => u && !u.startsWith('https://xy'));
@@ -37,6 +44,15 @@ export async function fetchMusicUrl(
   bvId: string,
   currentUserMid?: string | number,
 ): Promise<string> {
+  if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl enter:', bvId);
+
+  // 命中已有 inflight 请求：所有并发调用共享同一个 Promise，避免 race
+  const existing = inflightRequests[bvId];
+  if (existing) {
+    if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl inflight hit:', bvId);
+    return existing;
+  }
+
   const cached = (musicPlayUrlCache[bvId] ??= {
     loading: false,
     last_update: 0,
@@ -45,72 +61,163 @@ export async function fetchMusicUrl(
     playUrl: '',
   });
 
-  if (cached.loading) return '';
+  // 命中 1 小时缓存
   if (cached.last_update > 0 && cached.last_update + MUSIC_URL_CACHE_TTL > timeStampNow()) {
+    if (__DEV_LOG__) {
+      console.debug(
+        '[BILI-API] fetchMusicUrl cache hit:',
+        bvId,
+        'playUrl=',
+        cached.playUrl ? cached.playUrl.slice(0, 80) + '...' : '<EMPTY>',
+      );
+    }
     return cached.playUrl;
   }
 
-  cached.loading = true;
-  try {
-    const viewInfo = (await VideoApi.getVideoViewInfo({
-      params: { bvid: bvId },
-    })) as VideoViewInfo & { cid?: number; aid?: number };
+  const promise = (async () => {
+    cached.loading = true;
+    try {
+      const viewInfo = (await VideoApi.getVideoViewInfo({
+        params: { bvid: bvId },
+      })) as VideoViewInfo & { cid?: number; aid?: number };
 
-    const cid = viewInfo?.cid ?? 0;
-    const playInfo = await VideoApi.getVideoPlayurl({
-      params: { cid, fnval: 16, bvid: bvId },
-    });
+      if (__DEV_LOG__) {
+        console.debug(
+          '[BILI-API] viewInfo ok:',
+          bvId,
+          'cid=',
+          viewInfo?.cid,
+          'aid=',
+          viewInfo?.aid,
+        );
+      }
 
-    const audioList = playInfo?.dash?.audio ?? [];
-    const findById = (id: number): DashAudioStream | undefined =>
-      audioList.find((a) => a?.id === id);
-    const audio =
-      findById(AUDIO_QUALITY.HIGH) || findById(AUDIO_QUALITY.MEDIUM) || findById(AUDIO_QUALITY.LOW);
+      const cid = viewInfo?.cid ?? 0;
+      const playInfo = await VideoApi.getVideoPlayurl({
+        params: { cid, fnval: 16, bvid: bvId },
+      });
 
-    cached.viewInfo = viewInfo as unknown as Record<string, unknown>;
-    cached.playInfo = playInfo as unknown as Record<string, unknown>;
-    cached.playUrl = pickPlayableUrl(audio);
-    cached.last_update = timeStampNow();
-    cached.loading = false;
-
-    // 异步发起模拟点击（节流 600s）
-    setTimeout(() => {
-      const now = timeStampNow();
-      if ((musicPlayClickTime[bvId] ?? 0) + CLICK_STAT_THROTTLE > now) return;
-      const aid = viewInfo?.aid;
-      const type = viewInfo?.desc_v2?.[0]?.type ?? '1';
-      VideoApi.doClickStat({
-        params: {
-          w_aid: aid,
-          w_part: 1,
-          w_ftime: now,
-          w_stime: now,
-          w_type: type,
-        },
-        data: {
-          aid,
-          cid: viewInfo?.cid,
-          bvid: bvId,
-          part: '1',
-          ftime: now,
-          stime: now,
-          mid: currentUserMid,
-          type,
-          sub_type: '0',
-        },
-      })
-        .then(() => {
-          musicPlayClickTime[bvId] = timeStampNow();
-        })
-        .catch((e) => {
-          console.debug('B站模拟点击失败：', e);
+      // 风控检测：B 站对异常 wbi 签名 / 缺 Cookie / 频繁请求会返回 code=0 但 data 只含
+      // v_voucher（详见 docs/misc/sign/v_voucher.md）。此时无法播放，需用户介入。
+      const voucher = (playInfo as { v_voucher?: string } | undefined)?.v_voucher;
+      if (voucher) {
+        if (__DEV_LOG__) {
+          console.debug(
+            '[BILI-API] playurl v_voucher 风控:',
+            bvId,
+            voucher,
+            '\n建议：1) 访问 bilibili.com 主站刷新登录态确保 buvid3/bili_ticket 完整',
+            '\n  2) 检查 Wbi 签名是否正确  3) 稍后重试',
+          );
+        }
+        useUIStore.getState().sendNotice({
+          id: 'bili_v_voucher_warn',
+          type: NoticeType.ERROR,
+          message: 'B 站接口被风控，请打开 bilibili.com 主站刷新登录后再播放',
+          duration: 6000,
         });
-    }, CLICK_STAT_DELAY_MS);
+        throw new Error(`B 站风控（v_voucher）：${voucher.slice(0, 32)}`);
+      }
 
-    return cached.playUrl;
-  } catch (e) {
-    cached.loading = false;
-    console.debug(e);
-    return '';
-  }
+      const audioList = playInfo?.dash?.audio ?? [];
+      const findById = (id: number): DashAudioStream | undefined =>
+        audioList.find((a) => a?.id === id);
+      // 标准音质优先 → 任意 dash.audio → flac → dolby → durl
+      const dashExtra = playInfo?.dash as
+        | {
+            flac?: { audio?: DashAudioStream } | null;
+            dolby?: { audio?: DashAudioStream[] } | null;
+          }
+        | undefined;
+      const flacAudio = dashExtra?.flac?.audio;
+      const dolbyAudio = dashExtra?.dolby?.audio?.[0];
+      const durl = (playInfo as { durl?: Array<{ url: string; backup_url?: string[] }> })?.durl;
+      const audio =
+        findById(AUDIO_QUALITY.HIGH) ||
+        findById(AUDIO_QUALITY.MEDIUM) ||
+        findById(AUDIO_QUALITY.LOW) ||
+        audioList[0] ||
+        flacAudio ||
+        dolbyAudio;
+
+      if (__DEV_LOG__) {
+        console.debug(
+          '[BILI-API] playInfo:',
+          bvId,
+          'audio_ids=',
+          audioList.map((a) => a?.id),
+          'has_flac=',
+          Boolean(flacAudio),
+          'has_dolby=',
+          Boolean(dolbyAudio),
+          'durl_count=',
+          durl?.length ?? 0,
+          'picked_id=',
+          audio?.id,
+          'has_base_url=',
+          Boolean(audio?.base_url),
+        );
+      }
+
+      cached.viewInfo = viewInfo as unknown as Record<string, unknown>;
+      cached.playInfo = playInfo as unknown as Record<string, unknown>;
+      // dash 拿不到时回落到 durl 第一项 url
+      cached.playUrl = pickPlayableUrl(audio) || durl?.[0]?.url || '';
+      cached.last_update = timeStampNow();
+
+      if (__DEV_LOG__) {
+        console.debug(
+          '[BILI-API] fetchMusicUrl resolved:',
+          bvId,
+          'playUrl=',
+          cached.playUrl ? cached.playUrl.slice(0, 80) + '...' : '<EMPTY>',
+        );
+      }
+
+      // 异步发起模拟点击（节流 600s）
+      setTimeout(() => {
+        const now = timeStampNow();
+        if ((musicPlayClickTime[bvId] ?? 0) + CLICK_STAT_THROTTLE > now) return;
+        const aid = viewInfo?.aid;
+        const type = viewInfo?.desc_v2?.[0]?.type ?? '1';
+        VideoApi.doClickStat({
+          params: {
+            w_aid: aid,
+            w_part: 1,
+            w_ftime: now,
+            w_stime: now,
+            w_type: type,
+          },
+          data: {
+            aid,
+            cid: viewInfo?.cid,
+            bvid: bvId,
+            part: '1',
+            ftime: now,
+            stime: now,
+            mid: currentUserMid,
+            type,
+            sub_type: '0',
+          },
+        })
+          .then(() => {
+            musicPlayClickTime[bvId] = timeStampNow();
+          })
+          .catch((e) => {
+            if (__DEV_LOG__) console.debug('[BILI-API] doClickStat 失败:', e);
+          });
+      }, CLICK_STAT_DELAY_MS);
+
+      return cached.playUrl;
+    } catch (e) {
+      if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl 失败:', bvId, e);
+      return '';
+    } finally {
+      cached.loading = false;
+      delete inflightRequests[bvId];
+    }
+  })();
+
+  inflightRequests[bvId] = promise;
+  return promise;
 }

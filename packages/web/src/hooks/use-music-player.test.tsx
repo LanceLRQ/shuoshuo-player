@@ -209,8 +209,9 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(result.current.isLoading).toBe(false);
   });
 
-  it('fetchMusicUrl 返回空：弹错误通知（错误降级保护）', async () => {
+  it('fetchMusicUrl 返回空：弹错误通知，停在当前曲目（不自动跳下一首）', async () => {
     useUIStore.setState({ notices: [] });
+    const initialBvId = usePlayingListStore.getState().current;
     vi.mocked(fetchMusicUrl).mockResolvedValueOnce('');
 
     renderHook(() => useMusicPlayer());
@@ -223,10 +224,13 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
         true,
       ),
     );
+    // 当前曲目未变（没自动跳下一首）
+    expect(usePlayingListStore.getState().current).toBe(initialBvId);
   });
 
-  it('连续 3 次 onloaderror：超过阈值后弹"停止自动跳转"提示', async () => {
+  it('onloaderror：弹错误通知，停在当前曲目（不自动跳下一首）', async () => {
     useUIStore.setState({ notices: [] });
+    const initialBvId = usePlayingListStore.getState().current;
     renderHook(() => useMusicPlayer());
 
     await act(async () => {
@@ -234,15 +238,14 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     });
     await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
 
-    for (let i = 0; i < 3; i++) {
-      act(() => {
-        howlerState.lastCb.onloaderror?.();
-      });
-    }
+    act(() => {
+      howlerState.lastCb.onloaderror?.();
+    });
 
     await waitFor(() =>
-      expect(useUIStore.getState().notices.some((n) => /停止自动跳转/.test(n.message))).toBe(true),
+      expect(useUIStore.getState().notices.some((n) => /音频加载失败/.test(n.message))).toBe(true),
     );
+    expect(usePlayingListStore.getState().current).toBe(initialBvId);
   });
 
   it('onplay 触发：isPlaying=true + isPausing=false + clearPlayNext', async () => {

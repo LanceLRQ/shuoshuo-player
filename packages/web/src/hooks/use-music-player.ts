@@ -47,21 +47,16 @@ interface PlayerControls {
  * - initHowl 完成（onplay 首次触发）后清除
  * - currentVideo 变 null（被从队列中删除）时调用 stop + clearPlayNext
  *
- * 错误降级：fetchMusicUrl / onloaderror 失败时自动跳下一首，但有连续失败保护
- * （MAX_CONSECUTIVE_FAILS）避免网络故障/B 站接口宕机时整个队列被快速跑空。
+ * 错误降级：fetchMusicUrl / onloaderror 失败时**直接停在当前曲目**（不再自动跳下一首）。
+ * 接口故障 / 风控 / 单 BV 失效都视为停止信号，避免快速跑空整个队列；用户手动切歌即可。
  * 歌词加载完全独立于音频流，失败仅显示"暂无歌词"，不影响播放、不触发跳转。
  */
-/** 连续失败上限：超过则停止自动跳转，需用户手动操作 */
-const MAX_CONSECUTIVE_FAILS = 3;
-
 export function useMusicPlayer(): PlayerState & PlayerControls {
   const howlRef = useRef<Howl | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastClearedBvRef = useRef<string>('');
   // mediaSession.setPositionState 用 ref 读最新进度，避免高频 setProgress 让 effect 反复重建定时器
   const progressRef = useRef(0);
-  // 连续失败计数（fetchMusicUrl / onloaderror）；任何 onload 成功后清零
-  const consecutiveFailRef = useRef(0);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -158,25 +153,17 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       }
 
       const url = await fetchMusicUrl(video.bvid, biliMid);
+      if (__DEV_LOG__) {
+        console.debug('[BILI-API] initHowl got url:', video.bvid, 'url=', url || '<EMPTY>');
+      }
       if (!url) {
         setIsLoading(false);
-        consecutiveFailRef.current += 1;
-        if (consecutiveFailRef.current < MAX_CONSECUTIVE_FAILS) {
-          sendNotice({
-            type: NoticeType.ERROR,
-            message: `获取音频地址失败：${video.bvid}`,
-            duration: 3000,
-          });
-          // 单点失败仍跳下一首（v1 行为兼容：偶发 BV 失效时不卡住队列）
-          setTimeout(() => goNext(), 500);
-        } else {
-          // 连续多次失败：网络/接口故障，停止自动跳转，等待用户处理
-          sendNotice({
-            type: NoticeType.ERROR,
-            message: `连续 ${MAX_CONSECUTIVE_FAILS} 次获取音频失败，已停止自动跳转。请检查网络或 B 站登录状态后手动重试`,
-            duration: 5000,
-          });
-        }
+        // 解析失败直接停在当前曲目，不再自动跳下一首：避免接口故障时整个队列被快速跑空
+        sendNotice({
+          type: NoticeType.ERROR,
+          message: `获取音频地址失败：${video.bvid}。请检查网络或 B 站登录状态后手动切歌`,
+          duration: 5000,
+        });
         return;
       }
 
@@ -187,26 +174,19 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
         onload: () => {
           setIsLoading(false);
           setDuration(howl.duration());
-          consecutiveFailRef.current = 0; // 成功加载即重置失败计数
           if (autoPlay) howl.play();
         },
-        onloaderror: () => {
-          setIsLoading(false);
-          consecutiveFailRef.current += 1;
-          if (consecutiveFailRef.current < MAX_CONSECUTIVE_FAILS) {
-            sendNotice({
-              type: NoticeType.ERROR,
-              message: '音频加载失败',
-              duration: 3000,
-            });
-            setTimeout(() => goNext(), 500);
-          } else {
-            sendNotice({
-              type: NoticeType.ERROR,
-              message: `连续 ${MAX_CONSECUTIVE_FAILS} 次音频加载失败，已停止自动跳转。请检查网络后手动重试`,
-              duration: 5000,
-            });
+        onloaderror: (id, err) => {
+          if (__DEV_LOG__) {
+            console.debug('[BILI-API] howl onloaderror:', video.bvid, 'id=', id, 'err=', err);
           }
+          setIsLoading(false);
+          // 加载失败停在当前曲目，等用户手动切歌
+          sendNotice({
+            type: NoticeType.ERROR,
+            message: '音频加载失败，请检查网络或手动切到下一首',
+            duration: 5000,
+          });
         },
         onplay: () => {
           setIsPlaying(true);
@@ -312,18 +292,12 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   }, [stopRaf]);
 
   // === 控制函数 ===
-  // 用户手动控制即视为对错误的"已知情"，重置失败计数，恢复后续自动跳转能力
-  const userControl = useCallback((action: () => void) => {
-    consecutiveFailRef.current = 0;
-    action();
-  }, []);
-
   const togglePlay = useCallback(() => {
     if (isLoading) return;
     if (!currentVideo) return;
     const howl = howlRef.current;
     if (!howl) {
-      userControl(() => initHowl(currentVideo));
+      initHowl(currentVideo);
       return;
     }
     if (howl.playing()) {
@@ -331,7 +305,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     } else {
       howl.play();
     }
-  }, [isLoading, currentVideo, initHowl, userControl]);
+  }, [isLoading, currentVideo, initHowl]);
 
   const seek = useCallback((seconds: number) => {
     const howl = howlRef.current;
@@ -453,8 +427,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     currentVideo,
     currentLyricLine,
     togglePlay,
-    next: () => userControl(goNext),
-    prev: () => userControl(goPrev),
+    next: goNext,
+    prev: goPrev,
     seek,
     setVolume: setVolumeStore,
     cycleLoopMode,

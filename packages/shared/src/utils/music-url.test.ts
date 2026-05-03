@@ -19,7 +19,7 @@ const mockedClick = VideoApi.doClickStat as unknown as ReturnType<typeof vi.fn>;
 
 const audioStream = (id: number, baseUrl = `https://cdn.example.com/q${id}.m4s`) => ({
   id,
-  baseUrl,
+  base_url: baseUrl,
   backup_url: [],
 });
 
@@ -73,13 +73,13 @@ describe('A7: fetchMusicUrl 音质降级链', () => {
     expect(url).toBe('');
   });
 
-  it('过滤 https://xy 代理 URL，优先选 baseUrl', async () => {
+  it('过滤 https://xy 代理 URL，优先选 base_url', async () => {
     mockedPlay.mockResolvedValueOnce({
       dash: {
         audio: [
           {
             id: AUDIO_QUALITY.HIGH,
-            baseUrl: 'https://xy-proxy.example.com/a.m4s',
+            base_url: 'https://xy-proxy.example.com/a.m4s',
             backup_url: ['https://cdn.example.com/backup.m4s'],
           },
         ],

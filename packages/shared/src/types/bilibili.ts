@@ -60,10 +60,12 @@ export interface FavFolderCacheEntry extends VideoListCacheEntry {
   info: Record<string, unknown>;
 }
 
-/** DASH 音频流（/x/player/wbi/playurl 中 dash.audio[]） */
+/** DASH 音频流（/x/player/wbi/playurl 中 dash.audio[]）
+ *  字段命名以 B 站官方文档为准（snake_case）：
+ *  https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/video/videostream_url.md */
 export interface DashAudioStream {
   id: number;
-  baseUrl: string;
+  base_url: string;
   backup_url: string[];
   bandwidth: number;
   codecid: number;

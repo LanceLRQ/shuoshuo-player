@@ -225,46 +225,24 @@ describe('F2: initializeApp', () => {
     expect(state.entities).toEqual({});
   });
 
-  it('注册 chrome.runtime.onMessage 监听器', async () => {
-    const { init } = await loadFreshModules();
-    await init.initializeApp();
-
-    expect(chromeMock.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
-    expect(chromeMock.runtime.onMessage._listeners).toHaveLength(1);
-  });
-
-  it('收到 wbi:refresh 消息后触发 getLoginUserInfo', async () => {
+  it('启动时调一次 getLoginUserInfo（wbi 密钥 mount-once 与 v1 行为对齐）', async () => {
     const { init, shared } = await loadFreshModules();
     const spy = vi.fn(async () => {});
     shared.useBilibiliUserStore.setState({ getLoginUserInfo: spy });
 
     await init.initializeApp();
-    // initializeApp 启动时会 fire-and-forget 调用一次 triggerWbiRefresh，
-    // 等微任务 flush 后 mockClear，再独立验证 listener 触发的调用
+    // triggerWbiRefresh 是 fire-and-forget，等微任务 flush
     await new Promise((r) => setTimeout(r, 0));
-    spy.mockClear();
-
-    const listener = chromeMock.runtime.onMessage._listeners[0];
-    listener({ type: shared.WBI_REFRESH_MESSAGE_TYPE }, {}, () => {});
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  it('收到非 wbi:refresh 消息时不触发 getLoginUserInfo', async () => {
-    const { init, shared } = await loadFreshModules();
-    const spy = vi.fn(async () => {});
-    shared.useBilibiliUserStore.setState({ getLoginUserInfo: spy });
-
+  it('不再注册 chrome.runtime.onMessage 监听器（去掉 wbi 周期刷新机制）', async () => {
+    const { init } = await loadFreshModules();
     await init.initializeApp();
-    await new Promise((r) => setTimeout(r, 0));
-    spy.mockClear();
 
-    const listener = chromeMock.runtime.onMessage._listeners[0];
-    listener({ type: 'other' }, {}, () => {});
-    listener('not-an-object', {}, () => {});
-    listener(null, {}, () => {});
-
-    expect(spy).not.toHaveBeenCalled();
+    expect(chromeMock.runtime.onMessage.addListener).not.toHaveBeenCalled();
+    expect(chromeMock.runtime.onMessage._listeners).toHaveLength(0);
   });
 
   it('apiBaseUrl 变更时立即写入独立 storage key', async () => {

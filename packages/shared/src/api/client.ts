@@ -11,6 +11,7 @@ import {
   SESSION_EXPIRED_ERROR_CODES,
 } from '../constants';
 import type { CloudErrorResponse, WbiInfo } from '../types';
+import { triggerWbiRefresh } from './wbi-refresh';
 
 /* ========== WBI 密钥（写入即热更新，请求拦截器读取最新值） ========== */
 
@@ -89,8 +90,16 @@ bilibiliService.interceptors.response.use(
   },
 );
 
-bilibiliService.interceptors.request.use((config) => {
+bilibiliService.interceptors.request.use(async (config) => {
   const cfg = config as InternalRequestConfigWithWbi;
+  // 进入 wbi 接口前确保密钥新鲜（>20 分钟才真正调 nav，否则立即返回）
+  if (cfg.__useWbi) {
+    try {
+      await triggerWbiRefresh();
+    } catch {
+      // nav 失败时仍允许用旧密钥继续签名（拿不到新 key 总比不签强）
+    }
+  }
   if (__DEV_LOG__) {
     console.debug('[WBI-DEBUG] interceptor entry', {
       url: cfg.url,
