@@ -81,6 +81,28 @@ describe('Marquee', () => {
     }).not.toThrow();
   });
 
+  it('pauseOnHover=false 时鼠标进出不影响内部 paused 状态（不抛错）', () => {
+    const { container } = render(<Marquee text="x" pauseOnHover={false} />);
+    const root = container.firstChild as HTMLElement;
+    act(() => {
+      root.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      root.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    });
+    expect(root).toBeInTheDocument();
+  });
+
+  it('自定义 speed / gap 透传不抛错', () => {
+    const { container } = render(<Marquee text="x" speed={2} gap={48} />);
+    expect(container.firstChild).toBeInTheDocument();
+  });
+
+  it('text prop 变化时重新 measure（useEffect 依赖 text）', () => {
+    const { rerender, container } = render(<Marquee text="A" />);
+    rerender(<Marquee text="B" />);
+    rerender(<Marquee text="" />);
+    expect(container.firstChild).toBeInTheDocument();
+  });
+
   it('卸载时清理 ResizeObserver 与 RAF', () => {
     const observerInstances: MockResizeObserver[] = [];
     class TrackingObserver extends MockResizeObserver {

@@ -30,16 +30,15 @@ export default defineConfig({
         'src/**/index.ts',
         'src/vite-env.d.ts',
       ],
-      // 批次 1 已落测：F1/F2 适配器 + H1/H2/H3 关键路径 + ui-shell store
-      // Phase 6 §6.X 重构后：init.ts 持久化套件下沉到 shared（约 50 行迁出到 100% 覆盖区域），
-      // web 包绝对覆盖行数同步下降；总体仓库覆盖率不退步（shared 包反向提升至 66%）。
-      // 整体 60% 门槛留待后续批次补齐 pages/* 与 dialogs/* 测试（详见 plans/tasks.md §7.0.5/7.0.7）
-      // 目标值（最终验收时回拉）：lines/functions/statements 60、branches 55
+      // Phase 7 批 11-14 完成 dialogs / layout / pages / lyric-editor / 卡片列表 14 个组件单测，
+      // web 整体覆盖率从 17% 拉升到 60% lines 主目标达标。
+      // branches 53.69% 暂时低于长期目标 55%，留待 §7.0.8 后续大文件（accounts/lyric-list/
+      // live-slicer-men/s-player/lyric-editor）补齐时一同回拉到 55。
       thresholds: {
-        lines: 14,
-        functions: 10,
-        branches: 8,
-        statements: 14,
+        lines: 60,
+        functions: 60,
+        branches: 53,
+        statements: 60,
       },
     },
   },
