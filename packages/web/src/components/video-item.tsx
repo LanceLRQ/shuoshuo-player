@@ -14,7 +14,7 @@ import {
   usePlayingListStore,
   useUIStore,
   formatNumber10K,
-  urlPrefixFixed,
+  bilibiliThumbUrl,
   NoticeType,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
@@ -114,7 +114,7 @@ function VideoItemImpl({
       <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded bg-muted">
         {!imgError && video.pic ? (
           <img
-            src={urlPrefixFixed(video.pic)}
+            src={bilibiliThumbUrl(video.pic, 200, 125)}
             alt={video.title}
             loading="lazy"
             className="h-full w-full object-cover"

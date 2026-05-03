@@ -29,3 +29,25 @@ export function urlPrefixFixed(url: string): string {
     .replace(/^\/\//, 'https://')
     .replace(/^http:\/\//, 'https://');
 }
+
+/**
+ * B 站 CDN 缩略图后缀拼接
+ *
+ * B 站 hdslb 等 CDN 支持 `@{w}w_{h}h_1c.webp` 后缀返回缩略图。
+ * 例：`https://i0.hdslb.com/bfs/archive/xxx.jpg@200w_125h_1c.webp`
+ *
+ * 用途：列表页大量视频封面用缩略图替代原图，可减少 50%+ 流量。
+ *
+ * 行为契约：
+ * - 输入空串 → 返回空串（不抛错，让上层 <img> 走 fallback）
+ * - 已有 `@xxx` 后缀 → 不重复追加（避免双重处理）
+ * - 自动 urlPrefixFixed 修正协议
+ * - 仅对 hdslb/biliimg 等 B 站域名生效；非 B 站域名原样返回（避免污染）
+ */
+export function bilibiliThumbUrl(url: string, width: number, height: number): string {
+  if (!url) return '';
+  const fixed = urlPrefixFixed(url);
+  if (fixed.includes('@')) return fixed;
+  if (!/(hdslb\.com|biliimg\.com|bfs)/.test(fixed)) return fixed;
+  return `${fixed}@${width}w_${height}h_1c.webp`;
+}

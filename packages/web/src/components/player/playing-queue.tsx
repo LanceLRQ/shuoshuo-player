@@ -3,7 +3,7 @@ import { Trash2, X } from 'lucide-react';
 import {
   useBilibiliVideosStore,
   usePlayingListStore,
-  urlPrefixFixed,
+  bilibiliThumbUrl,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -111,7 +111,7 @@ export function PlayingQueue({ open, onOpenChange }: PlayingQueueProps) {
                   >
                     {video?.pic ? (
                       <img
-                        src={urlPrefixFixed(video.pic)}
+                        src={bilibiliThumbUrl(video.pic, 160, 100)}
                         alt=""
                         loading="lazy"
                         className="h-10 w-16 shrink-0 rounded object-cover"

@@ -312,6 +312,49 @@ describe('bootstrapPersistence', () => {
   it('未先 setPlatformBridge 时抛错', async () => {
     await expect(bootstrapPersistence()).rejects.toThrow(/未初始化/);
   });
+
+  it('hot-path 优化：单帧多次 setState 合并为一次 microtask flush', async () => {
+    const adapter = makeAdapter();
+    setPlatformBridge({ type: 'web', storage: adapter, auth: makeAuthAdapter() });
+    await bootstrapPersistence();
+
+    // 启用 fake timer 拦截内部 trailingThrottle 的 setTimeout
+    vi.useFakeTimers();
+    try {
+      (adapter.setItem as unknown as { mockClear: () => void }).mockClear();
+
+      // 单帧内连续 5 次 setState，每次都会同步触发订阅；
+      // 优化前：5 次 collectPersistableSnapshot；
+      // 优化后：仅 1 次（dirty-flag + microtask 合并）
+      for (let i = 0; i < 5; i++) {
+        useFavListStore.setState({
+          list: [
+            { id: `id-${i}`, name: `n-${i}`, type: 'CUSTOM' as never, bv_ids: [] } as never,
+          ],
+        });
+      }
+
+      // microtask 立即结清（fake timer 不拦截 microtasks）
+      await Promise.resolve();
+
+      // 此时 persistState 内部 setTimeout 1000ms 还未到，写盘未发生
+      expect(adapter.setItem).not.toHaveBeenCalledWith(PERSIST_DATA_KEY, expect.any(String));
+
+      // 推进到 trailingThrottle 末端，仅触发一次 player_data 写盘
+      await vi.advanceTimersByTimeAsync(1100);
+
+      const playerDataCalls = (
+        adapter.setItem as unknown as { mock: { calls: [string, string][] } }
+      ).mock.calls.filter(([k]) => k === PERSIST_DATA_KEY);
+      expect(playerDataCalls).toHaveLength(1);
+
+      // 写入的快照仅含最后一次 setState 的内容（最新快照胜出）
+      const parsed = JSON.parse(playerDataCalls[0][1]);
+      expect(parsed.fav_list.list[0].id).toBe('id-4');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 function makeAuthAdapter() {

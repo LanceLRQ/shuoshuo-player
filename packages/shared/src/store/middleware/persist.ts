@@ -269,9 +269,26 @@ export async function bootstrapPersistence(): Promise<void> {
   }
 
   const { persistState } = createPersistMiddleware(storage);
-  const flushAll = (): void => persistState(collectPersistableSnapshot());
+
+  // Hot-path 优化：订阅回调高频触发（如 SPlayer 进度更新），
+  // 直接同步执行 collectPersistableSnapshot 会在每次 setState 都遍历 7 个 store。
+  // 用 dirty-flag + microtask 调度让同帧内的多次 setState 合并为单次快照收集，
+  // 再交给已有的 trailingThrottle 写盘（避免重复抓取快照内容）。
+  let dirty = false;
+  let scheduled = false;
+  const scheduleFlush = (): void => {
+    dirty = true;
+    if (scheduled) return;
+    scheduled = true;
+    queueMicrotask(() => {
+      scheduled = false;
+      if (!dirty) return;
+      dirty = false;
+      persistState(collectPersistableSnapshot());
+    });
+  };
   for (const entry of STORE_PERSIST_REGISTRY) {
-    entry.subscribe(flushAll);
+    entry.subscribe(scheduleFlush);
   }
 
   // apiBaseUrl 独立写入：仅在变化时直接调用 setItem，与 player_data 节流通道完全解耦
