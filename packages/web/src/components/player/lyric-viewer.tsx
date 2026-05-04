@@ -21,6 +21,7 @@ import {
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { LyricEditor } from '@/components/lyric-editor/lyric-editor';
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 import { useUIShell } from '@/stores/ui-shell';
 
@@ -33,8 +34,6 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 interface LyricViewerProps {
-  /** 触发歌词编辑器（由父组件接管） */
-  onEdit?: () => void;
   /** 自定义歌词内容渲染（外部传入时替换默认 react-lrc 渲染） */
   children?: ReactNode;
 }
@@ -46,7 +45,7 @@ interface LyricViewerProps {
  *
  * 全屏模式：本地 state 切到 fixed inset-0 z-50 覆盖整屏（含 TopBar/footer）。
  */
-export function LyricViewer({ onEdit, children }: LyricViewerProps) {
+export function LyricViewer({ children }: LyricViewerProps) {
   // 不调用 useMusicPlayer：那是带 Howl 副作用的"主控"hook，重复调用会创建第二个独立实例
   // 让歌词 progress 永远停在 0。改为订阅 player-runtime store + playing-list / videos store 派生。
   const currentBvId = usePlayingListStore((s) => s.current);
@@ -61,6 +60,8 @@ export function LyricViewer({ onEdit, children }: LyricViewerProps) {
   const sendNotice = useUIStore((s) => s.sendNotice);
   const [customStep, setCustomStep] = useState(500);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // 编辑模式：在 main 内嵌 LyricEditor，按 onExit 返回查看模式
+  const [isEditing, setIsEditing] = useState(false);
 
   const offsetMs = lyricEntry?.offset ?? 0;
   const offsetSec = offsetMs / 1000;
@@ -156,7 +157,12 @@ export function LyricViewer({ onEdit, children }: LyricViewerProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => onEdit?.()}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsEditing(true)}
+                  disabled={!currentVideo}
+                >
                   <Pencil className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -200,7 +206,18 @@ export function LyricViewer({ onEdit, children }: LyricViewerProps) {
         </TooltipProvider>
       </div>
 
-      {children ? (
+      {isEditing && currentVideo ? (
+        // 编辑模式：嵌入完整 LyricEditor，与 cloud-services/lyric-list 内的弹窗版本同源；
+        // onSeek 复用 player-runtime store 的 seek，与歌词查看器双击跳转一致
+        <div className="flex-1 overflow-hidden p-4">
+          <LyricEditor
+            currentVideo={currentVideo}
+            currentTime={currentTime}
+            onSeek={seek}
+            onExit={() => setIsEditing(false)}
+          />
+        </div>
+      ) : children ? (
         <div className="flex-1 overflow-hidden">{children}</div>
       ) : (
         // 滚动容器撑满 main 全宽 → 滚动条贴 main 右边缘；Lrc 内 px-8 给文字留侧边距，

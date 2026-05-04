@@ -51,6 +51,8 @@ class MockResizeObserver {
 
 beforeAll(() => {
   vi.stubGlobal('ResizeObserver', MockResizeObserver);
+  // jsdom 不实现 scrollIntoView；LyricEditor 内 lyric-table 在 mount 时调用，需 stub
+  Element.prototype.scrollIntoView = vi.fn();
 });
 afterAll(() => {
   vi.unstubAllGlobals();
@@ -169,13 +171,21 @@ describe('LyricViewer', () => {
     expect(useUIStore.getState().notices).toEqual([]);
   });
 
-  it('点击编辑按钮触发 onEdit prop', () => {
-    const onEdit = vi.fn();
-    render(<LyricViewer onEdit={onEdit} />);
+  it('点击编辑按钮切换到 LyricEditor 视图（依据：lyric body 不再渲染 Lrc mock）', () => {
+    useLyricsStore.setState({
+      lyricMaps: {
+        BV1Test00001: { bvid: 'BV1Test00001', lyricText: '[00:00]Hello', offset: 0 },
+      },
+    });
+    render(<LyricViewer />);
+    expect(screen.getByTestId('lrc-mock')).toBeInTheDocument();
+
     const buttons = screen.getAllByRole('button');
-    // 编辑是第 5 个按钮
+    // 编辑是第 5 个按钮（关闭 / minus / plus / refresh / edit）
     fireEvent.click(buttons[4]);
-    expect(onEdit).toHaveBeenCalledTimes(1);
+
+    // 切到编辑模式后 react-lrc 的 mock 不再出现（被 LyricEditor 取代）
+    expect(screen.queryByTestId('lrc-mock')).not.toBeInTheDocument();
   });
 
   it('children prop 优先于默认 Lrc 渲染', () => {
