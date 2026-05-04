@@ -56,8 +56,7 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
 
   const cur = player.currentVideo;
   const cover = cur?.pic ? urlPrefixFixed(cur.pic) : '';
-  const LoopIcon =
-    loopMode === 'single' ? Repeat1 : loopMode === 'random' ? Shuffle : Repeat;
+  const LoopIcon = loopMode === 'single' ? Repeat1 : loopMode === 'random' ? Shuffle : Repeat;
   const VolumeIcon = volume === 0 ? VolumeX : Volume2;
 
   const handleSeek = (vals: number[]) => {
@@ -76,7 +75,12 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
 
   return (
     <>
-      <footer className="fixed bottom-0 left-0 right-0 z-30 h-20 border-t bg-background">
+      {/*
+       * footer z-40：与 NavMenu(z-40) 同级，DOM 顺序在后 → 在最上层。
+       * 之前 z-30 < NavMenu z-40，progress thumb 上半溢出到 footer 顶部上方 6px 时
+       * 会被左侧 NavMenu 条带（fixed top-14 bottom-20）覆盖（NavMenu 底边 = footer 顶边）。
+       */}
+      <footer className="fixed bottom-0 left-0 right-0 z-40 h-20 border-t bg-background">
         <div className="absolute -top-[6px] left-0 right-0 px-2">
           <Slider
             value={[player.progress]}
@@ -104,10 +108,7 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <Marquee
-                text={cur?.title ?? '未播放'}
-                className="text-sm font-medium"
-              />
+              <Marquee text={cur?.title ?? '未播放'} className="text-sm font-medium" />
               <p className="truncate text-xs text-muted-foreground">{cur?.author ?? ''}</p>
             </div>
             {cur && (
@@ -232,11 +233,7 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowQueue((s) => !s)}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setShowQueue((s) => !s)}>
                     <ListMusic className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
