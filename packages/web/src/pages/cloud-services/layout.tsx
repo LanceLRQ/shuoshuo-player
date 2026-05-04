@@ -1,10 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import {
-  useCloudServiceStore,
-  useUIStore,
-  NoticeType,
-} from '@shuoshuo-player/shared';
+import { useCloudServiceStore, useUIStore, NoticeType } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -22,9 +18,7 @@ export function CloudServicesLayout() {
   // 当前路径末段作为激活 Tab；fallback 'lyrics'
   const activeTab = useMemo<CloudTab>(() => {
     const seg = location.pathname.split('/').filter(Boolean).pop();
-    return (TAB_ORDER as readonly string[]).includes(seg ?? '')
-      ? (seg as CloudTab)
-      : 'lyrics';
+    return (TAB_ORDER as readonly string[]).includes(seg ?? '') ? (seg as CloudTab) : 'lyrics';
   }, [location.pathname]);
 
   // 未登录拦截：弹登录框 + 重定向回首页
@@ -52,18 +46,13 @@ export function CloudServicesLayout() {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold">云服务管理</h2>
-        <p className="text-xs text-muted-foreground">
-          {isAdmin ? '管理员视图' : '普通用户视图'}
-        </p>
+        <p className="text-xs text-muted-foreground">{isAdmin ? '管理员视图' : '普通用户视图'}</p>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => navigate(`/cloud-services/${v}`)}
-      >
+      <Tabs value={activeTab} onValueChange={(v) => navigate(`/cloud-services/${v}`)}>
         <TabsList>
           {isAdmin && <TabsTrigger value="lyrics">歌词管理</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="live-slicer-men">切片管理</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="live-slicer-men">切片 UP 主</TabsTrigger>}
           {isAdmin && <TabsTrigger value="accounts">账户管理</TabsTrigger>}
           <TabsTrigger value="settings">服务设置</TabsTrigger>
         </TabsList>

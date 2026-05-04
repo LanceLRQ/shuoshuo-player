@@ -74,7 +74,7 @@ export interface LyricSnapshot {
   created_at: string;
 }
 
-/** 直播切片管理员（对齐 LiveSlicerMan 模型，mid 为字符串支持超大 UID） */
+/** 直播切片 UP 主（对齐后端 LiveSlicerMan 模型，mid 为字符串支持超大 UID） */
 export interface LiveSlicerMan {
   id: number;
   mid: string;

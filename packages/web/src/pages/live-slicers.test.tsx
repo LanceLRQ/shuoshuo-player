@@ -70,7 +70,10 @@ describe('LiveSlicersPage', () => {
   });
 
   it('挂载后调用 LiveSlicerApi.publicList(page=1,limit=100)', async () => {
-    mockedList.mockResolvedValueOnce({ result: [], page: 1, page_size: 100, total: 0 } as never);
+    mockedList.mockResolvedValueOnce({
+      list: [],
+      pager: { page: 1, page_size: 100, total: 0 },
+    } as never);
     render(<LiveSlicersPage />);
 
     await waitFor(() => {
@@ -78,12 +81,10 @@ describe('LiveSlicersPage', () => {
     });
   });
 
-  it('返回数据后渲染卡片列表', async () => {
+  it('返回数据后渲染卡片列表（后端 list 字段）', async () => {
     mockedList.mockResolvedValueOnce({
-      result: SAMPLE,
-      page: 1,
-      page_size: 100,
-      total: SAMPLE.length,
+      list: SAMPLE,
+      pager: { page: 1, page_size: 100, total: SAMPLE.length },
     } as never);
     render(<LiveSlicersPage />);
 
@@ -92,11 +93,23 @@ describe('LiveSlicersPage', () => {
     expect(screen.getByText('UID: 999')).toBeInTheDocument();
   });
 
-  it('返回空列表显示"暂无切片管理员"', async () => {
-    mockedList.mockResolvedValueOnce({ result: [], page: 1, page_size: 100, total: 0 } as never);
+  it('result 字段 fallback：旧契约下仍能渲染', async () => {
+    mockedList.mockResolvedValueOnce({
+      result: SAMPLE,
+      pager: { page: 1, page_size: 100, total: SAMPLE.length },
+    } as never);
+    render(<LiveSlicersPage />);
+    expect(await screen.findByText('小切片')).toBeInTheDocument();
+  });
+
+  it('返回空列表显示空态文案', async () => {
+    mockedList.mockResolvedValueOnce({
+      list: [],
+      pager: { page: 1, page_size: 100, total: 0 },
+    } as never);
     render(<LiveSlicersPage />);
 
-    expect(await screen.findByText('暂无切片管理员')).toBeInTheDocument();
+    expect(await screen.findByText('暂无切片 UP 主')).toBeInTheDocument();
   });
 
   it('API 失败时显示 ERROR 通知', async () => {
@@ -105,17 +118,15 @@ describe('LiveSlicersPage', () => {
 
     await waitFor(() => {
       expect(
-        useUIStore.getState().notices.find((n) => /获取切片管理员列表失败/.test(n.message)),
+        useUIStore.getState().notices.find((n) => /获取切片 UP 主列表失败/.test(n.message)),
       ).toBeDefined();
     });
   });
 
   it('点击关注按钮 → openFavEdit 预填 UPLOADER + mid + name', async () => {
     mockedList.mockResolvedValueOnce({
-      result: [SAMPLE[0]],
-      page: 1,
-      page_size: 100,
-      total: 1,
+      list: [SAMPLE[0]],
+      pager: { page: 1, page_size: 100, total: 1 },
     } as never);
     render(<LiveSlicersPage />);
     await screen.findByText('小切片');

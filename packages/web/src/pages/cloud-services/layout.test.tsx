@@ -65,7 +65,7 @@ describe('CloudServicesLayout', () => {
     expect(screen.getByText('云服务管理')).toBeInTheDocument();
     expect(screen.getByText('管理员视图')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '歌词管理' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '切片管理' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '切片 UP 主' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '账户管理' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '服务设置' })).toBeInTheDocument();
     expect(screen.getByTestId('child-lyrics')).toBeInTheDocument();

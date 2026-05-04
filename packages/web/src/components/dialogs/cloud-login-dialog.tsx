@@ -74,7 +74,7 @@ export function CloudLoginDialog() {
         <DialogHeader>
           <DialogTitle>云服务登录</DialogTitle>
           <DialogDescription>
-            登录后可使用歌词同步、切片管理、跨设备同步等功能
+            登录后可使用歌词同步、切片 UP 主管理、跨设备同步等功能
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

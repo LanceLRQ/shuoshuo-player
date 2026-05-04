@@ -26,13 +26,15 @@ export function LiveSlicersPage() {
     LiveSlicerApi.publicList({ page: 1, limit: 100 })
       .then((resp) => {
         if (cancelled) return;
-        setSlicerList(resp?.result ?? []);
+        // 后端公开列表实际返回 data.list；CloudListResponse 同时声明了 list/result，
+        // 其他调用点已做兼容（live-slicer-men / lyric-list / accounts），此处补齐
+        setSlicerList(resp?.list ?? resp?.result ?? []);
       })
       .catch(() => {
         if (cancelled) return;
         sendNotice({
           type: NoticeType.ERROR,
-          message: '获取切片管理员列表失败',
+          message: '获取切片 UP 主列表失败',
           duration: 3000,
         });
       })
@@ -57,9 +59,7 @@ export function LiveSlicersPage() {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold">直播切片 UP 主</h2>
-        <p className="text-xs text-muted-foreground">
-          点击"关注"创建以该 UP 主投稿为来源的歌单
-        </p>
+        <p className="text-xs text-muted-foreground">点击"关注"创建以该 UP 主投稿为来源的歌单</p>
       </div>
 
       {isLoading && slicerList.length === 0 ? (
@@ -69,20 +69,29 @@ export function LiveSlicersPage() {
         </div>
       ) : slicerList.length === 0 ? (
         <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-          暂无切片管理员
+          暂无切片 UP 主
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        // 用 auto-fill + minmax 替代断点列数：Card 至少 180px 才装得下 18 位 UID，否则被截为纯省略号
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
           {slicerList.map((slicer) => (
             <Card key={slicer.id} className="flex flex-col items-center gap-2 p-4">
               <Avatar className="h-16 w-16">
                 <AvatarImage src={urlPrefixFixed(slicer.face)} alt={slicer.name} />
                 <AvatarFallback>{slicer.name?.[0] ?? '?'}</AvatarFallback>
               </Avatar>
-              <p className="line-clamp-1 w-full text-center text-sm font-medium" title={slicer.name}>
+              <p
+                className="line-clamp-1 w-full text-center text-sm font-medium"
+                title={slicer.name}
+              >
                 {slicer.name}
               </p>
-              <p className="text-[11px] text-muted-foreground">UID: {slicer.mid}</p>
+              <p
+                className="line-clamp-1 w-full text-center text-[11px] text-muted-foreground"
+                title={`UID: ${slicer.mid}`}
+              >
+                UID: {slicer.mid}
+              </p>
               <div className="flex gap-1">
                 <Button variant="outline" size="sm" onClick={() => handleAddToFav(slicer)}>
                   <Plus className="mr-1 h-3 w-3" />

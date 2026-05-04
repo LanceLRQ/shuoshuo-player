@@ -70,10 +70,7 @@ export function LiveSlicerMenPage() {
   const [submitting, setSubmitting] = useState(false);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
-    [total],
-  );
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
   const fetchList = useCallback(
     async (targetPage: number, targetKeyword: string) => {
@@ -88,7 +85,7 @@ export function LiveSlicerMenPage() {
         setList(items as LiveSlicerMan[]);
         setTotal(resp?.pager?.total ?? resp?.pagination?.total ?? items.length);
       } catch (e) {
-        const message = (e as { message?: string })?.message ?? '加载切片管理员列表失败';
+        const message = (e as { message?: string })?.message ?? '加载切片 UP 主列表失败';
         sendNotice({ type: NoticeType.ERROR, message, duration: 3000 });
       } finally {
         setIsLoading(false);
@@ -164,7 +161,7 @@ export function LiveSlicerMenPage() {
 
   const handleDelete = (slicer: LiveSlicerMan) => {
     openConfirm({
-      title: '删除切片管理员',
+      title: '删除切片 UP 主',
       description: `确认删除 ${slicer.name}（UID: ${slicer.mid}）？`,
       destructive: true,
       onConfirm: async () => {
@@ -266,7 +263,7 @@ export function LiveSlicerMenPage() {
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center text-sm text-muted-foreground">
                   <AlertCircle className="mx-auto mb-2 h-4 w-4" />
-                  暂无切片管理员
+                  暂无切片 UP 主
                 </TableCell>
               </TableRow>
             ) : (
@@ -355,9 +352,7 @@ export function LiveSlicerMenPage() {
       <Dialog open={!!formState} onOpenChange={(o) => !o && handleCloseForm()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {formState?.id == null ? '新建切片管理员' : '编辑切片管理员'}
-            </DialogTitle>
+            <DialogTitle>{formState?.id == null ? '新建切片 UP 主' : '编辑切片 UP 主'}</DialogTitle>
             <DialogDescription>
               UID 支持纯数字或 https://space.bilibili.com/&lt;UID&gt; 形式
             </DialogDescription>
