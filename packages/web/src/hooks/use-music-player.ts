@@ -15,6 +15,7 @@ import {
   createLyricsFinder,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
+import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 
 interface PlayerState {
   isLoading: boolean;
@@ -397,6 +398,19 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     else if (currentVideo) ms.playbackState = 'paused';
     else ms.playbackState = 'none';
   }, [isPlaying, currentVideo]);
+
+  // 同步 progress / duration 到 player-runtime store，让 LyricViewer 等"非主控"消费方
+  // 不必再调 useMusicPlayer 创建第二个 Howl 实例（避免播放器 state 不一致 / 歌词不滚动）
+  useEffect(() => {
+    usePlayerRuntimeStore.setState({ progress });
+  }, [progress]);
+  useEffect(() => {
+    usePlayerRuntimeStore.setState({ duration });
+  }, [duration]);
+  useEffect(() => {
+    // 把 seek 函数引用注册到 store，供 LyricViewer 等订阅方双击歌词跳转使用
+    usePlayerRuntimeStore.setState({ seek });
+  }, [seek]);
 
   // 进度同步到 setPositionState（每秒采样 progressRef，避免 RAF 60Hz setProgress 让 effect 反复重建定时器）
   useEffect(() => {

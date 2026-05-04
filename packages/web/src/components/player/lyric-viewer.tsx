@@ -7,10 +7,12 @@ import {
   useUIStore,
   getPlatformBridge,
   NoticeType,
+  usePlayingListStore,
+  useBilibiliVideosStore,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { useMusicPlayer } from '@/hooks/use-music-player';
+import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 import { useUIShell } from '@/stores/ui-shell';
 
 interface CloudLyricResponse {
@@ -36,9 +38,13 @@ interface LyricViewerProps {
  * 全屏模式：本地 state 切到 fixed inset-0 z-50 覆盖整屏（含 TopBar/footer）。
  */
 export function LyricViewer({ onEdit, children }: LyricViewerProps) {
-  const player = useMusicPlayer();
-  const currentVideo = player.currentVideo;
-  const currentTime = player.progress;
+  // 不调用 useMusicPlayer：那是带 Howl 副作用的"主控"hook，重复调用会创建第二个独立实例
+  // 让歌词 progress 永远停在 0。改为订阅 player-runtime store + playing-list / videos store 派生。
+  const currentBvId = usePlayingListStore((s) => s.current);
+  const videoEntities = useBilibiliVideosStore((s) => s.entities);
+  const currentVideo = currentBvId ? (videoEntities[currentBvId] ?? null) : null;
+  const currentTime = usePlayerRuntimeStore((s) => s.progress);
+  const seek = usePlayerRuntimeStore((s) => s.seek);
   const closeLyric = useUIShell((s) => s.closeLyric);
 
   const lyricEntry = useLyricsStore((s) => (currentVideo ? s.lyricMaps[currentVideo.bvid] : null));
@@ -188,17 +194,27 @@ export function LyricViewer({ onEdit, children }: LyricViewerProps) {
       {children ? (
         <div className="flex-1 overflow-hidden">{children}</div>
       ) : (
-        <div className="flex flex-1 items-center justify-center overflow-hidden p-8">
+        // 滚动容器撑满 main 全宽 → 滚动条贴 main 右边缘；Lrc 内 px-8 给文字留侧边距，
+        // text-center 让歌词水平居中显示（视觉效果与原 max-w-2xl + flex justify-center 一致，
+        // 区别是滚动条不再被夹在中间的 672px 容器右缘）
+        <div className="flex-1 overflow-hidden">
           {lyricText ? (
             <Lrc
               lrc={lyricText}
               currentMillisecond={currentMillisecond}
-              className="h-full w-full max-w-2xl text-center"
+              className="h-full w-full px-8 text-center"
               lineRenderer={({ active, line }) => (
                 <p
+                  onDoubleClick={() => {
+                    // 反向应用 offsetMs：line.startMillisecond + offsetMs 是音频真实毫秒
+                    // 正向：currentMillisecond = currentTime * 1000 - offsetMs
+                    if (seek) seek((line.startMillisecond + offsetMs) / 1000);
+                  }}
                   className={cn(
-                    'py-2 text-base transition-colors',
-                    active ? 'text-primary text-xl font-semibold' : 'text-muted-foreground',
+                    'cursor-pointer select-none py-2 transition-all duration-500 ease-out',
+                    active
+                      ? 'scale-105 text-2xl font-bold text-primary'
+                      : 'text-base text-muted-foreground/60 hover:text-muted-foreground',
                   )}
                 >
                   {line.content || ' '}
@@ -207,7 +223,9 @@ export function LyricViewer({ onEdit, children }: LyricViewerProps) {
               verticalSpace
             />
           ) : (
-            <p className="text-muted-foreground">暂无歌词</p>
+            <p className="flex h-full items-center justify-center text-muted-foreground">
+              暂无歌词
+            </p>
           )}
         </div>
       )}

@@ -5,10 +5,13 @@ import {
   setPlatformBridge,
   useLyricsStore,
   useUIStore,
+  usePlayingListStore,
+  useBilibiliVideosStore,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
 import { LyricViewer } from './lyric-viewer';
 import { useUIShell } from '@/stores/ui-shell';
+import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 
 vi.mock('@shuoshuo-player/shared', async () => {
   const actual = await vi.importActual<object>('@shuoshuo-player/shared');
@@ -22,16 +25,6 @@ const mockedGetLyric = vi.mocked(LyricApi.getLyricByBvid);
 // react-lrc 在 jsdom 下不能正常运行；mock 简化输出
 vi.mock('react-lrc', () => ({
   Lrc: ({ lrc }: { lrc: string }) => <div data-testid="lrc-mock">{lrc}</div>,
-}));
-
-// useMusicPlayer 涉及 Howler / Audio 等副作用，全 mock 为 module-level 可变对象，
-// 让测试通过修改 mockPlayerState 控制 currentVideo / progress
-const mockPlayerState: {
-  currentVideo: BilibiliVideo | null;
-  progress: number;
-} = { currentVideo: null, progress: 0 };
-vi.mock('@/hooks/use-music-player', () => ({
-  useMusicPlayer: () => mockPlayerState,
 }));
 
 const SAMPLE_VIDEO: BilibiliVideo = {
@@ -68,8 +61,10 @@ function reset() {
   useLyricsStore.setState({ lyricMaps: {} });
   useUIStore.setState({ notices: [] });
   useUIShell.setState({ showLyric: true });
-  mockPlayerState.currentVideo = SAMPLE_VIDEO;
-  mockPlayerState.progress = 0;
+  // 通过 store 模拟当前曲目 + 播放进度（替代旧 useMusicPlayer mock）
+  useBilibiliVideosStore.setState({ entities: { [SAMPLE_VIDEO.bvid]: SAMPLE_VIDEO } });
+  usePlayingListStore.setState({ current: SAMPLE_VIDEO.bvid });
+  usePlayerRuntimeStore.setState({ progress: 0, duration: 0 });
   mockedGetLyric.mockReset();
   setPlatformBridge({
     type: 'web',
@@ -98,7 +93,7 @@ describe('LyricViewer', () => {
   });
 
   it('currentVideo=null 时显示"未播放"', () => {
-    mockPlayerState.currentVideo = null;
+    usePlayingListStore.setState({ current: null });
     render(<LyricViewer />);
     expect(screen.getByText('未播放')).toBeInTheDocument();
   });
