@@ -76,7 +76,10 @@ export function NavMenu({ menuOpen }: NavMenuProps) {
     >
       <ScrollArea className="h-full">
         <TooltipProvider delayDuration={200}>
-          <nav className="flex flex-col gap-0.5 p-2">
+          {/* w-full：Radix ScrollArea Viewport 内部的 display:table 包装会让 nav 默认按
+              content-width 排版，nav 不撑满后子项的 w-full 也只取 fit-content；显式 w-full 强制
+              nav 撑满 Viewport 宽度（64px / 256px），子项的 justify-center 才能真正几何居中 */}
+          <nav className="flex w-full flex-col gap-0.5 p-2">
             {fixedItems.map((item) => (
               <NavRow key={item.to} item={item} collapsed={!menuOpen} />
             ))}
@@ -136,19 +139,19 @@ export function NavMenu({ menuOpen }: NavMenuProps) {
 }
 
 function NavRow({ item, collapsed }: { item: FixedItem; collapsed: boolean }) {
+  // 不用 NavLink className 函数形式：实测 className=fn 在生产构建（minified + React 19 / RR v7）
+  // 下被 toString 后整体写入 DOM class 属性，浏览器按空格分割时只识别字符串内"碰巧没和前后字符
+  // 黏连"的 token，导致 justify-center / px-0 等条件类失效。改用 string + aria-current 选择器：
+  // NavLink active 时自动给 a 加 aria-current="page"，Tailwind 的 aria-[current=page]: 变体直接生效。
   const link = (
     <NavLink
       to={item.to}
-      className={({ isActive }) =>
-        cn(
-          // w-full：折叠模式下让 NavLink 撑满 aside 内容宽度，配合 justify-center 才能真正居中
-          'flex h-9 w-full items-center rounded-md px-3 text-sm font-medium transition-colors',
-          collapsed && 'justify-center px-0',
-          isActive
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-        )
-      }
+      className={cn(
+        'flex h-9 w-full items-center rounded-md px-3 text-sm font-medium transition-colors',
+        'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+        'aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground aria-[current=page]:hover:bg-accent',
+        collapsed && 'justify-center px-0',
+      )}
     >
       <span className="flex h-4 w-4 items-center justify-center">{item.icon}</span>
       {!collapsed && <span className="ml-2 truncate">{item.label}</span>}
