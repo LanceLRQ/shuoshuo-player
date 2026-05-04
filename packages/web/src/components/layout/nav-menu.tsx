@@ -1,16 +1,6 @@
 import { useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  Home,
-  Search,
-  Tv,
-  Cloud,
-  Heart,
-  ListMusic,
-  Star,
-  Video,
-  Plus,
-} from 'lucide-react';
+import { Home, Search, Tv, Cloud, Heart, ListMusic, Star, Video, Plus } from 'lucide-react';
 import {
   useFavListStore,
   useBilibiliUserVideosStore,
@@ -79,7 +69,7 @@ export function NavMenu({ menuOpen }: NavMenuProps) {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-14 bottom-20 z-40 border-r bg-background transition-[width] duration-300',
+        'h-full shrink-0 border-r bg-background transition-[width] duration-300',
         menuOpen ? 'w-64' : 'w-16',
       )}
       aria-label="侧边导航"

@@ -136,7 +136,7 @@ export function FavListPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-9rem)] flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       {/* 顶部 FavCard */}
       <FavCard favId={favId} fav={favListInfo} />
 

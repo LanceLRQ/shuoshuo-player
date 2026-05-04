@@ -31,7 +31,6 @@ import { Marquee } from '@/components/marquee';
 import { useMusicPlayer } from '@/hooks/use-music-player';
 import { useUIShell } from '@/stores/ui-shell';
 import { PlayingQueue } from './playing-queue';
-import { LyricViewer } from './lyric-viewer';
 
 const LOOP_MODE_TIPS: Record<LoopMode, string> = {
   single: '单曲循环',
@@ -42,17 +41,17 @@ const LOOP_MODE_TIPS: Record<LoopMode, string> = {
 interface SPlayerProps {
   /** 触发"添加到歌单"时由调用方接管（默认 fallback：openAddToFav） */
   onAddToFav?: (bvid: string) => void;
-  onOpenLyricEditor?: () => void;
 }
 
-export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
+export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
   const player = useMusicPlayer();
   const volume = usePlayerProfileStore((s) => s.volume);
   const loopMode = usePlayerProfileStore((s) => s.loopMode);
   const openAddToFav = useUIShell((s) => s.openAddToFav);
+  const showLyric = useUIShell((s) => s.showLyric);
+  const toggleLyric = useUIShell((s) => s.toggleLyric);
 
   const [showQueue, setShowQueue] = useState(false);
-  const [showLyric, setShowLyric] = useState(false);
 
   const cur = player.currentVideo;
   const cover = cur?.pic ? urlPrefixFixed(cur.pic) : '';
@@ -76,11 +75,11 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
   return (
     <>
       {/*
-       * footer z-40：与 NavMenu(z-40) 同级，DOM 顺序在后 → 在最上层。
-       * 之前 z-30 < NavMenu z-40，progress thumb 上半溢出到 footer 顶部上方 6px 时
-       * 会被左侧 NavMenu 条带（fixed top-14 bottom-20）覆盖（NavMenu 底边 = footer 顶边）。
+       * footer 作为 PlayerLayout grid row 3，自身 relative 给 progress slider absolute 锚点。
+       * grid 子级 DOM 顺序：row1 (TopBar) > row2 (NavMenu+main) > row3 (footer)，
+       * 同 z auto 时 footer 整体（含 thumb 溢出 6px）渲染在 row2 之上，无需 z-index。
        */}
-      <footer className="fixed bottom-0 left-0 right-0 z-40 h-20 border-t bg-background">
+      <footer className="relative h-20 border-t bg-background">
         <div className="absolute -top-[6px] left-0 right-0 px-2">
           <Slider
             value={[player.progress]}
@@ -100,7 +99,7 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
                 src={cover}
                 alt=""
                 className="h-12 w-12 cursor-pointer rounded object-cover"
-                onClick={() => cur && setShowLyric(true)}
+                onClick={() => cur && !showLyric && toggleLyric()}
               />
             ) : (
               <div className="flex h-12 w-12 items-center justify-center rounded bg-muted">
@@ -221,7 +220,7 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setShowLyric((s) => !s)}
+                        onClick={toggleLyric}
                         className={cn(showLyric && 'text-primary')}
                       >
                         <Music className="h-5 w-5" />
@@ -252,13 +251,6 @@ export function SPlayer({ onAddToFav, onOpenLyricEditor }: SPlayerProps = {}) {
       </footer>
 
       <PlayingQueue open={showQueue} onOpenChange={setShowQueue} />
-      <LyricViewer
-        open={showLyric}
-        onClose={() => setShowLyric(false)}
-        currentVideo={cur}
-        currentTime={player.progress}
-        onEdit={onOpenLyricEditor}
-      />
     </>
   );
 }

@@ -144,7 +144,7 @@ export function DiscoveryPage() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-9rem)] flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       {/* 搜索框 */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -173,7 +173,11 @@ export function DiscoveryPage() {
           )}
         </div>
         <Button onClick={() => void doSearch(true)} disabled={!keyword.trim() || isSearching}>
-          {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          {isSearching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Search className="h-4 w-4" />
+          )}
         </Button>
       </div>
 

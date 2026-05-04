@@ -113,7 +113,7 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
   }, [sendNotice]);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center border-b bg-background px-4">
+    <header className="z-50 flex h-14 items-center border-b bg-background px-4">
       <Button
         variant="ghost"
         size="icon"

@@ -46,6 +46,11 @@ interface UIShellState {
   confirmConfig: ConfirmConfig | null;
   openConfirm: (config: ConfirmConfig) => void;
   closeConfirm: () => void;
+
+  /** 歌词面板：占据 main 视图的开关（NavMenu/TopBar/Footer 仍可见） */
+  showLyric: boolean;
+  toggleLyric: () => void;
+  closeLyric: () => void;
 }
 
 export interface ConfirmConfig {
@@ -76,8 +81,7 @@ export const useUIShell = create<UIShellState>((set) => ({
       favEditTargetId: id,
       favEditPrefill: prefill ?? null,
     }),
-  closeFavEdit: () =>
-    set({ favEditOpen: false, favEditTargetId: null, favEditPrefill: null }),
+  closeFavEdit: () => set({ favEditOpen: false, favEditTargetId: null, favEditPrefill: null }),
 
   addSongOpen: false,
   addSongTargetFavId: null,
@@ -107,4 +111,8 @@ export const useUIShell = create<UIShellState>((set) => ({
   confirmConfig: null,
   openConfirm: (config) => set({ confirmOpen: true, confirmConfig: config }),
   closeConfirm: () => set({ confirmOpen: false, confirmConfig: null }),
+
+  showLyric: false,
+  toggleLyric: () => set((s) => ({ showLyric: !s.showLyric })),
+  closeLyric: () => set({ showLyric: false }),
 }));

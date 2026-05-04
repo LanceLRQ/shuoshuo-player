@@ -1,6 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
 import { usePlayerProfileStore } from '@shuoshuo-player/shared';
-import { cn } from '@/lib/utils';
 import { useUIShell } from '@/stores/ui-shell';
 import { TopBar } from './top-bar';
 import { NavMenu } from './nav-menu';
@@ -43,18 +42,23 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
   }, [theme, getEffectiveTheme]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="grid h-screen grid-rows-[3.5rem_1fr_5rem] overflow-hidden bg-background text-foreground">
+      {/* Row 1: TopBar (3.5rem = h-14) */}
       <TopBar menuOpen={menuOpen} onToggleMenu={toggleMenu} />
-      <NavMenu menuOpen={menuOpen} />
-      <main
-        className={cn(
-          'min-h-screen pt-14 pb-20 transition-[margin] duration-300',
-          menuOpen ? 'ml-64' : 'ml-16',
-        )}
-      >
-        <div className="px-6 py-4">{children}</div>
-      </main>
+
+      {/* Row 2: 中间行，flex 左右布局 NavMenu + main；min-h-0 让 flex 子缩到容器内 */}
+      <div className="flex min-h-0 overflow-hidden">
+        <NavMenu menuOpen={menuOpen} />
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          {/* 不在此处加 padding：让歌词面板等沉浸式视图能贴合 main 边缘；
+              普通页面在 RootLayout 自行包 px-6 py-4 */}
+          <div className="h-full">{children}</div>
+        </main>
+      </div>
+
+      {/* Row 3: footer (5rem = h-20) */}
       {footer}
+
       {overlays}
     </div>
   );

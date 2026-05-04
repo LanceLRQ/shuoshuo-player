@@ -57,17 +57,22 @@ describe('PlayerLayout', () => {
     expect(screen.getByTestId('overlay')).toBeInTheDocument();
   });
 
-  it('menuOpen=true 时 main 容器使用 ml-64 缩进', () => {
-    const { container } = renderLayout({ children: 'x' });
-    const main = container.querySelector('main');
-    expect(main?.className).toMatch(/ml-64/);
+  it('menuOpen=true 时 NavMenu 接收到 data-open=true 标记（驱动 w-64）', () => {
+    renderLayout({ children: 'x' });
+    expect(screen.getByTestId('navmenu')).toHaveAttribute('data-open', 'true');
   });
 
-  it('menuOpen=false 时 main 容器使用 ml-16 缩进', () => {
+  it('menuOpen=false 时 NavMenu 接收到 data-open=false 标记（驱动 w-16）', () => {
     useUIShell.setState({ menuOpen: false });
+    renderLayout({ children: 'x' });
+    expect(screen.getByTestId('navmenu')).toHaveAttribute('data-open', 'false');
+  });
+
+  it('main 区域使用 grid+flex 布局（自身 overflow-y-auto 内部独立滚动）', () => {
     const { container } = renderLayout({ children: 'x' });
     const main = container.querySelector('main');
-    expect(main?.className).toMatch(/ml-16/);
+    expect(main?.className).toMatch(/flex-1/);
+    expect(main?.className).toMatch(/overflow-y-auto/);
   });
 
   it('theme=dark 时 documentElement 添加 dark class', () => {

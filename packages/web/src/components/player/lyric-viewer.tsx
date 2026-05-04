@@ -7,10 +7,11 @@ import {
   useUIStore,
   getPlatformBridge,
   NoticeType,
-  type BilibiliVideo,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useMusicPlayer } from '@/hooks/use-music-player';
+import { useUIShell } from '@/stores/ui-shell';
 
 interface CloudLyricResponse {
   content?: string;
@@ -21,24 +22,25 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 interface LyricViewerProps {
-  open: boolean;
-  onClose: () => void;
-  currentVideo: BilibiliVideo | null;
-  /** 当前播放进度（秒） */
-  currentTime: number;
   /** 触发歌词编辑器（由父组件接管） */
   onEdit?: () => void;
+  /** 自定义歌词内容渲染（外部传入时替换默认 react-lrc 渲染） */
   children?: ReactNode;
 }
 
-export function LyricViewer({
-  open,
-  onClose,
-  currentVideo,
-  currentTime,
-  onEdit,
-  children,
-}: LyricViewerProps) {
+/**
+ * 歌词面板：作为 main 内的视图模式渲染（PlayerLayout 的 children），由 useUIShell.showLyric
+ * 控制可见性。currentVideo / progress 不再由 SPlayer 通过 props 传入，自己从 useMusicPlayer
+ * 取，避免跨组件 prop drilling 与重复订阅。
+ *
+ * 全屏模式：本地 state 切到 fixed inset-0 z-50 覆盖整屏（含 TopBar/footer）。
+ */
+export function LyricViewer({ onEdit, children }: LyricViewerProps) {
+  const player = useMusicPlayer();
+  const currentVideo = player.currentVideo;
+  const currentTime = player.progress;
+  const closeLyric = useUIShell((s) => s.closeLyric);
+
   const lyricEntry = useLyricsStore((s) => (currentVideo ? s.lyricMaps[currentVideo.bvid] : null));
   const updateLyric = useLyricsStore((s) => s.updateLyric);
   const sendNotice = useUIStore((s) => s.sendNotice);
@@ -83,18 +85,18 @@ export function LyricViewer({
   const lyricText = lyricEntry?.lyricText ?? '';
   const currentMillisecond = useMemo(() => currentTime * 1000 - offsetMs, [currentTime, offsetMs]);
 
-  if (!open) return null;
-
   return (
     <div
       className={cn(
-        'fixed inset-x-0 bottom-20 top-14 z-40 flex flex-col bg-background/95 backdrop-blur',
-        isFullscreen && 'inset-0',
+        // 默认作为 main 内嵌容器：撑满父级 (h-full) + 列布局
+        'flex h-full flex-col bg-background',
+        // 全屏：脱离 main，覆盖整个 viewport（含 TopBar/footer）
+        isFullscreen && 'fixed inset-0 z-50',
       )}
     >
       <div className="flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭歌词">
+          <Button variant="ghost" size="icon" onClick={closeLyric} aria-label="关闭歌词">
             <Minimize2 className="h-5 w-5" />
           </Button>
           <span className="truncate font-medium">{currentVideo?.title ?? '未播放'}</span>
