@@ -141,7 +141,8 @@ function NavRow({ item, collapsed }: { item: FixedItem; collapsed: boolean }) {
       to={item.to}
       className={({ isActive }) =>
         cn(
-          'flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors',
+          // w-full：折叠模式下让 NavLink 撑满 aside 内容宽度，配合 justify-center 才能真正居中
+          'flex h-9 w-full items-center rounded-md px-3 text-sm font-medium transition-colors',
           collapsed && 'justify-center px-0',
           isActive
             ? 'bg-accent text-accent-foreground'
