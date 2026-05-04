@@ -106,6 +106,63 @@ describe('ToasterProvider', () => {
     const args = toastMock.success.mock.calls[0];
     expect(args[1]).toMatchObject({ duration: Infinity });
   });
+
+  it('opts 暴露 onAutoClose / onDismiss，调用后从 store 移除该 notice', () => {
+    render(<ToasterProvider />);
+    let id = '';
+    act(() => {
+      id = useUIStore.getState().sendNotice({
+        type: NoticeType.SUCCESS,
+        message: 'auto-cleanup',
+        duration: 1000,
+      });
+    });
+    expect(useUIStore.getState().notices).toHaveLength(1);
+    const opts = toastMock.success.mock.calls[0][1];
+    expect(typeof opts.onAutoClose).toBe('function');
+    expect(typeof opts.onDismiss).toBe('function');
+
+    // 模拟 sonner duration 到期
+    act(() => opts.onAutoClose());
+    expect(useUIStore.getState().notices.find((n) => n.id === id)).toBeUndefined();
+  });
+
+  it('onDismiss 触发亦走 removeNotice（覆盖手动关闭与 toast.dismiss 路径）', () => {
+    render(<ToasterProvider />);
+    let id = '';
+    act(() => {
+      id = useUIStore.getState().sendNotice({
+        type: NoticeType.INFO,
+        message: 'manual-dismiss',
+      });
+    });
+    const opts = toastMock.info.mock.calls[0][1];
+    act(() => opts.onDismiss());
+    expect(useUIStore.getState().notices.find((n) => n.id === id)).toBeUndefined();
+  });
+
+  it('连续 N 条通知 + 自动关闭：notices 不会无限累积', () => {
+    render(<ToasterProvider />);
+    const ids: string[] = [];
+    act(() => {
+      for (let i = 0; i < 5; i++) {
+        ids.push(
+          useUIStore.getState().sendNotice({
+            type: NoticeType.SUCCESS,
+            message: `m${i}`,
+            duration: 100,
+          }),
+        );
+      }
+    });
+    expect(useUIStore.getState().notices).toHaveLength(5);
+    // 每条都派发一次 toast.success，且每次 opts 带 onAutoClose
+    for (let i = 0; i < 5; i++) {
+      const opts = toastMock.success.mock.calls[i][1];
+      act(() => opts.onAutoClose());
+    }
+    expect(useUIStore.getState().notices).toHaveLength(0);
+  });
 });
 
 describe('useNotice', () => {

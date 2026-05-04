@@ -27,6 +27,11 @@ export function ToasterProvider() {
       for (const notice of state.notices) {
         // sendNotice 只 push 不 remove，notices 单调增长；不跳过已处理 id 会让后续每次新通知都重弹历史项
         if (seen.has(notice.id)) continue;
+        // sonner 关闭后回写 store removeNotice，避免 notices 数组永久累积
+        // - onAutoClose: duration 到期时触发；duration=Infinity 时不会触发（常驻 tip 保持）
+        // - onDismiss: toast.delete=true 时触发，覆盖用户手动关闭和 toast.dismiss(id) 程控关闭
+        // 两者都可能因不同关闭路径触发；removeNotice 是 filter 实现，重复调用幂等
+        const cleanup = () => useUIStore.getState().removeNotice(notice.id);
         const opts: Parameters<typeof toast>[1] = {
           id: notice.id,
           duration: notice.duration === null ? Infinity : notice.duration,
@@ -34,6 +39,8 @@ export function ToasterProvider() {
             ? { label: notice.action.label, onClick: notice.action.onClick }
             : undefined,
           dismissible: notice.close,
+          onAutoClose: cleanup,
+          onDismiss: cleanup,
         };
         switch (notice.type) {
           case NoticeType.SUCCESS:
