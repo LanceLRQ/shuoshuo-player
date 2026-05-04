@@ -15,6 +15,8 @@ export function ToasterProvider() {
 
   useEffect(() => {
     const seen = new Set<string>();
+    // 把订阅前已存在的 notice 标记为已处理，避免 StrictMode 双挂载或初始 state 非空时重复弹
+    for (const n of useUIStore.getState().notices) seen.add(n.id);
     const unsub = useUIStore.subscribe((state, prev) => {
       const removed = prev.notices.filter((n) => !state.notices.find((x) => x.id === n.id));
       removed.forEach((n) => {
@@ -23,6 +25,8 @@ export function ToasterProvider() {
       });
 
       for (const notice of state.notices) {
+        // sendNotice 只 push 不 remove，notices 单调增长；不跳过已处理 id 会让后续每次新通知都重弹历史项
+        if (seen.has(notice.id)) continue;
         const opts: Parameters<typeof toast>[1] = {
           id: notice.id,
           duration: notice.duration === null ? Infinity : notice.duration,
