@@ -19,6 +19,8 @@ import {
   getBilibiliMidByURL,
   urlPrefixFixed,
   NoticeType,
+  pickCloudList,
+  pickCloudListTotal,
   type LiveSlicerMan,
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
@@ -81,9 +83,9 @@ export function LiveSlicerMenPage() {
           limit: PAGE_SIZE,
           keyword: targetKeyword || undefined,
         });
-        const items = resp?.result ?? resp?.list ?? [];
-        setList(items as LiveSlicerMan[]);
-        setTotal(resp?.pager?.total ?? resp?.pagination?.total ?? items.length);
+        const items = pickCloudList<LiveSlicerMan>(resp);
+        setList(items);
+        setTotal(pickCloudListTotal(resp, items.length));
       } catch (e) {
         const message = (e as { message?: string })?.message ?? '加载切片 UP 主列表失败';
         sendNotice({ type: NoticeType.ERROR, message, duration: 3000 });

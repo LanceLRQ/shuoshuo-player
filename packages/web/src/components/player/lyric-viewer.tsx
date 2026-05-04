@@ -60,7 +60,6 @@ export function LyricViewer({ children }: LyricViewerProps) {
   const sendNotice = useUIStore((s) => s.sendNotice);
   const [customStep, setCustomStep] = useState(500);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // 编辑模式：在 main 内嵌 LyricEditor，按 onExit 返回查看模式
   const [isEditing, setIsEditing] = useState(false);
 
   const offsetMs = lyricEntry?.offset ?? 0;

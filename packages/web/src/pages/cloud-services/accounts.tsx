@@ -22,6 +22,8 @@ import {
   CLOUD_SERVICE_ROLE_NAME_MAP,
   useUIStore,
   NoticeType,
+  pickCloudList,
+  pickCloudListTotal,
   type CloudAccount,
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
@@ -84,8 +86,14 @@ const accountSchema = z.object({
 type AccountFormData = z.infer<typeof accountSchema>;
 
 const ROLE_OPTIONS = [
-  { value: CloudServiceUserRole.User, label: CLOUD_SERVICE_ROLE_NAME_MAP[CloudServiceUserRole.User] },
-  { value: CloudServiceUserRole.Admin, label: CLOUD_SERVICE_ROLE_NAME_MAP[CloudServiceUserRole.Admin] },
+  {
+    value: CloudServiceUserRole.User,
+    label: CLOUD_SERVICE_ROLE_NAME_MAP[CloudServiceUserRole.User],
+  },
+  {
+    value: CloudServiceUserRole.Admin,
+    label: CLOUD_SERVICE_ROLE_NAME_MAP[CloudServiceUserRole.Admin],
+  },
   {
     value: CloudServiceUserRole.WebMaster,
     label: CLOUD_SERVICE_ROLE_NAME_MAP[CloudServiceUserRole.WebMaster],
@@ -118,10 +126,7 @@ export function AccountsPage() {
     },
   });
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
-    [total],
-  );
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
   const fetchList = useCallback(
     async (targetPage: number, targetKeyword: string) => {
@@ -132,9 +137,9 @@ export function AccountsPage() {
           limit: PAGE_SIZE,
           keyword: targetKeyword || undefined,
         });
-        const items = resp?.result ?? resp?.list ?? [];
-        setList(items as CloudAccount[]);
-        setTotal(resp?.pager?.total ?? resp?.pagination?.total ?? items.length);
+        const items = pickCloudList<CloudAccount>(resp);
+        setList(items);
+        setTotal(pickCloudListTotal(resp, items.length));
       } catch (e) {
         const message = (e as { message?: string })?.message ?? '加载账户列表失败';
         sendNotice({ type: NoticeType.ERROR, message, duration: 3000 });
@@ -445,9 +450,7 @@ export function AccountsPage() {
           <DialogHeader>
             <DialogTitle>{editing ? '编辑账户' : '新建账户'}</DialogTitle>
             <DialogDescription>
-              {editing
-                ? '密码字段留空表示不修改'
-                : '请填写完整信息；密码至少 8 位'}
+              {editing ? '密码字段留空表示不修改' : '请填写完整信息；密码至少 8 位'}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -556,9 +559,7 @@ export function AccountsPage() {
                   取消
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting && (
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  )}
+                  {form.formState.isSubmitting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                   保存
                 </Button>
               </DialogFooter>

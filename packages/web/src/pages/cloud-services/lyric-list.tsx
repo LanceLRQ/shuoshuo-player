@@ -17,6 +17,8 @@ import {
   useLyricsStore,
   useUIStore,
   NoticeType,
+  pickCloudList,
+  pickCloudListTotal,
   type CloudLyric,
   type LyricSnapshot,
   type BilibiliVideo,
@@ -84,10 +86,7 @@ export function LyricListPage() {
   const [historyList, setHistoryList] = useState<LyricSnapshot[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
-    [total],
-  );
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
   const fetchList = useCallback(
     async (targetPage: number, targetKeyword: string) => {
@@ -98,12 +97,9 @@ export function LyricListPage() {
           limit: PAGE_SIZE,
           keyword: targetKeyword || undefined,
         });
-        const items = resp?.result ?? resp?.list ?? [];
-        setList(items as CloudLyric[]);
-        // 后端响应字段可能是 pager.total 或 pagination.total
-        const fetchedTotal =
-          resp?.pager?.total ?? resp?.pagination?.total ?? items.length;
-        setTotal(fetchedTotal);
+        const items = pickCloudList<CloudLyric>(resp);
+        setList(items);
+        setTotal(pickCloudListTotal(resp, items.length));
       } catch (e) {
         const message = (e as { message?: string })?.message ?? '加载歌词列表失败';
         sendNotice({ type: NoticeType.ERROR, message, duration: 3000 });
@@ -374,9 +370,7 @@ export function LyricListPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>新建歌词</DialogTitle>
-            <DialogDescription>
-              输入 BV 号；创建后可在列表中点击"编辑"补充内容。
-            </DialogDescription>
+            <DialogDescription>输入 BV 号；创建后可在列表中点击"编辑"补充内容。</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input
@@ -404,9 +398,7 @@ export function LyricListPage() {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>历史快照 — {historyTarget?.bvid}</DialogTitle>
-            <DialogDescription>
-              最多展示 10 条最近的快照（按时间倒序）
-            </DialogDescription>
+            <DialogDescription>最多展示 10 条最近的快照（按时间倒序）</DialogDescription>
           </DialogHeader>
           {historyLoading ? (
             <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
@@ -424,9 +416,7 @@ export function LyricListPage() {
                   <div key={snap.id} className="rounded-md border p-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{dayjs(snap.created_at).format('YYYY-MM-DD HH:mm:ss')}</span>
-                      {snap.author?.user_name && (
-                        <span>by {snap.author.user_name}</span>
-                      )}
+                      {snap.author?.user_name && <span>by {snap.author.user_name}</span>}
                     </div>
                     <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs">
                       {snap.content || '（空内容）'}

@@ -7,6 +7,7 @@ import {
   NoticeType,
   FavListType,
   getPlatformBridge,
+  pickCloudList,
   type LiveSlicerMan,
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
@@ -26,9 +27,7 @@ export function LiveSlicersPage() {
     LiveSlicerApi.publicList({ page: 1, limit: 100 })
       .then((resp) => {
         if (cancelled) return;
-        // 后端公开列表实际返回 data.list；CloudListResponse 同时声明了 list/result，
-        // 其他调用点已做兼容（live-slicer-men / lyric-list / accounts），此处补齐
-        setSlicerList(resp?.list ?? resp?.result ?? []);
+        setSlicerList(pickCloudList<LiveSlicerMan>(resp));
       })
       .catch(() => {
         if (cancelled) return;

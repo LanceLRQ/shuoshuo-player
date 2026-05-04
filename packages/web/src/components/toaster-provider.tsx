@@ -15,23 +15,26 @@ export function ToasterProvider() {
 
   useEffect(() => {
     const seen = new Set<string>();
-    // 把订阅前已存在的 notice 标记为已处理，避免 StrictMode 双挂载或初始 state 非空时重复弹
+    // 预热已存在 notice，避免 StrictMode 双挂载或初始 state 非空时重复弹
     for (const n of useUIStore.getState().notices) seen.add(n.id);
+    const removeNotice = useUIStore.getState().removeNotice;
     const unsub = useUIStore.subscribe((state, prev) => {
-      const removed = prev.notices.filter((n) => !state.notices.find((x) => x.id === n.id));
-      removed.forEach((n) => {
-        toast.dismiss(n.id);
-        seen.delete(n.id);
-      });
+      // useUIStore 当前只有 notices 字段；保留引用相等短路便于未来加字段后不被无关变化触发
+      if (state.notices === prev.notices) return;
+      const currentIds = new Set(state.notices.map((n) => n.id));
+      for (const n of prev.notices) {
+        if (!currentIds.has(n.id)) {
+          toast.dismiss(n.id);
+          seen.delete(n.id);
+        }
+      }
 
       for (const notice of state.notices) {
-        // sendNotice 只 push 不 remove，notices 单调增长；不跳过已处理 id 会让后续每次新通知都重弹历史项
         if (seen.has(notice.id)) continue;
-        // sonner 关闭后回写 store removeNotice，避免 notices 数组永久累积
-        // - onAutoClose: duration 到期时触发；duration=Infinity 时不会触发（常驻 tip 保持）
-        // - onDismiss: toast.delete=true 时触发，覆盖用户手动关闭和 toast.dismiss(id) 程控关闭
-        // 两者都可能因不同关闭路径触发；removeNotice 是 filter 实现，重复调用幂等
-        const cleanup = () => useUIStore.getState().removeNotice(notice.id);
+        // sonner 关闭即回写 store removeNotice，覆盖 onAutoClose（duration 到期）与 onDismiss
+        // （手动关闭 / toast.dismiss 程控）；duration=Infinity 不触发 onAutoClose（常驻语义保持）
+        // removeNotice 是 filter 实现，多路径同 id 重复调用幂等
+        const cleanup = () => removeNotice(notice.id);
         const opts: Parameters<typeof toast>[1] = {
           id: notice.id,
           duration: notice.duration === null ? Infinity : notice.duration,
