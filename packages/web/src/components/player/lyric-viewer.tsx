@@ -1,6 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Lrc } from 'react-lrc';
-import { Minimize2, Minus, Plus, RefreshCw, Pencil, ExternalLink, Maximize2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Minimize2,
+  Minus,
+  Plus,
+  RefreshCw,
+  Pencil,
+  ExternalLink,
+  Maximize2,
+} from 'lucide-react';
 import {
   useLyricsStore,
   LyricApi,
@@ -103,7 +112,7 @@ export function LyricViewer({ onEdit, children }: LyricViewerProps) {
       <div className="flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2 min-w-0">
           <Button variant="ghost" size="icon" onClick={closeLyric} aria-label="关闭歌词">
-            <Minimize2 className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
           </Button>
           <span className="truncate font-medium">{currentVideo?.title ?? '未播放'}</span>
         </div>
