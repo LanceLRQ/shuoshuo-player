@@ -211,7 +211,7 @@ export function LyricViewer({ onEdit, children }: LyricViewerProps) {
                     if (seek) seek((line.startMillisecond + offsetMs) / 1000);
                   }}
                   className={cn(
-                    'cursor-pointer select-none py-2 transition-all duration-500 ease-out',
+                    'cursor-pointer select-none py-2 transition-all duration-200 ease-out',
                     active
                       ? 'scale-105 text-2xl font-bold text-primary'
                       : 'text-base text-muted-foreground/60 hover:text-muted-foreground',
