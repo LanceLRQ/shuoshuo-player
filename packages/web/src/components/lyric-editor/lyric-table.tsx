@@ -56,9 +56,7 @@ export function LyricTable({
   // 当前行变化时滚动到视图（仅当播放器在驱动）
   useEffect(() => {
     if (currentLineIdx < 0) return;
-    const el = containerRef.current?.querySelector<HTMLElement>(
-      `[data-row="${currentLineIdx}"]`,
-    );
+    const el = containerRef.current?.querySelector<HTMLElement>(`[data-row="${currentLineIdx}"]`);
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [currentLineIdx]);
 
@@ -123,21 +121,29 @@ function EditableRow({
   onToggleSelect: (idx: number, selected: boolean) => void;
   onUpdateLine: (idx: number, line: LyricLine) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  // 时间格与内容格独立编辑：原先用单一 boolean 会让两侧 Input 同时挂载，
+  // 时间 Input 的 autoFocus 抢走焦点，用户点歌词内容也无法输入
+  const [editingField, setEditingField] = useState<'time' | 'content' | null>(null);
   const [draftTime, setDraftTime] = useState(formatTimeLyric(line.time));
   const [draftContent, setDraftContent] = useState(line.content);
 
   useEffect(() => {
-    if (!editing) {
+    if (editingField === null) {
       setDraftTime(formatTimeLyric(line.time));
       setDraftContent(line.content);
     }
-  }, [line, editing]);
+  }, [line, editingField]);
 
   const commit = () => {
     const ms = parseLyricTime(draftTime);
     onUpdateLine(idx, { time: ms ?? line.time, content: draftContent });
-    setEditing(false);
+    setEditingField(null);
+  };
+
+  const cancel = () => {
+    setDraftTime(formatTimeLyric(line.time));
+    setDraftContent(line.content);
+    setEditingField(null);
   };
 
   return (
@@ -154,18 +160,15 @@ function EditableRow({
           aria-label={`选择第 ${idx + 1} 行`}
         />
       </TableCell>
-      <TableCell
-        className="cursor-text font-mono text-xs"
-        onClick={() => setEditing(true)}
-      >
-        {editing ? (
+      <TableCell className="cursor-text font-mono text-xs" onClick={() => setEditingField('time')}>
+        {editingField === 'time' ? (
           <Input
             value={draftTime}
             onChange={(e) => setDraftTime(e.target.value)}
             onBlur={commit}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commit();
-              if (e.key === 'Escape') setEditing(false);
+              if (e.key === 'Escape') cancel();
             }}
             autoFocus
             className="h-7 w-24 font-mono text-xs"
@@ -174,16 +177,17 @@ function EditableRow({
           formatTimeLyric(line.time)
         )}
       </TableCell>
-      <TableCell className="cursor-text" onClick={() => setEditing(true)}>
-        {editing ? (
+      <TableCell className="cursor-text" onClick={() => setEditingField('content')}>
+        {editingField === 'content' ? (
           <Input
             value={draftContent}
             onChange={(e) => setDraftContent(e.target.value)}
             onBlur={commit}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commit();
-              if (e.key === 'Escape') setEditing(false);
+              if (e.key === 'Escape') cancel();
             }}
+            autoFocus
             className="h-7"
           />
         ) : (

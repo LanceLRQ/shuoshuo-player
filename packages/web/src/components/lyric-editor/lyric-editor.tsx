@@ -35,10 +35,7 @@ interface LyricEditorProps {
  * 撤销栈追加：超过 LYRIC_EDITOR_UNDO_STACK_MAX 时丢弃最早一条（FIFO）
  * 抽出为纯函数以便单元测试覆盖深度溢出场景
  */
-export function appendLyricHistory(
-  prev: LyricLine[][],
-  snapshot: LyricLine[],
-): LyricLine[][] {
+export function appendLyricHistory(prev: LyricLine[][], snapshot: LyricLine[]): LyricLine[][] {
   const next = [...prev, snapshot];
   if (next.length > LYRIC_EDITOR_UNDO_STACK_MAX) next.shift();
   return next;
@@ -64,20 +61,42 @@ export function LyricEditor({
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [customStep, setCustomStep] = useState(500);
   const [searchOpen, setSearchOpen] = useState(false);
+  // dirty 基线：以"进入编辑器/切换曲目/保存成功"时的序列化文本为参照
+  // 选 serializeLrc 而非原 lyricText：原始文本可能含空行/格式差异，反序列化后再序列化更稳定
+  // 必须是 state（不能是 ref）：保存后基线变化要触发 isDirty 重算，否则点保存后立刻退出仍会被拦截
+  const [savedSerialized, setSavedSerialized] = useState<string>(() =>
+    serializeLrc(parseInitial(lyricEntry?.lyricText ?? '')),
+  );
 
   // 切换曲目时重置编辑状态
   useEffect(() => {
-    setLines(parseInitial(lyricEntry?.lyricText ?? ''));
+    const fresh = parseInitial(lyricEntry?.lyricText ?? '');
+    setSavedSerialized(serializeLrc(fresh));
+    setLines(fresh);
     setHistory([]);
     setSelectedRows(new Set());
   }, [currentVideo?.bvid]);
 
-  const pushHistory = useCallback(
-    (snapshot: LyricLine[]) => {
-      setHistory((prev) => appendLyricHistory(prev, snapshot));
-    },
-    [],
-  );
+  const isDirty = useMemo(() => serializeLrc(lines) !== savedSerialized, [lines, savedSerialized]);
+
+  const handleRequestExit = useCallback(() => {
+    if (!isDirty) {
+      onExit();
+      return;
+    }
+    openConfirm({
+      title: '退出编辑',
+      description: '存在未保存的改动，是否放弃并退出？',
+      confirmText: '放弃改动',
+      cancelText: '继续编辑',
+      destructive: true,
+      onConfirm: () => onExit(),
+    });
+  }, [isDirty, onExit, openConfirm]);
+
+  const pushHistory = useCallback((snapshot: LyricLine[]) => {
+    setHistory((prev) => appendLyricHistory(prev, snapshot));
+  }, []);
 
   const mutateLines = useCallback(
     (mutator: (current: LyricLine[]) => LyricLine[]) => {
@@ -138,6 +157,8 @@ export function LyricEditor({
       offset: lyricEntry?.offset ?? 0,
       cloudLyricId: lyricEntry?.cloudLyricId,
     });
+    // 保存即落盘，刷新 dirty 基线，否则退出时仍会被 isDirty 拦截
+    setSavedSerialized(text);
     sendNotice({ type: NoticeType.SUCCESS, message: '已保存到本地', duration: 2000 });
   };
 
@@ -190,6 +211,8 @@ export function LyricEditor({
             offset: lyricEntry?.offset ?? 0,
             cloudLyricId: id ?? cloudId,
           });
+          // 上传成功 = 远端已持久化，与本地保存语义一致：刷新 dirty 基线
+          setSavedSerialized(content);
           sendNotice({ type: NoticeType.SUCCESS, message: '上传成功', duration: 2000 });
         } catch (e) {
           const message = (e as { message?: string })?.message ?? '上传失败';
@@ -248,7 +271,7 @@ export function LyricEditor({
         hasHistory={history.length > 0}
         isAdmin={isAdmin}
         hasSpider={!!spider}
-        onExit={onExit}
+        onExit={handleRequestExit}
         onSearch={() => setSearchOpen(true)}
         onLoadFromFile={handleLoadFromFile}
         onSaveLocal={handleSaveLocal}

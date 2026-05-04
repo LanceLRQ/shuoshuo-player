@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { createHashRouter, Navigate, Outlet, RouterProvider } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { createHashRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { PlayerLayout } from '@/components/layout/player-layout';
 import { SPlayer } from '@/components/player/s-player';
@@ -54,6 +54,13 @@ function RouteFallback() {
 function RootLayout() {
   // showLyric=true 时 main 区域被 LyricViewer 替换；NavMenu/TopBar/Footer 始终可见
   const showLyric = useUIShell((s) => s.showLyric);
+  const closeLyric = useUIShell((s) => s.closeLyric);
+  const location = useLocation();
+  // 切换左侧栏路由时强制关闭歌词面板（编辑模式 local state 随 LyricViewer 卸载一并清空）
+  // 直接 closeLyric 不做拦截：用户期望快速跳走；未保存改动的拦截只在主动点"返回"时触发
+  useEffect(() => {
+    closeLyric();
+  }, [location.pathname, closeLyric]);
   return (
     <PlayerLayout
       footer={<SPlayer />}

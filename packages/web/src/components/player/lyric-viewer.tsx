@@ -110,106 +110,109 @@ export function LyricViewer({ children }: LyricViewerProps) {
         isFullscreen && 'fixed inset-0 z-50',
       )}
     >
-      <div className="flex items-center justify-between border-b px-4 py-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <Button variant="ghost" size="icon" onClick={closeLyric} aria-label="关闭歌词">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <span className="truncate font-medium">{currentVideo?.title ?? '未播放'}</span>
-        </div>
-        <TooltipProvider delayDuration={300}>
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => adjustOffset(-customStep)}>
-                  <Minus className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>歌词提前 {customStep}ms</TooltipContent>
-            </Tooltip>
-            <Input
-              type="number"
-              value={customStep}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setCustomStep(Number.isFinite(v) ? Math.max(1, Math.min(99999, v)) : 500);
-              }}
-              className="h-8 w-20 text-center"
-              min={1}
-              max={99999}
-              aria-label="偏移步长 ms"
-            />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => adjustOffset(customStep)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>歌词延后 {customStep}ms</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={handleRefreshFromCloud}>
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>从云端刷新歌词</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsEditing(true)}
-                  disabled={!currentVideo}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>编辑歌词</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (!currentVideo) return;
-                    void getPlatformBridge().shell.openExternal(
-                      `https://www.bilibili.com/video/${currentVideo.bvid}`,
-                    );
-                  }}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>去 B 站看</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setIsFullscreen((s) => !s)}>
-                  {isFullscreen ? (
-                    <Minimize2 className="h-4 w-4" />
-                  ) : (
-                    <Maximize2 className="h-4 w-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{isFullscreen ? '退出全屏' : '进入全屏'}</TooltipContent>
-            </Tooltip>
-            {offsetSec !== 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">
-                偏移 {offsetSec.toFixed(2)}s
-              </span>
-            )}
+      {!isEditing && (
+        <div className="flex items-center justify-between border-b px-4 py-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Button variant="ghost" size="icon" onClick={closeLyric} aria-label="关闭歌词">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <span className="truncate font-medium">{currentVideo?.title ?? '未播放'}</span>
           </div>
-        </TooltipProvider>
-      </div>
+          <TooltipProvider delayDuration={300}>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => adjustOffset(-customStep)}>
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>歌词提前 {customStep}ms</TooltipContent>
+              </Tooltip>
+              <Input
+                type="number"
+                value={customStep}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setCustomStep(Number.isFinite(v) ? Math.max(1, Math.min(99999, v)) : 500);
+                }}
+                className="h-8 w-20 text-center"
+                min={1}
+                max={99999}
+                aria-label="偏移步长 ms"
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => adjustOffset(customStep)}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>歌词延后 {customStep}ms</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleRefreshFromCloud}>
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>从云端刷新歌词</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsEditing(true)}
+                    disabled={!currentVideo}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>编辑歌词</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (!currentVideo) return;
+                      void getPlatformBridge().shell.openExternal(
+                        `https://www.bilibili.com/video/${currentVideo.bvid}`,
+                      );
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>去 B 站看</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => setIsFullscreen((s) => !s)}>
+                    {isFullscreen ? (
+                      <Minimize2 className="h-4 w-4" />
+                    ) : (
+                      <Maximize2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isFullscreen ? '退出全屏' : '进入全屏'}</TooltipContent>
+              </Tooltip>
+              {offsetSec !== 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  偏移 {offsetSec.toFixed(2)}s
+                </span>
+              )}
+            </div>
+          </TooltipProvider>
+        </div>
+      )}
 
       {isEditing && currentVideo ? (
         // 编辑模式：嵌入完整 LyricEditor，与 cloud-services/lyric-list 内的弹窗版本同源；
-        // onSeek 复用 player-runtime store 的 seek，与歌词查看器双击跳转一致
-        <div className="flex-1 overflow-hidden p-4">
+        // onSeek 复用 player-runtime store 的 seek，与歌词查看器双击跳转一致；
+        // LyricEditor 自带 LyricToolbar 已含返回/步长/增删/上传等控制，故隐藏 LyricViewer 顶部条避免重复
+        <div className="flex-1 overflow-hidden">
           <LyricEditor
             currentVideo={currentVideo}
             currentTime={currentTime}
