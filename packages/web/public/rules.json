@@ -111,5 +111,48 @@
       "resourceTypes": ["xmlhttprequest"],
       "domainType": "thirdParty"
     }
+  },
+  {
+    "id": 7,
+    "priority": 3,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        {
+          "header": "origin",
+          "operation": "set",
+          "value": "https://www.bilibili.com"
+        },
+        {
+          "header": "referer",
+          "operation": "set",
+          "value": "https://www.bilibili.com/video/BV17x411w7KC/"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||api.bilibili.com/x/click-interface/",
+      "resourceTypes": ["xmlhttprequest"],
+      "domainType": "thirdParty"
+    }
+  },
+  {
+    "id": 8,
+    "priority": 3,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        {
+          "header": "referer",
+          "operation": "set",
+          "value": "https://space.bilibili.com/283886865"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||api.bilibili.com/x/space/wbi/arc/search",
+      "resourceTypes": ["xmlhttprequest"],
+      "domainType": "thirdParty"
+    }
   }
 ]
