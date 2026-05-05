@@ -234,4 +234,40 @@ describe('TauriCloudHttpAdapter', () => {
     expect(init.body).toBe('{"title":"x"}');
     expect(resp.status).toBe(200);
   });
+
+  it('config.url 是相对路径时拼接 baseURL（cloudService 拦截器设置 baseURL 后）', async () => {
+    const adapter = createTauriCloudHttpAdapter();
+    await adapter(
+      makeConfig({
+        url: '/live-slicer/list',
+        baseURL: 'https://shuoshuo.sikong.ren/api',
+      } as Partial<InternalAxiosRequestConfig>),
+    );
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toBe('https://shuoshuo.sikong.ren/api/live-slicer/list');
+  });
+
+  it('baseURL 末尾斜杠 + url 不含斜杠都能正确拼', async () => {
+    const adapter = createTauriCloudHttpAdapter();
+    await adapter(
+      makeConfig({
+        url: 'lyric/list',
+        baseURL: 'https://shuoshuo.sikong.ren/api/',
+      } as Partial<InternalAxiosRequestConfig>),
+    );
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toBe('https://shuoshuo.sikong.ren/api/lyric/list');
+  });
+
+  it('config.url 已是绝对 URL 时忽略 baseURL', async () => {
+    const adapter = createTauriCloudHttpAdapter();
+    await adapter(
+      makeConfig({
+        url: 'https://shuoshuo.sikong.ren/api/account/check_login',
+        baseURL: 'https://other.example.com/v2',
+      } as Partial<InternalAxiosRequestConfig>),
+    );
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toBe('https://shuoshuo.sikong.ren/api/account/check_login');
+  });
 });

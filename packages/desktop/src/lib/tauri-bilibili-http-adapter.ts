@@ -88,8 +88,20 @@ function makeAdapter(opts: AdapterOptions): AxiosAdapter {
   };
 }
 
+/** 把 config.baseURL 与 config.url 拼成绝对 URL（cloud API 用，bilibili 走绝对 URL 不受影响） */
+function resolveAbsoluteUrl(config: InternalAxiosRequestConfig): string {
+  const url = config.url ?? '';
+  if (/^https?:\/\//i.test(url)) {
+    // 已是绝对 URL（bilibili API 由 buildBilibiliApiCall 直接传 https://api.bilibili.com/...）
+    return url;
+  }
+  const baseURL = (config.baseURL ?? '').replace(/\/$/, '');
+  if (!baseURL) return url;
+  return url.startsWith('/') ? `${baseURL}${url}` : `${baseURL}/${url}`;
+}
+
 function buildUrl(config: InternalAxiosRequestConfig): string {
-  const base = config.url ?? '';
+  const base = resolveAbsoluteUrl(config);
   if (!config.params) return base;
   // B 站 API 的 params 均为扁平 key/value（含 WBI 签名后的 w_rid / wts），
   // URLSearchParams 已足够；与 qs.stringify 默认行为兼容
