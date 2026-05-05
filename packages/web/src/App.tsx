@@ -30,8 +30,8 @@ const LiveSlicersPage = lazy(() =>
 const CloudServicesLayout = lazy(() =>
   import('@/pages/cloud-services/layout').then((m) => ({ default: m.CloudServicesLayout })),
 );
-const CloudSettingsPage = lazy(() =>
-  import('@/pages/cloud-services/settings').then((m) => ({ default: m.CloudSettingsPage })),
+const SettingsPage = lazy(() =>
+  import('@/pages/settings').then((m) => ({ default: m.SettingsPage })),
 );
 const LyricListPage = lazy(() =>
   import('@/pages/cloud-services/lyric-list').then((m) => ({ default: m.LyricListPage })),
@@ -99,6 +99,7 @@ const router = createHashRouter([
       { path: 'fav/:id', element: <FavListPage /> },
       { path: 'discovery', element: <DiscoveryPage /> },
       { path: 'live-slicers', element: <LiveSlicersPage /> },
+      { path: 'settings', element: <SettingsPage /> },
       {
         path: 'cloud-services',
         element: <CloudServicesLayout />,
@@ -107,7 +108,8 @@ const router = createHashRouter([
           { path: 'lyrics', element: <LyricListPage /> },
           { path: 'live-slicer-men', element: <LiveSlicerMenPage /> },
           { path: 'accounts', element: <AccountsPage /> },
-          { path: 'settings', element: <CloudSettingsPage /> },
+          // 旧云服务设置子页 → 重定向到统一设置页（cloud tab）
+          { path: 'settings', element: <Navigate to="/settings?tab=cloud" replace /> },
         ],
       },
       // v1 旧路径兼容重定向

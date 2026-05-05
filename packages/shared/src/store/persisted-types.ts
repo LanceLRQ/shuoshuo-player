@@ -46,6 +46,8 @@ export interface PersistedPlayerProfileShape {
   volume?: number;
   autoPlay?: boolean;
   loopMode?: LoopMode;
+  /** HSL 主色字符串（如 "221.2 83.2% 53.3%"），与 globals.css --primary 同语义 */
+  primaryColor?: string;
 }
 
 export interface PersistedLyricsShape {

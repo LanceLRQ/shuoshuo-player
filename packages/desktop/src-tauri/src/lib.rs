@@ -48,6 +48,9 @@ pub fn run() {
             commands::auth::bilibili_login,
             commands::auth::bilibili_logout,
             commands::auth::get_bilibili_cookies,
+            commands::audio_cache::get_cache_stats,
+            commands::audio_cache::set_cache_max_bytes,
+            commands::audio_cache::clear_cache,
             commands::spider::qqmusic_search,
             commands::spider::qqmusic_get_lrc,
         ])

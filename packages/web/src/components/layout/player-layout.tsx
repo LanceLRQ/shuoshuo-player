@@ -27,6 +27,7 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
 
   const theme = usePlayerProfileStore((s) => s.theme);
   const getEffectiveTheme = usePlayerProfileStore((s) => s.getEffectiveTheme);
+  const primaryColor = usePlayerProfileStore((s) => s.primaryColor);
 
   useEffect(() => {
     const apply = () => {
@@ -40,6 +41,17 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
     mql.addEventListener('change', apply);
     return () => mql.removeEventListener('change', apply);
   }, [theme, getEffectiveTheme]);
+
+  // 注入用户自定义主色到 CSS variable --primary（globals.css 的默认值会被覆盖）。
+  // 设置为空字符串时 removeProperty 让 globals.css 默认值生效。
+  useEffect(() => {
+    const root = document.documentElement;
+    if (primaryColor) {
+      root.style.setProperty('--primary', primaryColor);
+    } else {
+      root.style.removeProperty('--primary');
+    }
+  }, [primaryColor]);
 
   return (
     <div className="grid h-screen grid-rows-[3.5rem_1fr_5rem] overflow-hidden bg-background text-foreground">

@@ -42,6 +42,20 @@ export interface ShellAdapter {
   openExternal(url: string): Promise<void>;
 }
 
+/** 音频缓存统计（与 Rust CacheStats 对齐） */
+export interface AudioCacheStats {
+  current_bytes: number;
+  max_bytes: number;
+  entry_count: number;
+}
+
+/** 音频缓存管理（仅 Tauri 端实现；用于设置页 PC 缓存 tab） */
+export interface AudioCacheAdapter {
+  getStats(): Promise<AudioCacheStats>;
+  setMaxBytes(bytes: number): Promise<AudioCacheStats>;
+  clear(): Promise<void>;
+}
+
 /** 平台桥接接口 */
 export interface PlatformBridge {
   type: PlatformType;
@@ -59,4 +73,9 @@ export interface PlatformBridge {
    * 由 fetchMusicUrl 在返回 URL 前调用：transformer ? transformer(url) : url。
    */
   audioUrlTransformer?: (url: string) => string;
+  /**
+   * 音频缓存管理（可选，仅 Tauri 端实现）
+   * 用于设置页 PC 端缓存 Tab 显示用量 / 调整上限 / 一键清空
+   */
+  audioCache?: AudioCacheAdapter;
 }

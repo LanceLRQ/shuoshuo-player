@@ -193,6 +193,7 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         volume: s.volume,
         autoPlay: s.autoPlay,
         loopMode: s.loopMode,
+        primaryColor: s.primaryColor,
       };
     },
     subscribe(cb) {

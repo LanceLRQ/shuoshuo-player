@@ -4,6 +4,7 @@ import { TauriAuthAdapter } from './tauri-auth-adapter';
 import { TauriSpiderAdapter } from './tauri-spider-adapter';
 import { TauriShellAdapter } from './tauri-shell-adapter';
 import { transformBilibiliAudioUrl } from './tauri-audio-url-transformer';
+import { getCacheStats, setCacheMaxBytes, clearCache } from './tauri-audio-cache-commands';
 
 /**
  * 创建 Tauri 桌面端 PlatformBridge
@@ -24,5 +25,11 @@ export function createTauriPlatformBridge(): PlatformBridge {
     // audio 标签的浏览器原生 fetch 无法被 axios adapter 拦截；改 URL 让其走
     // Rust 端 bili-stream:// custom protocol 代理（注入 Cookie/Origin/Referer/UA）
     audioUrlTransformer: transformBilibiliAudioUrl,
+    // PC 端音频缓存管理（设置页 → 缓存 Tab 消费）
+    audioCache: {
+      getStats: () => getCacheStats(),
+      setMaxBytes: (bytes) => setCacheMaxBytes(bytes),
+      clear: () => clearCache(),
+    },
   };
 }

@@ -1,6 +1,17 @@
 import { useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Search, Tv, Cloud, Heart, ListMusic, Star, Video, Plus } from 'lucide-react';
+import {
+  Home,
+  Search,
+  Tv,
+  Cloud,
+  Heart,
+  ListMusic,
+  Star,
+  Video,
+  Plus,
+  Settings,
+} from 'lucide-react';
 import {
   useFavListStore,
   useBilibiliUserVideosStore,
@@ -46,6 +57,11 @@ export function NavMenu({ menuOpen }: NavMenuProps) {
         icon: <Cloud className="h-4 w-4" />,
       });
     }
+    base.push({
+      to: '/settings',
+      label: '设置',
+      icon: <Settings className="h-4 w-4" />,
+    });
     return base;
   }, [isCloudAdmin]);
 

@@ -4,7 +4,7 @@ import { useCloudServiceStore, useUIStore, NoticeType } from '@shuoshuo-player/s
 import { useUIShell } from '@/stores/ui-shell';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const TAB_ORDER = ['lyrics', 'live-slicer-men', 'accounts', 'settings'] as const;
+const TAB_ORDER = ['lyrics', 'live-slicer-men', 'accounts'] as const;
 type CloudTab = (typeof TAB_ORDER)[number];
 
 export function CloudServicesLayout() {
@@ -37,24 +37,23 @@ export function CloudServicesLayout() {
     return <Navigate to="/index" replace />;
   }
 
-  // 非管理员仅可见 settings；如尝试访问其它子页则重定向到 settings
-  if (!isAdmin && activeTab !== 'settings') {
-    return <Navigate to="/cloud-services/settings" replace />;
+  // 非管理员没有云服务管理页可看 → 直接跳全局设置（云服务 tab）
+  if (!isAdmin) {
+    return <Navigate to="/settings?tab=cloud" replace />;
   }
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold">云服务管理</h2>
-        <p className="text-xs text-muted-foreground">{isAdmin ? '管理员视图' : '普通用户视图'}</p>
+        <p className="text-xs text-muted-foreground">管理员视图</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => navigate(`/cloud-services/${v}`)}>
         <TabsList>
-          {isAdmin && <TabsTrigger value="lyrics">歌词管理</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="live-slicer-men">切片 UP 主</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="accounts">账户管理</TabsTrigger>}
-          <TabsTrigger value="settings">服务设置</TabsTrigger>
+          <TabsTrigger value="lyrics">歌词管理</TabsTrigger>
+          <TabsTrigger value="live-slicer-men">切片 UP 主</TabsTrigger>
+          <TabsTrigger value="accounts">账户管理</TabsTrigger>
         </TabsList>
       </Tabs>
 

@@ -7,12 +7,19 @@ import {
   DEFAULT_CLOUD_API_BASE_URL,
   NoticeType,
 } from '@shuoshuo-player/shared';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
-export function CloudSettingsPage() {
+export function CloudSettings() {
   const apiBaseUrl = useCloudServiceStore((s) => s.apiBaseUrl);
   const setApiBaseUrl = useCloudServiceStore((s) => s.setApiBaseUrl);
   const resetApiBaseUrl = useCloudServiceStore((s) => s.resetApiBaseUrl);
@@ -20,7 +27,6 @@ export function CloudSettingsPage() {
 
   const [draft, setDraft] = useState(apiBaseUrl);
 
-  // store 变化时同步本地 draft（如其他页面调用了 reset）
   useEffect(() => {
     setDraft(apiBaseUrl);
   }, [apiBaseUrl]);
@@ -32,9 +38,7 @@ export function CloudSettingsPage() {
     setApiBaseUrl(draft);
     sendNotice({
       type: NoticeType.SUCCESS,
-      message: draft.trim()
-        ? '云服务地址已更新'
-        : '已恢复默认地址',
+      message: draft.trim() ? '云服务地址已更新' : '已恢复默认地址',
       duration: 2000,
     });
   };
@@ -54,7 +58,7 @@ export function CloudSettingsPage() {
       <CardHeader>
         <CardTitle>云服务 API 地址</CardTitle>
         <CardDescription>
-          自定义云服务后端地址。修改后立即生效，并在重启后保留。
+          自定义云服务（shuoshuo.sikong.ren）后端地址。修改后立即生效，重启保留。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -74,16 +78,14 @@ export function CloudSettingsPage() {
             onChange={(e) => setDraft(e.target.value)}
             disabled={isTauri}
           />
-          <p className="text-xs text-muted-foreground">
-            留空时使用默认地址。
-          </p>
+          <p className="text-xs text-muted-foreground">留空时使用默认地址。</p>
         </div>
 
         {isTauri && (
           <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              桌面端暂不支持自定义地址；自 v2.x 起将通过 Rust 代理实现。
+              桌面端云服务地址固定，请修改时通过版本配置更新。如需切换后端，请联系开发者。
             </span>
           </div>
         )}

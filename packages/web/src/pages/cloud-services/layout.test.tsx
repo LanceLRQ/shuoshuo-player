@@ -36,9 +36,9 @@ function renderAt(path: string) {
         <Route path="/cloud-services/*" element={<CloudServicesLayout />}>
           <Route index element={<div data-testid="child-index" />} />
           <Route path="lyrics" element={<div data-testid="child-lyrics" />} />
-          <Route path="settings" element={<div data-testid="child-settings" />} />
         </Route>
         <Route path="/index" element={<div data-testid="home" />} />
+        <Route path="/settings" element={<div data-testid="global-settings" />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -56,7 +56,7 @@ describe('CloudServicesLayout', () => {
     expect(useUIStore.getState().notices.length).toBeGreaterThan(0);
   });
 
-  it('登录管理员 → 渲染 4 个 Tab + 子路由', () => {
+  it('登录管理员 → 渲染 3 个 Tab + 子路由（settings 已迁移到全局）', () => {
     act(() => {
       useCloudServiceStore.getState().updateSession(ADMIN_SESSION);
     });
@@ -67,28 +67,17 @@ describe('CloudServicesLayout', () => {
     expect(screen.getByRole('tab', { name: '歌词管理' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '切片 UP 主' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '账户管理' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '服务设置' })).toBeInTheDocument();
+    // 服务设置 已迁到 /settings?tab=cloud
+    expect(screen.queryByRole('tab', { name: '服务设置' })).not.toBeInTheDocument();
     expect(screen.getByTestId('child-lyrics')).toBeInTheDocument();
   });
 
-  it('登录普通用户 → 仅 settings tab 可见 + 标题"普通用户视图"', () => {
-    act(() => {
-      useCloudServiceStore.getState().updateSession(USER_SESSION);
-    });
-    renderAt('/cloud-services/settings');
-
-    expect(screen.getByText('普通用户视图')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: '歌词管理' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '服务设置' })).toBeInTheDocument();
-  });
-
-  it('普通用户访问 lyrics 子路径 → 重定向到 settings', () => {
+  it('登录普通用户 → 重定向到全局 /settings?tab=cloud', () => {
     act(() => {
       useCloudServiceStore.getState().updateSession(USER_SESSION);
     });
     renderAt('/cloud-services/lyrics');
 
-    // 重定向到 settings 后渲染 child-settings
-    expect(screen.getByTestId('child-settings')).toBeInTheDocument();
+    expect(screen.getByTestId('global-settings')).toBeInTheDocument();
   });
 });

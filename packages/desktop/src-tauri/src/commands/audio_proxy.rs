@@ -217,7 +217,8 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
             .header("User-Agent", BILIBILI_UA)
             .header("Range", &chunk_range_header);
         if !cookie_str.is_empty() {
-            builder = builder.header("Cookie", cookie_str);
+            // clone 给 builder，cookie_str 保留供后续 prefetch spawn 使用
+            builder = builder.header("Cookie", cookie_str.clone());
         }
 
         let dl_start = std::time::Instant::now();
@@ -317,6 +318,20 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                     &upstream_content_type,
                 );
                 responder.respond(resp);
+
+                // 跨段预取：当前 chunk 下完后，后台预下下一个 chunk（如尚未到文件末尾且未缓存）
+                // 与 handler miss 路径走相同 inflight 锁，避免并发重复
+                let next_index = chunk_index + 1;
+                if next_index * MAX_CHUNK_BYTES < total_size {
+                    let app_clone = app.clone();
+                    let url_clone = real_url.clone();
+                    let cookie_clone = cookie_str.clone();
+                    let ua_clone = upstream_content_type.clone();
+                    tauri::async_runtime::spawn(async move {
+                        prefetch_chunk(app_clone, url_clone, cookie_clone, ua_clone, next_index)
+                            .await;
+                    });
+                }
             }
             Err(e) => {
                 eprintln!("[audio_proxy] reqwest send failed: {}", e);
@@ -324,6 +339,99 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
             }
         }
     });
+}
+
+/// 后台预取下一个 chunk：仅在缓存未命中时触发实际下载，命中即跳过。
+/// 与 handler miss 路径走相同 inflight 锁，并发安全。
+async fn prefetch_chunk<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    real_url: String,
+    cookie_str: String,
+    _content_type_hint: String,
+    chunk_index: u64,
+) {
+    let cache_state_opt = app.try_state::<AudioCacheState>();
+    let cache_key = audio_cache::compute_chunk_cache_key(&real_url, chunk_index);
+
+    // 1. 缓存已有？跳过
+    if let Some(cs) = cache_state_opt.as_ref() {
+        if audio_cache::try_load(cs.inner(), &cache_key).await.is_some() {
+            return;
+        }
+    }
+
+    // 2. 拿 inflight 锁（如果别的请求正在下，等它完成）
+    let inflight_lock = cache_state_opt
+        .as_ref()
+        .map(|cs| cs.inner().inflight_lock_for(&cache_key));
+    let _guard = if let Some(lock) = inflight_lock.as_ref() {
+        Some(lock.lock().await)
+    } else {
+        None
+    };
+
+    // 3. double-check：等锁期间前一个请求可能已写完
+    if let Some(cs) = cache_state_opt.as_ref() {
+        if audio_cache::try_load(cs.inner(), &cache_key).await.is_some() {
+            return;
+        }
+    }
+
+    // 4. 真正预取
+    let chunk_start = chunk_index * MAX_CHUNK_BYTES;
+    let chunk_end_inclusive = chunk_start + MAX_CHUNK_BYTES - 1;
+    let chunk_range_header = format!("bytes={}-{}", chunk_start, chunk_end_inclusive);
+    let mut builder = HTTP_CLIENT
+        .get(&real_url)
+        .header("Referer", BILIBILI_REFERER)
+        .header("Origin", BILIBILI_ORIGIN)
+        .header("User-Agent", BILIBILI_UA)
+        .header("Range", &chunk_range_header);
+    if !cookie_str.is_empty() {
+        builder = builder.header("Cookie", cookie_str);
+    }
+    let resp = match builder.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[audio_proxy] prefetch failed chunk={}: {}", chunk_index, e);
+            return;
+        }
+    };
+    let status = resp.status().as_u16();
+    if status != 206 && status != 200 {
+        eprintln!(
+            "[audio_proxy] prefetch chunk={} bad status {}",
+            chunk_index, status
+        );
+        return;
+    }
+    let upstream_headers = resp.headers().clone();
+    let body = match resp.bytes().await {
+        Ok(b) => b.to_vec(),
+        Err(_) => return,
+    };
+    let total_size = upstream_headers
+        .get("content-range")
+        .and_then(|v| v.to_str().ok())
+        .and_then(parse_total_from_content_range);
+    let content_type = upstream_headers
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("audio/mp4")
+        .to_string();
+    if let (Some(total), Some(cs)) = (total_size, cache_state_opt.as_ref()) {
+        if let Err(e) =
+            audio_cache::store(cs.inner(), &cache_key, &body, total, &content_type).await
+        {
+            eprintln!("[audio_cache] prefetch store failed: {}", e);
+        } else {
+            eprintln!(
+                "[audio_proxy] prefetch chunk={} ok ({} bytes)",
+                chunk_index,
+                body.len()
+            );
+        }
+    }
 }
 
 /// 从已加载/缓存的 chunk 字节中切片，构造 206 响应给 audio 标签

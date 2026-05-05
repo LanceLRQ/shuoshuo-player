@@ -30,4 +30,13 @@ export interface PlayerProfile {
   volume: number;
   autoPlay: boolean;
   loopMode: LoopMode;
+  /**
+   * 强调色（HSL string，如 "221.2 83.2% 53.3%"）。
+   * 注入到根级 CSS variable --primary，配合 Tailwind hsl(var(--primary)) 全局生效。
+   * 空字符串 / undefined 表示不覆盖（用 globals.css 默认值）。
+   */
+  primaryColor: string;
 }
+
+/** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致） */
+export const DEFAULT_PRIMARY_COLOR = '221.2 83.2% 53.3%';

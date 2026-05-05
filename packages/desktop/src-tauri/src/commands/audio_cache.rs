@@ -18,12 +18,18 @@ use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use lru::LruCache;
+use once_cell::sync::Lazy;
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, Runtime};
 use tokio::fs;
 use uuid::Uuid;
+
+type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
+type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 
 const CACHE_DIR_NAME: &str = "audio";
 const CHUNKS_DIR_NAME: &str = "chunks";
@@ -33,11 +39,16 @@ pub const DEFAULT_MAX_BYTES: u64 = 1 * 1024 * 1024 * 1024;
 /// LRU 条目数硬上限（防内存爆炸；按平均 1MB/段，可容纳约 1024 段 = 几十首）
 const LRU_MAX_ENTRIES: usize = 8192;
 /// 内存级解混缓存条目数（每条 ~4MB，4 条约 16MB 内存）。
-/// 命中后直接切片返回，避免重复 fs::read + XOR 解混 4MB → 大幅降低 audio 标签
+/// 命中后直接切片返回，避免重复 fs::read + 解密 4MB → 大幅降低 audio 标签
 /// 高频小 Range 的累积 CPU/IO 开销。
 const MEM_CACHE_ENTRIES: usize = 4;
-/// XOR 混淆密钥（固定）。只防"误识别"，不抗逆向
-const XOR_KEY: &[u8] = b"shuoshuo-player-v2-cache";
+
+/// 文件格式 magic：BPV2 = bilibili player v2（区别旧 XOR 版无 magic）
+/// 新文件结构：[4B magic][16B IV][AES-CBC PKCS7 encrypted body]
+const FILE_MAGIC: &[u8; 4] = b"BPV2";
+const FILE_HEADER_LEN: usize = 4 + 16; // magic + IV
+/// 当 machine-uid crate 失败时的兜底 key 源（fallback 后跨机器仍同 key，安全级别约 = XOR）
+const FALLBACK_KEY_SEED: &[u8] = b"shuoshuo-player-v2-fallback";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheEntry {
@@ -61,7 +72,8 @@ pub struct AudioCacheState {
     pub root: PathBuf,
     pub chunks_dir: PathBuf,
     pub index_path: PathBuf,
-    pub max_bytes: u64,
+    /// 用户可配置的容量上限（默认 DEFAULT_MAX_BYTES，启动时从 plugin-store 加载用户配置）
+    pub max_bytes: Mutex<u64>,
     pub lru: Mutex<LruCache<String, CacheEntry>>,
     pub current_bytes: Mutex<u64>,
     /// per-key 异步锁，防止 audio 并发探测同一 chunk 时重复下载（single-flight）。
@@ -87,7 +99,7 @@ impl AudioCacheState {
             root,
             chunks_dir,
             index_path,
-            max_bytes,
+            max_bytes: Mutex::new(max_bytes),
             lru: Mutex::new(LruCache::new(
                 NonZeroUsize::new(LRU_MAX_ENTRIES).expect("LRU_MAX_ENTRIES > 0"),
             )),
@@ -133,11 +145,48 @@ pub fn compute_chunk_cache_key(url: &str, chunk_index: u64) -> String {
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-/// XOR 混淆/解混（对称运算）
-pub fn xor_inplace(data: &mut [u8]) {
-    for (i, b) in data.iter_mut().enumerate() {
-        *b ^= XOR_KEY[i % XOR_KEY.len()];
+/// AES-128 key（启动时从 machine-uid 派生一次；跨机器拷贝缓存不可解）
+static AES_KEY: Lazy<[u8; 16]> = Lazy::new(|| {
+    let seed = match machine_uid::get() {
+        Ok(uid) if !uid.is_empty() => uid.into_bytes(),
+        Ok(_) | Err(_) => {
+            eprintln!("[audio_cache] machine-uid empty/failed, using fallback key");
+            FALLBACK_KEY_SEED.to_vec()
+        }
+    };
+    let hash = Sha256::digest(&seed);
+    let mut key = [0u8; 16];
+    key.copy_from_slice(&hash[..16]);
+    key
+});
+
+/// 加密 plain bytes → 完整文件字节（含 magic + IV + ciphertext）
+pub fn encrypt_with_header(plain: &[u8]) -> Vec<u8> {
+    let mut iv = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut iv);
+    let cipher = Aes128CbcEnc::new(AES_KEY.as_slice().into(), &iv.into());
+    let ciphertext = cipher.encrypt_padded_vec_mut::<Pkcs7>(plain);
+
+    let mut out = Vec::with_capacity(FILE_HEADER_LEN + ciphertext.len());
+    out.extend_from_slice(FILE_MAGIC);
+    out.extend_from_slice(&iv);
+    out.extend_from_slice(&ciphertext);
+    out
+}
+
+/// 解密文件字节 → plain bytes；header magic 不匹配或解密失败返回 None
+pub fn decrypt_with_header(file_bytes: &[u8]) -> Option<Vec<u8>> {
+    if file_bytes.len() < FILE_HEADER_LEN {
+        return None;
     }
+    if &file_bytes[..4] != FILE_MAGIC {
+        return None; // 旧 XOR 文件 / 损坏文件
+    }
+    let mut iv = [0u8; 16];
+    iv.copy_from_slice(&file_bytes[4..FILE_HEADER_LEN]);
+    let ciphertext = &file_bytes[FILE_HEADER_LEN..];
+    let cipher = Aes128CbcDec::new(AES_KEY.as_slice().into(), &iv.into());
+    cipher.decrypt_padded_vec_mut::<Pkcs7>(ciphertext).ok()
 }
 
 fn unix_now() -> u64 {
@@ -147,14 +196,16 @@ fn unix_now() -> u64 {
         .unwrap_or(0)
 }
 
-/// 启动期初始化：创建目录 + 加载 index.json → LRU
+/// 启动期初始化：创建目录 + 加载 index.json → LRU + 加载用户配置的 max_bytes
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AudioCacheState, String> {
     let app_cache_dir = app
         .path()
         .app_cache_dir()
         .map_err(|e| format!("get app_cache_dir failed: {}", e))?;
     let root = app_cache_dir.join(CACHE_DIR_NAME);
-    let state = AudioCacheState::new(root.clone(), DEFAULT_MAX_BYTES);
+    // 优先用用户上次配置的 max_bytes（plugin-store 持久化），否则用默认 1GB
+    let max_bytes = load_user_max_bytes(app).unwrap_or(DEFAULT_MAX_BYTES);
+    let state = AudioCacheState::new(root.clone(), max_bytes);
 
     std::fs::create_dir_all(&state.chunks_dir)
         .map_err(|e| format!("create chunks dir failed: {}", e))?;
@@ -216,7 +267,7 @@ pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<Arc<MemHitDa
         e
     };
     let path = state.chunks_dir.join(format!("{}.bin", entry.uuid));
-    let mut bytes = match fs::read(&path).await {
+    let file_bytes = match fs::read(&path).await {
         Ok(b) => b,
         Err(e) => {
             eprintln!(
@@ -226,9 +277,19 @@ pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<Arc<MemHitDa
             return None;
         }
     };
-    xor_inplace(&mut bytes);
+    let plain = match decrypt_with_header(&file_bytes) {
+        Some(p) => p,
+        None => {
+            // magic 不匹配（旧 XOR 文件）或解密失败 → 视为缓存丢失
+            eprintln!(
+                "[audio_cache] decrypt failed (uuid={}); marking as miss",
+                entry.uuid
+            );
+            return None;
+        }
+    };
     let arc = Arc::new(MemHitData {
-        bytes,
+        bytes: plain,
         total_size: entry.total_size,
         content_type: entry.content_type,
     });
@@ -252,10 +313,10 @@ fn update_access(state: &AudioCacheState, key: &str) {
     }
 }
 
-/// 写入新缓存项：XOR 混淆 + 写文件 + 更新索引 + 必要时驱逐旧项
+/// 写入新缓存项：AES-128-CBC 加密 + 写文件 + 更新索引 + 必要时驱逐旧项
 ///
 /// total_size / content_type 来自上游 Content-Range / Content-Type 响应头，
-/// 用于命中查询时构造正确的 206 响应。
+/// 用于命中查询时构造正确的 206 响应。文件格式：[4B BPV2][16B IV][AES ciphertext]
 pub async fn store(
     state: &AudioCacheState,
     key: &str,
@@ -266,10 +327,9 @@ pub async fn store(
     let uuid = Uuid::new_v4().to_string();
     let path = state.chunks_dir.join(format!("{}.bin", uuid));
 
-    // 写盘前先 XOR 混淆（堆 clone 避免修改调用方 buffer）
-    let mut obfuscated = data.to_vec();
-    xor_inplace(&mut obfuscated);
-    fs::write(&path, &obfuscated)
+    // AES-128-CBC 加密 + magic + IV 写盘
+    let encrypted = encrypt_with_header(data);
+    fs::write(&path, &encrypted)
         .await
         .map_err(|e| format!("write chunk failed: {}", e))?;
 
@@ -354,7 +414,11 @@ async fn evict_if_needed(state: &AudioCacheState) {
             Ok(g) => g,
             Err(_) => return,
         };
-        while *total > state.max_bytes {
+        let limit = match state.max_bytes.lock() {
+            Ok(g) => *g,
+            Err(_) => return,
+        };
+        while *total > limit {
             // pop_lru 取最旧项
             match lru.pop_lru() {
                 Some((k, e)) => {
@@ -387,20 +451,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn xor_is_symmetric() {
+    fn aes_encrypt_decrypt_roundtrip() {
         let original = b"Hello, B station audio chunk!".to_vec();
-        let mut buf = original.clone();
-        xor_inplace(&mut buf);
-        assert_ne!(buf, original, "XOR 后内容必须改变");
-        xor_inplace(&mut buf);
-        assert_eq!(buf, original, "二次 XOR 还原原始内容");
+        let encrypted = encrypt_with_header(&original);
+        assert_ne!(encrypted, original, "加密后内容必须改变");
+        // header 长度
+        assert!(encrypted.len() >= FILE_HEADER_LEN);
+        assert_eq!(&encrypted[..4], FILE_MAGIC);
+        let decrypted = decrypt_with_header(&encrypted).expect("解密成功");
+        assert_eq!(decrypted, original, "解密还原原始内容");
     }
 
     #[test]
-    fn xor_handles_empty() {
-        let mut buf: Vec<u8> = vec![];
-        xor_inplace(&mut buf);
-        assert!(buf.is_empty());
+    fn aes_encrypt_empty_buffer() {
+        let encrypted = encrypt_with_header(&[]);
+        // 即使 plain 为空，PKCS7 也会产生一个 padding block
+        assert!(encrypted.len() >= FILE_HEADER_LEN + 16);
+        let decrypted = decrypt_with_header(&encrypted).expect("空 buffer 也能解");
+        assert!(decrypted.is_empty());
+    }
+
+    #[test]
+    fn aes_decrypt_rejects_legacy_xor_file() {
+        // 旧 XOR 文件没有 magic header，应被识别为不可解
+        let legacy = b"raw-bytes-no-magic".to_vec();
+        assert!(decrypt_with_header(&legacy).is_none());
+    }
+
+    #[test]
+    fn aes_decrypt_rejects_truncated_file() {
+        let too_short = vec![0u8; 10];
+        assert!(decrypt_with_header(&too_short).is_none());
+    }
+
+    #[test]
+    fn aes_iv_is_unique_per_call() {
+        // 两次加密同一 plain，IV 不同，密文应不同
+        let plain = b"same plaintext bytes".to_vec();
+        let e1 = encrypt_with_header(&plain);
+        let e2 = encrypt_with_header(&plain);
+        assert_ne!(e1, e2, "随机 IV 应让两次加密结果不同");
+        // 但都能解回
+        assert_eq!(decrypt_with_header(&e1).unwrap(), plain);
+        assert_eq!(decrypt_with_header(&e2).unwrap(), plain);
     }
 
     #[test]
@@ -456,4 +549,114 @@ mod tests {
 
     // store/try_load 涉及 tokio::fs，需要 #[tokio::test]，这里 lib 未配置 tokio test runtime；
     // 留给 dev 端到端验证（手测播放 → 重播命中）
+}
+
+/* ========== Tauri commands（前端通过 invoke 调用） ========== */
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CacheStats {
+    pub current_bytes: u64,
+    pub max_bytes: u64,
+    pub entry_count: u64,
+}
+
+/// 返回当前缓存统计：current_bytes / max_bytes / entry_count
+#[tauri::command]
+pub async fn get_cache_stats(
+    state: tauri::State<'_, AudioCacheState>,
+) -> Result<CacheStats, String> {
+    let current = *state
+        .current_bytes
+        .lock()
+        .map_err(|e| format!("current_bytes poisoned: {}", e))?;
+    let max = *state
+        .max_bytes
+        .lock()
+        .map_err(|e| format!("max_bytes poisoned: {}", e))?;
+    let count = state
+        .lru
+        .lock()
+        .map_err(|e| format!("lru poisoned: {}", e))?
+        .len() as u64;
+    Ok(CacheStats {
+        current_bytes: current,
+        max_bytes: max,
+        entry_count: count,
+    })
+}
+
+const MAX_BYTES_STORE_FILE: &str = "audio_cache_settings.json";
+const MAX_BYTES_STORE_KEY: &str = "audio_cache_max_bytes";
+/// 容量配置硬下限（256MB）/ 上限（50GB），防止用户设极端值
+const USER_CAP_MIN: u64 = 256 * 1024 * 1024;
+const USER_CAP_MAX: u64 = 50 * 1024 * 1024 * 1024;
+
+/// 修改用户容量上限，立即驱逐超量项 + 持久化到 plugin-store
+#[tauri::command]
+pub async fn set_cache_max_bytes<R: Runtime>(
+    bytes: u64,
+    state: tauri::State<'_, AudioCacheState>,
+    app: AppHandle<R>,
+) -> Result<CacheStats, String> {
+    let clamped = bytes.clamp(USER_CAP_MIN, USER_CAP_MAX);
+    {
+        let mut guard = state
+            .max_bytes
+            .lock()
+            .map_err(|e| format!("max_bytes poisoned: {}", e))?;
+        *guard = clamped;
+    }
+    // 持久化（失败仅打日志，不影响内存生效）
+    if let Err(e) = persist_max_bytes(&app, clamped).await {
+        eprintln!("[audio_cache] persist max_bytes failed: {}", e);
+    }
+    // 立即驱逐
+    evict_if_needed(state.inner()).await;
+    eprintln!("[audio_cache] max_bytes updated to {}", clamped);
+    get_cache_stats(state).await
+}
+
+/// 一键清空缓存：删除所有 chunks 文件 + LRU + mem_cache + 索引文件
+#[tauri::command]
+pub async fn clear_cache(state: tauri::State<'_, AudioCacheState>) -> Result<(), String> {
+    // 收集要删的文件名
+    let to_delete: Vec<String> = {
+        let mut lru = state.lru.lock().map_err(|e| format!("lru: {}", e))?;
+        let mut total = state
+            .current_bytes
+            .lock()
+            .map_err(|e| format!("bytes: {}", e))?;
+        let names: Vec<String> = lru.iter().map(|(_, e)| e.uuid.clone()).collect();
+        lru.clear();
+        *total = 0;
+        names
+    };
+    // 清 mem_cache
+    if let Ok(mut g) = state.mem_cache.lock() {
+        g.clear();
+    }
+    // 物理删文件
+    for uuid in &to_delete {
+        let path = state.chunks_dir.join(format!("{}.bin", uuid));
+        let _ = fs::remove_file(path).await;
+    }
+    // 重写索引（写入空 entries，便于下次启动加载到空状态）
+    persist_index(state.inner()).await.ok();
+    eprintln!("[audio_cache] cleared all entries (count={})", to_delete.len());
+    Ok(())
+}
+
+/// 从 plugin-store 加载用户配置的 max_bytes（启动时调）；不存在时返回 None
+pub fn load_user_max_bytes<R: Runtime>(app: &AppHandle<R>) -> Option<u64> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store(MAX_BYTES_STORE_FILE).ok()?;
+    let val = store.get(MAX_BYTES_STORE_KEY)?;
+    val.as_u64()
+}
+
+async fn persist_max_bytes<R: Runtime>(app: &AppHandle<R>, bytes: u64) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store(MAX_BYTES_STORE_FILE).map_err(|e| e.to_string())?;
+    store.set(MAX_BYTES_STORE_KEY.to_string(), serde_json::json!(bytes));
+    store.save().map_err(|e| e.to_string())
 }
