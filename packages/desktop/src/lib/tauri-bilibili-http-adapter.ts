@@ -61,35 +61,16 @@ function makeAdapter(opts: AdapterOptions): AxiosAdapter {
       fetchInit.body = body;
     }
 
-    if (opts.kind === 'bilibili') {
-      const cookieKeys = cookieHeader
-        ? cookieHeader
-            .split(';')
-            .map((c) => c.trim().split('=')[0])
-            .filter(Boolean)
-        : [];
-      console.info(
-        `[${tag}] fetch`,
-        url,
-        'method=',
-        fetchInit.method,
-        'cookieLen=',
-        cookieHeader.length,
-        'cookieKeys=',
-        cookieKeys.join(','),
-      );
-    } else {
-      console.info(`[${tag}] fetch`, url, 'method=', fetchInit.method);
-    }
-
     const response = await tauriFetch(url, fetchInit);
-    console.info(`[${tag}] response`, url, 'status=', response.status);
-
+    // 仅 4xx/5xx 时打错误诊断；2xx/3xx 静默以减少 stderr 阻塞
     if (response.status >= 400) {
       const cloned = response.clone();
       try {
         const errBody = await cloned.text();
-        console.error(`[${tag}] error body`, errBody.slice(0, 500));
+        console.error(
+          `[${tag}] ${fetchInit.method} ${url} status=${response.status}`,
+          errBody.slice(0, 500),
+        );
       } catch {
         /* noop */
       }

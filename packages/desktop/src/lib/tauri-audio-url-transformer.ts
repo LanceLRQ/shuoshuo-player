@@ -32,12 +32,5 @@ export function transformBilibiliAudioUrl(rawUrl: string): string {
     return rawUrl;
   }
   if (!shouldProxyHost(parsed.host)) return rawUrl;
-  const wrapped = `${PROXY_SCHEME_PREFIX}localhost/?url=${encodeURIComponent(rawUrl)}`;
-  console.info(
-    '[audio-transformer] wrap',
-    rawUrl.slice(0, 80) + '...',
-    '→',
-    wrapped.slice(0, 80) + '...',
-  );
-  return wrapped;
+  return `${PROXY_SCHEME_PREFIX}localhost/?url=${encodeURIComponent(rawUrl)}`;
 }

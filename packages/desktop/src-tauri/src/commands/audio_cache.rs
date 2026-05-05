@@ -32,6 +32,10 @@ const INDEX_FILE_NAME: &str = "index.json";
 pub const DEFAULT_MAX_BYTES: u64 = 1 * 1024 * 1024 * 1024;
 /// LRU 条目数硬上限（防内存爆炸；按平均 1MB/段，可容纳约 1024 段 = 几十首）
 const LRU_MAX_ENTRIES: usize = 8192;
+/// 内存级解混缓存条目数（每条 ~4MB，4 条约 16MB 内存）。
+/// 命中后直接切片返回，避免重复 fs::read + XOR 解混 4MB → 大幅降低 audio 标签
+/// 高频小 Range 的累积 CPU/IO 开销。
+const MEM_CACHE_ENTRIES: usize = 4;
 /// XOR 混淆密钥（固定）。只防"误识别"，不抗逆向
 const XOR_KEY: &[u8] = b"shuoshuo-player-v2-cache";
 
@@ -63,6 +67,16 @@ pub struct AudioCacheState {
     /// per-key 异步锁，防止 audio 并发探测同一 chunk 时重复下载（single-flight）。
     /// 第二个请求会等第一个 reqwest 完成 + 写完 cache 后从缓存读，节省带宽。
     pub inflight: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+    /// 内存级"已解混" chunk LRU。命中即零开销返回 Arc<MemHitData>，
+    /// 避免 audio 标签高频小 Range 反复 fs::read + XOR 解混 4MB 的累积开销
+    pub mem_cache: Mutex<LruCache<String, Arc<MemHitData>>>,
+}
+
+/// 内存级缓存条目：已 XOR 解混的字节流 + 元数据，可被多个并发请求共享（Arc）
+pub struct MemHitData {
+    pub bytes: Vec<u8>,
+    pub total_size: u64,
+    pub content_type: String,
 }
 
 impl AudioCacheState {
@@ -79,6 +93,9 @@ impl AudioCacheState {
             )),
             current_bytes: Mutex::new(0),
             inflight: Mutex::new(HashMap::new()),
+            mem_cache: Mutex::new(LruCache::new(
+                NonZeroUsize::new(MEM_CACHE_ENTRIES).expect("MEM_CACHE_ENTRIES > 0"),
+            )),
         }
     }
 
@@ -178,15 +195,20 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AudioCacheState, String> {
     Ok(state)
 }
 
-/// 命中结果：含解混后的字节流 + 元数据，便于上层构造 206 响应
-pub struct HitData {
-    pub bytes: Vec<u8>,
-    pub total_size: u64,
-    pub content_type: String,
-}
+/// 命中查询：返回 Arc<MemHitData>（已 XOR 解混）；不命中返回 None
+///
+/// 两级缓存策略：
+/// 1. 先查 mem_cache（最近 4 个 chunk）：零开销，audio 标签连续小 Range 走这里
+/// 2. miss → 查磁盘 LRU + fs::read + XOR 解混 → 写 mem_cache → 返回
+pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<Arc<MemHitData>> {
+    // L1: 内存解混缓存
+    if let Ok(mut g) = state.mem_cache.lock() {
+        if let Some(arc) = g.get(key) {
+            return Some(arc.clone());
+        }
+    }
 
-/// 命中查询：返回 HitData（含 XOR 解混字节）；不命中返回 None
-pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<HitData> {
+    // L2: 磁盘 LRU
     let entry = {
         let mut guard = state.lru.lock().ok()?;
         let e = guard.get(key)?.clone();
@@ -205,13 +227,19 @@ pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<HitData> {
         }
     };
     xor_inplace(&mut bytes);
-    // 更新 last_access（覆盖式 put）
-    update_access(state, key);
-    Some(HitData {
+    let arc = Arc::new(MemHitData {
         bytes,
         total_size: entry.total_size,
         content_type: entry.content_type,
-    })
+    });
+
+    // 写 mem_cache，下次同 chunk 的小 Range 直接零开销
+    if let Ok(mut g) = state.mem_cache.lock() {
+        g.put(key.to_string(), arc.clone());
+    }
+
+    update_access(state, key);
+    Some(arc)
 }
 
 fn update_access(state: &AudioCacheState, key: &str) {
@@ -252,6 +280,18 @@ pub async fn store(
         content_type: content_type.to_string(),
         last_access: unix_now(),
     };
+
+    // 同步写 mem_cache：避免下游切片再读盘 + XOR 解混
+    if let Ok(mut g) = state.mem_cache.lock() {
+        g.put(
+            key.to_string(),
+            Arc::new(MemHitData {
+                bytes: data.to_vec(),
+                total_size,
+                content_type: content_type.to_string(),
+            }),
+        );
+    }
 
     // 更新 LRU + 容量统计
     {

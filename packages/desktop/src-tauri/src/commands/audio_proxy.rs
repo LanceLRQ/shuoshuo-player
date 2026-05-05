@@ -153,7 +153,7 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
 
         let cache_state_opt = app.try_state::<AudioCacheState>();
 
-        // 1. 缓存命中（无锁路径）：直接切片返回
+        // 1. 缓存命中（无锁路径）：直接切片返回（高频路径不打日志）
         if let Some(cs) = cache_state_opt.as_ref() {
             if let Some(hit) = audio_cache::try_load(cs.inner(), &cache_key).await {
                 let resp = build_slice_response(
@@ -164,10 +164,6 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                     chunk_end_inclusive,
                     hit.total_size,
                     &hit.content_type,
-                );
-                eprintln!(
-                    "[audio_cache] hit chunk={} audio_range={}-{:?} (slice)",
-                    chunk_index, audio_start, audio_end_opt
                 );
                 responder.respond(resp);
                 return;
@@ -185,7 +181,7 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
             None
         };
 
-        // double-check：等锁期间前一个请求可能已写完 cache
+        // double-check：等锁期间前一个请求可能已写完 cache（高频路径不打日志）
         if let Some(cs) = cache_state_opt.as_ref() {
             if let Some(hit) = audio_cache::try_load(cs.inner(), &cache_key).await {
                 let resp = build_slice_response(
@@ -196,10 +192,6 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                     chunk_end_inclusive,
                     hit.total_size,
                     &hit.content_type,
-                );
-                eprintln!(
-                    "[audio_cache] hit chunk={} audio_range={}-{:?} (slice, after inflight wait)",
-                    chunk_index, audio_start, audio_end_opt
                 );
                 responder.respond(resp);
                 return;
@@ -228,11 +220,18 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
             builder = builder.header("Cookie", cookie_str);
         }
 
+        let dl_start = std::time::Instant::now();
         match builder.send().await {
             Ok(resp) => {
                 let status = resp.status().as_u16();
                 let upstream_headers = resp.headers().clone();
                 let chunk_body = resp.bytes().await.unwrap_or_default().to_vec();
+                let elapsed_ms = dl_start.elapsed().as_millis();
+                let kb_per_s = if elapsed_ms > 0 {
+                    (chunk_body.len() as u128) * 1000 / elapsed_ms / 1024
+                } else {
+                    0
+                };
 
                 let upstream_content_type = upstream_headers
                     .get("content-type")
@@ -245,13 +244,8 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                     .and_then(parse_total_from_content_range);
 
                 eprintln!(
-                    "[audio_proxy] miss chunk={} fetched bytes={}-{} status={} body_len={} total={:?}",
-                    chunk_index,
-                    chunk_start,
-                    chunk_end_inclusive,
-                    status,
-                    chunk_body.len(),
-                    total_size_opt
+                    "[audio_proxy] chunk={} status={} bytes={} elapsed={}ms speed={}KB/s",
+                    chunk_index, status, chunk_body.len(), elapsed_ms, kb_per_s
                 );
 
                 // 上游错误：直接转发原响应（不写缓存）
