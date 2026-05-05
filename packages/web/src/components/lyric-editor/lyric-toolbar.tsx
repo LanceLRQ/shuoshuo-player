@@ -13,6 +13,8 @@ import {
   Minus,
   ListX,
   Undo,
+  Columns2,
+  Square,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +32,11 @@ export interface LyricToolbarProps {
   onExit: () => void;
   /** 嵌入 Dialog 时由外层关闭按钮承担退出，避免双入口冗余 */
   hideExit?: boolean;
+  /** 当前视图模式（'single'=单歌词 / 'compare'=左右对比），不传则不显示切换按钮 */
+  viewMode?: 'single' | 'compare';
+  /** 视图模式可用性：暂存为空时不应允许切换到 compare（避免空状态的无意义按钮） */
+  canToggleView?: boolean;
+  onToggleViewMode?: () => void;
   onSearch: () => void;
   onLoadFromFile: () => void;
   onSaveLocal: () => void;
@@ -77,6 +84,31 @@ export function LyricToolbar(props: LyricToolbarProps) {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>搜索 QQ 音乐歌词</TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="vertical" className="mx-1 h-6" />
+          </>
+        )}
+
+        {/*
+         * 视图切换：仅 canToggleView=true（暂存有内容）时显示。
+         * 单视图按钮显示 Columns2（提示可切到对比），对比视图按钮显示 Square（提示可切回单视图）。
+         */}
+        {props.canToggleView && props.onToggleViewMode && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={props.onToggleViewMode}>
+                  {props.viewMode === 'compare' ? (
+                    <Square className="h-4 w-4" />
+                  ) : (
+                    <Columns2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {props.viewMode === 'compare' ? '切到单歌词视图' : '切到左右对比视图'}
+              </TooltipContent>
             </Tooltip>
 
             <Separator orientation="vertical" className="mx-1 h-6" />

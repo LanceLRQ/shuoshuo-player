@@ -18,6 +18,7 @@ import {
 } from '@shuoshuo-player/shared';
 import { LyricToolbar } from './lyric-toolbar';
 import { LyricTable, type LyricLine } from './lyric-table';
+import { LyricCompareView } from './lyric-compare-view';
 import { LyricSearchDialog } from '@/components/dialogs/lyric-search-dialog';
 import { useUIShell } from '@/stores/ui-shell';
 
@@ -79,6 +80,11 @@ export function LyricEditor({
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [customStep, setCustomStep] = useState(500);
   const [searchOpen, setSearchOpen] = useState(false);
+  // 暂存歌词（QQ 音乐搜索 / 文件加载产物）+ 对比视图状态。本地 state，不持久化到云端。
+  // 切换曲目时一并清空，避免上一首的搜索结果污染当前曲目。
+  const [suggested, setSuggested] = useState<LyricLine[]>([]);
+  const [suggestedSelected, setSuggestedSelected] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<'single' | 'compare'>('single');
   // dirty 基线：以"进入编辑器/切换曲目/保存成功"时的序列化文本为参照
   // 选 serializeLrc 而非原 lyricText：原始文本可能含空行/格式差异，反序列化后再序列化更稳定
   // 必须是 state（不能是 ref）：保存后基线变化要触发 isDirty 重算，否则点保存后立刻退出仍会被拦截
@@ -93,6 +99,10 @@ export function LyricEditor({
     setLines(fresh);
     setHistory([]);
     setSelectedRows(new Set());
+    // 暂存与视图模式也一并重置：上一首的搜索结果对当前曲目没有意义
+    setSuggested([]);
+    setSuggestedSelected(new Set());
+    setViewMode('single');
   }, [currentVideo?.bvid]);
 
   const isDirty = useMemo(() => serializeLrc(lines) !== savedSerialized, [lines, savedSerialized]);
@@ -240,10 +250,96 @@ export function LyricEditor({
     });
   };
 
+  /**
+   * 搜索 dialog 选定歌词后回调：
+   *  - 主列表为空：直接填充（与 v1 行为一致，跳过对比步骤）
+   *  - 主列表非空：注入暂存 + 自动切到 compare 视图，让用户决定覆盖 / 插入
+   */
   const handleSearchPick = (lrc: string, _song: QQMusicSong) => {
     void _song;
-    mutateLines(() => parseInitial(lrc));
-    sendNotice({ type: NoticeType.SUCCESS, message: '已填充歌词', duration: 2000 });
+    const parsed = parseInitial(lrc);
+    if (lines.length === 0) {
+      mutateLines(() => parsed);
+      sendNotice({ type: NoticeType.SUCCESS, message: '已填充歌词', duration: 2000 });
+      return;
+    }
+    setSuggested(parsed);
+    setSuggestedSelected(new Set());
+    setViewMode('compare');
+    sendNotice({
+      type: NoticeType.SUCCESS,
+      message: `已加入暂存（${parsed.length} 行），可对比后覆盖或插入`,
+      duration: 2500,
+    });
+  };
+
+  // === 对比视图操作 ===
+
+  /** 用整个暂存替换主列表（推入 history，可撤销还原） */
+  const handleOverwriteFromSuggested = () => {
+    if (suggested.length === 0) return;
+    mutateLines(() => suggested.map((l) => ({ ...l })));
+    sendNotice({ type: NoticeType.SUCCESS, message: '已用暂存覆盖当前歌词', duration: 2000 });
+  };
+
+  /** 把暂存中选中的行追加到主列表，按 timestamp 排序（与 v1 同语义） */
+  const handleInsertSelectedFromSuggested = () => {
+    if (suggestedSelected.size === 0) return;
+    const picked = suggested.filter((_, idx) => suggestedSelected.has(idx));
+    mutateLines((prev) => {
+      const next = [...prev, ...picked.map((l) => ({ ...l }))];
+      next.sort((a, b) => a.time - b.time);
+      return next;
+    });
+    setSuggestedSelected(new Set());
+    sendNotice({
+      type: NoticeType.SUCCESS,
+      message: `已插入 ${picked.length} 行`,
+      duration: 2000,
+    });
+  };
+
+  /** 把暂存所有行追加到主列表，按 timestamp 排序 */
+  const handleInsertAllFromSuggested = () => {
+    if (suggested.length === 0) return;
+    mutateLines((prev) => {
+      const next = [...prev, ...suggested.map((l) => ({ ...l }))];
+      next.sort((a, b) => a.time - b.time);
+      return next;
+    });
+    sendNotice({
+      type: NoticeType.SUCCESS,
+      message: `已插入全部 ${suggested.length} 行`,
+      duration: 2000,
+    });
+  };
+
+  /** 清空暂存并回到 single 视图 */
+  const handleClearSuggested = () => {
+    setSuggested([]);
+    setSuggestedSelected(new Set());
+    setViewMode('single');
+  };
+
+  // === 暂存列表选择 ===
+  const handleSuggestedToggleSelect = (idx: number, selected: boolean) => {
+    setSuggestedSelected((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(idx);
+      else next.delete(idx);
+      return next;
+    });
+  };
+
+  const handleSuggestedToggleSelectAll = (selected: boolean) => {
+    if (selected) setSuggestedSelected(new Set(suggested.map((_, i) => i)));
+    else setSuggestedSelected(new Set());
+  };
+
+  /** 视图切换：仅 suggested 非空时可切（toolbar 已通过 canToggleView 限制按钮可见性） */
+  const handleToggleViewMode = () => {
+    if (suggested.length === 0) return;
+    setViewMode((m) => (m === 'compare' ? 'single' : 'compare'));
   };
 
   // === 选择 ===
@@ -291,6 +387,9 @@ export function LyricEditor({
         hasSpider={!!spider}
         onExit={handleRequestExit}
         hideExit={hideExit}
+        viewMode={viewMode}
+        canToggleView={suggested.length > 0}
+        onToggleViewMode={handleToggleViewMode}
         onSearch={() => setSearchOpen(true)}
         onLoadFromFile={handleLoadFromFile}
         onSaveLocal={handleSaveLocal}
@@ -303,16 +402,37 @@ export function LyricEditor({
         onClearSelection={handleClearSelection}
         onUndo={handleUndo}
       />
-      <div className="flex-1 overflow-hidden">
-        <LyricTable
-          lines={lines}
-          selectedRows={selectedRows}
-          currentMillisecond={currentMillisecond}
-          onSeek={handleSeek}
-          onToggleSelect={handleToggleSelect}
-          onToggleSelectAll={handleToggleSelectAll}
-          onUpdateLine={handleUpdateLine}
-        />
+      <div className="min-h-0 flex-1 overflow-hidden p-2">
+        {viewMode === 'compare' && suggested.length > 0 ? (
+          <LyricCompareView
+            mainLines={lines}
+            mainSelectedRows={selectedRows}
+            currentMillisecond={currentMillisecond}
+            onMainSeek={handleSeek}
+            onMainToggleSelect={handleToggleSelect}
+            onMainToggleSelectAll={handleToggleSelectAll}
+            onMainUpdateLine={handleUpdateLine}
+            suggestedLines={suggested}
+            suggestedSelected={suggestedSelected}
+            onSuggestedToggleSelect={handleSuggestedToggleSelect}
+            onSuggestedToggleSelectAll={handleSuggestedToggleSelectAll}
+            onSuggestedSeek={handleSeek}
+            onOverwrite={handleOverwriteFromSuggested}
+            onInsertSelected={handleInsertSelectedFromSuggested}
+            onInsertAll={handleInsertAllFromSuggested}
+            onClearSuggested={handleClearSuggested}
+          />
+        ) : (
+          <LyricTable
+            lines={lines}
+            selectedRows={selectedRows}
+            currentMillisecond={currentMillisecond}
+            onSeek={handleSeek}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectAll={handleToggleSelectAll}
+            onUpdateLine={handleUpdateLine}
+          />
+        )}
       </div>
       <LyricSearchDialog
         open={searchOpen}

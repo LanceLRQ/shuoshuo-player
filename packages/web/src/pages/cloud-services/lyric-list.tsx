@@ -368,14 +368,15 @@ export function LyricListPage() {
       )}
 
       {/* 编辑弹窗 — 嵌入完整 LyricEditor */}
+      {/* 90vw + 80vh：留出操作空间给左右对比视图（compare 模式两列并排，窄屏不可用） */}
       <Dialog open={!!editingLyric} onOpenChange={(o) => !o && handleCloseEdit()}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="flex h-[90vh] w-[95vw] max-w-[95vw] flex-col sm:max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>编辑歌词 — {editingLyric?.bvid}</DialogTitle>
             <DialogDescription>{editingLyric?.title}</DialogDescription>
           </DialogHeader>
           {editingLyric && (
-            <div className="h-[60vh]">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <LyricEditor
                 currentVideo={toVirtualVideo(editingLyric)}
                 currentTime={0}
