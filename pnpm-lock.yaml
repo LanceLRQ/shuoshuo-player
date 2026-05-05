@@ -84,6 +84,18 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.5
         version: 4.1.5(vitest@4.1.5)
+      autoprefixer:
+        specifier: ^10.5.0
+        version: 10.5.0(postcss@8.5.13)
+      postcss:
+        specifier: ^8.5.13
+        version: 8.5.13
+      tailwindcss:
+        specifier: ^3.4.19
+        version: 3.4.19(yaml@2.8.4)
+      tailwindcss-animate:
+        specifier: ^1.0.7
+        version: 1.0.7(tailwindcss@3.4.19(yaml@2.8.4))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
