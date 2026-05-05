@@ -15,13 +15,15 @@ afterAll(() => {
 });
 
 function makeProps(overrides: Partial<LyricToolbarProps> = {}): LyricToolbarProps {
+  // hasSpider 默认开启：让按钮索引稳定（搜索按钮存在），
+  // hasSpider=false 的隐藏行为单独用例验证
   return {
     customStep: 500,
     onCustomStepChange: vi.fn(),
     hasSelection: false,
     hasHistory: false,
     isAdmin: false,
-    hasSpider: false,
+    hasSpider: true,
     onExit: vi.fn(),
     onSearch: vi.fn(),
     onLoadFromFile: vi.fn(),
@@ -60,10 +62,14 @@ describe('LyricToolbar', () => {
     expect(props.onExit).toHaveBeenCalledTimes(1);
   });
 
-  it('搜索按钮在 hasSpider=false 时 disabled', () => {
+  it('搜索按钮在 hasSpider=false 时完全不渲染（浏览器端避免诱饵按钮）', () => {
+    const withSpider = render(<LyricToolbar {...makeProps({ hasSpider: true })} />);
+    const totalWithSpider = withSpider.container.querySelectorAll('button').length;
+    withSpider.unmount();
+
     render(<LyricToolbar {...makeProps({ hasSpider: false })} />);
-    const buttons = screen.getAllByRole('button');
-    expect(buttons[1]).toBeDisabled();
+    const totalWithoutSpider = screen.getAllByRole('button').length;
+    expect(totalWithoutSpider).toBe(totalWithSpider - 1);
   });
 
   it('搜索按钮在 hasSpider=true 时可用，点击触发 onSearch', () => {

@@ -63,21 +63,25 @@ export function LyricToolbar(props: LyricToolbarProps) {
           </>
         )}
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={props.onSearch}
-              disabled={!props.hasSpider}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{props.hasSpider ? '搜索 QQ 音乐歌词' : '需在桌面端使用'}</TooltipContent>
-        </Tooltip>
+        {/*
+         * 搜索按钮依赖 PlatformBridge.spider（仅 Tauri 提供）。
+         * 浏览器端 spider=undefined → hasSpider=false → 不渲染按钮（也不渲染后置分隔条），
+         * 避免摆出一个永久 disabled 的"诱饵"按钮。
+         */}
+        {props.hasSpider && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={props.onSearch}>
+                  <Search className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>搜索 QQ 音乐歌词</TooltipContent>
+            </Tooltip>
 
-        <Separator orientation="vertical" className="mx-1 h-6" />
+            <Separator orientation="vertical" className="mx-1 h-6" />
+          </>
+        )}
 
         <Tooltip>
           <TooltipTrigger asChild>
