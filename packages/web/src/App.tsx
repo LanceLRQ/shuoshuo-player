@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { createHashRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { useBilibiliUserStore } from '@shuoshuo-player/shared';
 import { PlayerLayout } from '@/components/layout/player-layout';
 import { SPlayer } from '@/components/player/s-player';
 import { LyricViewer } from '@/components/player/lyric-viewer';
 import { ToasterProvider } from '@/components/toaster-provider';
+import { BilibiliLoginRequired } from '@/components/bilibili-login-required';
 import { CloudLoginDialog } from '@/components/dialogs/cloud-login-dialog';
 import { FavEditDialog } from '@/components/dialogs/fav-edit-dialog';
 import { AddSongDialog } from '@/components/dialogs/add-song-dialog';
@@ -117,6 +119,29 @@ const router = createHashRouter([
 ]);
 
 export default function App() {
+  // 启动期由 init.ts 触发 triggerWbiRefresh → getLoginUserInfo，状态落地后 isInited=true
+  // 三态短路：未 inited→spinner（与 v1 LoadingGif 行为一致，避免登录态闪烁）；
+  //           已 inited 但未登录→引导卡片；已登录→主路由
+  const isInited = useBilibiliUserStore((s) => s.isInited);
+  const isLogin = useBilibiliUserStore((s) => s.isLogin);
+
+  if (!isInited) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!isLogin) {
+    return (
+      <>
+        <BilibiliLoginRequired />
+        <ToasterProvider />
+      </>
+    );
+  }
+
   return (
     <>
       <RouterProvider router={router} />

@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { useBilibiliUserStore, setPlatformBridge } from '@shuoshuo-player/shared';
 import App from './App';
 
 class MockResizeObserver {
@@ -9,9 +10,29 @@ class MockResizeObserver {
 
 beforeAll(() => {
   vi.stubGlobal('ResizeObserver', MockResizeObserver);
-  // 全局 stub document title 等
+  // App 根级守卫依赖 PlatformBridge（用于 BilibiliLoginRequired 订阅 onLoginSuccess）
+  // 此处注入最小 stub，且默认让 store 进入已登录态以走主路由分支
+  setPlatformBridge({
+    type: 'web',
+    storage: {
+      getItem: async () => null,
+      setItem: async () => {},
+      removeItem: async () => {},
+    },
+    auth: {
+      login: async () => {},
+      logout: async () => {},
+      onLoginSuccess: () => () => {},
+    },
+    shell: { openExternal: async () => {} },
+  });
 });
 afterAll(() => vi.unstubAllGlobals());
+
+beforeEach(() => {
+  // 已登录态：跳过引导卡片，渲染 RouterProvider 主流程
+  useBilibiliUserStore.setState({ isInited: true, isLogin: true });
+});
 
 // SPlayer 内部依赖 useMusicPlayer + Howler；直接 mock 简化
 vi.mock('@/components/player/s-player', () => ({
