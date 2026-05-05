@@ -42,21 +42,22 @@ export function CloudServicesLayout() {
     return <Navigate to="/settings?tab=cloud" replace />;
   }
 
+  // h-full + flex-col：让 Tab 固定顶部，Outlet 子内容自己撑满剩余高度独立滚动
+  // min-h-0 必须有，否则 flex 子项默认按内容撑高，Outlet 子页就无法在受限高度内滚动
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">云服务管理</h2>
-        <p className="text-xs text-muted-foreground">管理员视图</p>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={(v) => navigate(`/cloud-services/${v}`)}>
+    <div className="flex h-full flex-col gap-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => navigate(`/cloud-services/${v}`)}
+        className="flex-none"
+      >
         <TabsList>
           <TabsTrigger value="lyrics">歌词管理</TabsTrigger>
           <TabsTrigger value="live-slicer-men">切片 UP 主</TabsTrigger>
         </TabsList>
       </Tabs>
 
-      <div>
+      <div className="flex min-h-0 flex-1 flex-col">
         <Outlet />
       </div>
     </div>

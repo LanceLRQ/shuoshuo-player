@@ -56,14 +56,15 @@ describe('CloudServicesLayout', () => {
     expect(useUIStore.getState().notices.length).toBeGreaterThan(0);
   });
 
-  it('登录管理员 → 渲染 2 个 Tab + 子路由（账户管理 / 服务设置 均已下线）', () => {
+  it('登录管理员 → 渲染 2 个 Tab + 子路由（无标题副标题，账户管理 / 服务设置 均已下线）', () => {
     act(() => {
       useCloudServiceStore.getState().updateSession(ADMIN_SESSION);
     });
     renderAt('/cloud-services/lyrics');
 
-    expect(screen.getByText('云服务管理')).toBeInTheDocument();
-    expect(screen.getByText('管理员视图')).toBeInTheDocument();
+    // 已删除"云服务管理 / 管理员视图"标题（节省纵向空间，让列表占满）
+    expect(screen.queryByText('云服务管理')).not.toBeInTheDocument();
+    expect(screen.queryByText('管理员视图')).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '歌词管理' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '切片 UP 主' })).toBeInTheDocument();
     // 账户管理已下线（不再走 v1 后端 /accounts/*）

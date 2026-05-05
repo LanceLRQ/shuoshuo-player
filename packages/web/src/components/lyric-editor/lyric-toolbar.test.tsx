@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { LyricToolbar, type LyricToolbarProps } from './lyric-toolbar';
 
 class MockResizeObserver {
@@ -38,6 +38,13 @@ function makeProps(overrides: Partial<LyricToolbarProps> = {}): LyricToolbarProp
   };
 }
 
+/**
+ * 按渲染顺序的非 IO 按钮：
+ * 0=退出 1=搜索 2=整体提前 3=整体延后 4=选中提前 5=选中延后
+ * 6=插入 7=删除 8=清空选择 9=撤销
+ * IO 组（加载/保存/上传/下载）通过 data-testid="lyric-toolbar-io-group" 定位
+ */
+
 describe('LyricToolbar', () => {
   it('渲染所有工具按钮 + 自定义步长输入框', () => {
     render(<LyricToolbar {...makeProps()} />);
@@ -45,11 +52,10 @@ describe('LyricToolbar', () => {
     expect(stepInput.value).toBe('500');
   });
 
-  it('退出 / 加载 / 保存 / 下载 / 插入按钮可点击触发回调', () => {
+  it('退出按钮可点击触发回调', () => {
     const props = makeProps();
     render(<LyricToolbar {...props} />);
     const buttons = screen.getAllByRole('button');
-    // buttons[0] = 退出
     fireEvent.click(buttons[0]);
     expect(props.onExit).toHaveBeenCalledTimes(1);
   });
@@ -57,7 +63,6 @@ describe('LyricToolbar', () => {
   it('搜索按钮在 hasSpider=false 时 disabled', () => {
     render(<LyricToolbar {...makeProps({ hasSpider: false })} />);
     const buttons = screen.getAllByRole('button');
-    // buttons[1] = 搜索（在退出之后）
     expect(buttons[1]).toBeDisabled();
   });
 
@@ -69,38 +74,28 @@ describe('LyricToolbar', () => {
     expect(onSearch).toHaveBeenCalledTimes(1);
   });
 
-  it('云端上传按钮在 isAdmin=false 时 disabled', () => {
-    render(<LyricToolbar {...makeProps({ isAdmin: false })} />);
-    const buttons = screen.getAllByRole('button');
-    // 云上传是第 5 个按钮（退出/搜索/上传 LRC/保存/云上传/下载）
-    // index 4 = 云上传
-    expect(buttons[4]).toBeDisabled();
-  });
-
   it('整体提前/延后按钮触发 onShiftAll(-step / +step)', () => {
     const onShiftAll = vi.fn();
     render(<LyricToolbar {...makeProps({ onShiftAll })} />);
     const buttons = screen.getAllByRole('button');
-    // buttons[6] = 整体提前；buttons[7] = 整体延后
-    fireEvent.click(buttons[6]);
+    fireEvent.click(buttons[2]);
     expect(onShiftAll).toHaveBeenCalledWith(-500);
-    fireEvent.click(buttons[7]);
+    fireEvent.click(buttons[3]);
     expect(onShiftAll).toHaveBeenCalledWith(500);
   });
 
   it('选中行提前/延后按钮在 hasSelection=false 时 disabled', () => {
     render(<LyricToolbar {...makeProps({ hasSelection: false })} />);
     const buttons = screen.getAllByRole('button');
-    // buttons[8] = 选中提前；buttons[9] = 选中延后
-    expect(buttons[8]).toBeDisabled();
-    expect(buttons[9]).toBeDisabled();
+    expect(buttons[4]).toBeDisabled();
+    expect(buttons[5]).toBeDisabled();
   });
 
   it('选中行按钮在 hasSelection=true 时启用，点击触发 onShiftSelected', () => {
     const onShiftSelected = vi.fn();
     render(<LyricToolbar {...makeProps({ hasSelection: true, onShiftSelected })} />);
     const buttons = screen.getAllByRole('button');
-    fireEvent.click(buttons[8]);
+    fireEvent.click(buttons[4]);
     expect(onShiftSelected).toHaveBeenCalledWith(-500);
   });
 
@@ -109,11 +104,9 @@ describe('LyricToolbar', () => {
     render(<LyricToolbar {...makeProps({ onCustomStepChange })} />);
     const input = screen.getByLabelText('自定义步长') as HTMLInputElement;
 
-    // 输入 -10 → clamp 到 1
     fireEvent.change(input, { target: { value: '-10' } });
     expect(onCustomStepChange).toHaveBeenCalledWith(1);
 
-    // 输入 200000 → clamp 到 99999
     onCustomStepChange.mockClear();
     fireEvent.change(input, { target: { value: '200000' } });
     expect(onCustomStepChange).toHaveBeenCalledWith(99999);
@@ -122,15 +115,51 @@ describe('LyricToolbar', () => {
   it('撤销按钮在 hasHistory=false 时 disabled', () => {
     render(<LyricToolbar {...makeProps({ hasHistory: false })} />);
     const buttons = screen.getAllByRole('button');
-    // 最后一个 button 是 undo
-    expect(buttons[buttons.length - 1]).toBeDisabled();
+    expect(buttons[9]).toBeDisabled();
   });
 
   it('撤销按钮在 hasHistory=true 时点击触发 onUndo', () => {
     const onUndo = vi.fn();
     render(<LyricToolbar {...makeProps({ hasHistory: true, onUndo })} />);
     const buttons = screen.getAllByRole('button');
-    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(buttons[9]);
     expect(onUndo).toHaveBeenCalledTimes(1);
+  });
+
+  describe('文件 IO 组：右对齐 + 4 个按钮（加载/保存/上传/下载）', () => {
+    it('IO 组渲染于独立容器（data-testid=lyric-toolbar-io-group）且含 4 个按钮', () => {
+      render(<LyricToolbar {...makeProps()} />);
+      const ioGroup = screen.getByTestId('lyric-toolbar-io-group');
+      expect(ioGroup).toBeInTheDocument();
+      expect(within(ioGroup).getAllByRole('button')).toHaveLength(4);
+    });
+
+    it('IO 容器含 ml-auto class（确保右对齐不被未来重构误删）', () => {
+      render(<LyricToolbar {...makeProps()} />);
+      const ioGroup = screen.getByTestId('lyric-toolbar-io-group');
+      expect(ioGroup.className).toContain('ml-auto');
+    });
+
+    it('点击加载/保存/下载按钮触发对应回调', () => {
+      const props = makeProps({ isAdmin: true });
+      render(<LyricToolbar {...props} />);
+      const ioButtons = within(screen.getByTestId('lyric-toolbar-io-group')).getAllByRole('button');
+      // 顺序：加载 / 保存 / 上传 / 下载
+      fireEvent.click(ioButtons[0]);
+      expect(props.onLoadFromFile).toHaveBeenCalledTimes(1);
+      fireEvent.click(ioButtons[1]);
+      expect(props.onSaveLocal).toHaveBeenCalledTimes(1);
+      fireEvent.click(ioButtons[2]);
+      expect(props.onUploadCloud).toHaveBeenCalledTimes(1);
+      fireEvent.click(ioButtons[3]);
+      expect(props.onDownloadLrc).toHaveBeenCalledTimes(1);
+    });
+
+    it('云上传按钮在 isAdmin=false 时 disabled', () => {
+      render(<LyricToolbar {...makeProps({ isAdmin: false })} />);
+      const ioButtons = within(screen.getByTestId('lyric-toolbar-io-group')).getAllByRole('button');
+      // ioButtons[2] = 云上传
+      expect(ioButtons[2]).toBeDisabled();
+    });
   });
 });

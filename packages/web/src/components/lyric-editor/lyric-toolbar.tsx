@@ -28,6 +28,8 @@ export interface LyricToolbarProps {
   hasSpider: boolean;
 
   onExit: () => void;
+  /** 嵌入 Dialog 时由外层关闭按钮承担退出，避免双入口冗余 */
+  hideExit?: boolean;
   onSearch: () => void;
   onLoadFromFile: () => void;
   onSaveLocal: () => void;
@@ -46,16 +48,20 @@ export function LyricToolbar(props: LyricToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-1 border-b bg-background px-3 py-2">
       <TooltipProvider delayDuration={300}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={props.onExit}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>退出编辑器</TooltipContent>
-        </Tooltip>
+        {!props.hideExit && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={props.onExit}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>退出编辑器</TooltipContent>
+            </Tooltip>
 
-        <Separator orientation="vertical" className="mx-1 h-6" />
+            <Separator orientation="vertical" className="mx-1 h-6" />
+          </>
+        )}
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -69,43 +75,6 @@ export function LyricToolbar(props: LyricToolbarProps) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>{props.hasSpider ? '搜索 QQ 音乐歌词' : '需在桌面端使用'}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={props.onLoadFromFile}>
-              <Upload className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>从文件加载 LRC</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={props.onSaveLocal}>
-              <Save className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>保存到本地</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={props.onUploadCloud}
-              disabled={!props.isAdmin}
-            >
-              <CloudUpload className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{props.isAdmin ? '上传到云端' : '需要管理员权限'}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={props.onDownloadLrc}>
-              <Download className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>下载 LRC 文件</TooltipContent>
         </Tooltip>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
@@ -158,9 +127,7 @@ export function LyricToolbar(props: LyricToolbarProps) {
           value={step}
           onChange={(e) => {
             const v = Number(e.target.value);
-            props.onCustomStepChange(
-              Number.isFinite(v) ? Math.max(1, Math.min(99999, v)) : 500,
-            );
+            props.onCustomStepChange(Number.isFinite(v) ? Math.max(1, Math.min(99999, v)) : 500);
           }}
           min={1}
           max={99999}
@@ -209,17 +176,56 @@ export function LyricToolbar(props: LyricToolbarProps) {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={props.onUndo}
-              disabled={!props.hasHistory}
-            >
+            <Button variant="ghost" size="icon" onClick={props.onUndo} disabled={!props.hasHistory}>
               <Undo className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>撤销</TooltipContent>
         </Tooltip>
+
+        {/*
+         * 文件 IO 组：ml-auto 推至最右，与编辑/时移/撤销视觉解耦。
+         * 内层 flex 包一组按钮 → 在 flex-wrap 容器中作为单个不可拆 item，窄屏会整体折行仍保持右对齐。
+         */}
+        <div className="ml-auto flex items-center gap-1" data-testid="lyric-toolbar-io-group">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={props.onLoadFromFile}>
+                <Upload className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>从文件加载 LRC</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={props.onSaveLocal}>
+                <Save className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>保存到本地</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={props.onUploadCloud}
+                disabled={!props.isAdmin}
+              >
+                <CloudUpload className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{props.isAdmin ? '上传到云端' : '需要管理员权限'}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={props.onDownloadLrc}>
+                <Download className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>下载 LRC 文件</TooltipContent>
+          </Tooltip>
+        </div>
       </TooltipProvider>
     </div>
   );

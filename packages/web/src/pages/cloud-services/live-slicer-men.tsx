@@ -207,9 +207,9 @@ export function LiveSlicerMenPage() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* 工具栏 */}
-      <div className="flex items-center gap-2">
+    <div className="flex h-full flex-col gap-4">
+      {/* 工具栏：flex-none 固定在顶 */}
+      <div className="flex flex-none items-center gap-2">
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -244,10 +244,11 @@ export function LiveSlicerMenPage() {
         </Button>
       </div>
 
-      {/* 表格 */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
+      {/* 表格：flex-1 + min-h-0 让 Table 内置滚动容器收缩到剩余高度，独立滚动 */}
+      {/* wrapperClassName=h-full：让 Table 滚动 wrapper 撑满父高，sticky thead 才有滚动祖先可锚 */}
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-md border">
+        <Table wrapperClassName="h-full">
+          <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
               <TableHead className="w-[64px]">头像</TableHead>
               <TableHead>名称</TableHead>
@@ -331,9 +332,9 @@ export function LiveSlicerMenPage() {
         </Table>
       </div>
 
-      {/* 分页 */}
+      {/* 分页：flex-none 固定在底，与列表滚动区分离 */}
       {total > 0 && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex flex-none items-center justify-between text-xs text-muted-foreground">
           <span>
             共 {total} 条 / 第 {page} / {totalPages} 页
           </span>

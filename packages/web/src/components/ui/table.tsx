@@ -1,9 +1,17 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
+  /**
+   * 透传到内层滚动 wrapper div。需要 sticky thead 的场景必须传 "h-full"，
+   * 否则 wrapper 按内容撑高 → 永远不滚动 → sticky 找不到合适滚动祖先。
+   */
+  wrapperClassName?: string;
+}
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+  ({ className, wrapperClassName, ...props }, ref) => (
+    <div className={cn('relative w-full overflow-auto', wrapperClassName)}>
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   ),
@@ -32,10 +40,7 @@ const TableFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tfoot
     ref={ref}
-    className={cn(
-      'border-t bg-muted/50 font-medium [&>tr]:last:border-b-0',
-      className,
-    )}
+    className={cn('border-t bg-muted/50 font-medium [&>tr]:last:border-b-0', className)}
     {...props}
   />
 ));
@@ -90,13 +95,4 @@ const TableCaption = React.forwardRef<
 ));
 TableCaption.displayName = 'TableCaption';
 
-export {
-  Table,
-  TableHeader,
-  TableBody,
-  TableFooter,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableCaption,
-};
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };

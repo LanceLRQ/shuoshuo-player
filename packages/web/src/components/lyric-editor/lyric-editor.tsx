@@ -27,6 +27,8 @@ interface LyricEditorProps {
   /** 双击行触发 seek（秒） */
   onSeek?: (seconds: number) => void;
   onExit: () => void;
+  /** 嵌入 Dialog 时由外层关闭按钮承担退出，避免双入口冗余 */
+  hideExit?: boolean;
   /** 平台桥接 spider，存在则启用 QQ 音乐搜索 */
   spider?: SpiderAdapter;
 }
@@ -46,6 +48,7 @@ export function LyricEditor({
   currentTime,
   onSeek,
   onExit,
+  hideExit,
   spider,
 }: LyricEditorProps) {
   const lyricEntry = useLyricsStore((s) =>
@@ -272,6 +275,7 @@ export function LyricEditor({
         isAdmin={isAdmin}
         hasSpider={!!spider}
         onExit={handleRequestExit}
+        hideExit={hideExit}
         onSearch={() => setSearchOpen(true)}
         onLoadFromFile={handleLoadFromFile}
         onSaveLocal={handleSaveLocal}

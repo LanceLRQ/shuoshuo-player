@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface LyricLine {
   /** 时间戳（毫秒） */
@@ -61,46 +60,48 @@ export function LyricTable({
   }, [currentLineIdx]);
 
   return (
-    <ScrollArea className="h-full">
-      <div ref={containerRef}>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={allChecked}
-                  onCheckedChange={(v) => onToggleSelectAll(!!v)}
-                  aria-label="全选"
-                />
-              </TableHead>
-              <TableHead className="w-28">时间</TableHead>
-              <TableHead>歌词内容</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {lines.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={3} className="py-8 text-center text-sm text-muted-foreground">
-                  暂无歌词
-                </TableCell>
-              </TableRow>
-            )}
-            {lines.map((line, idx) => (
-              <EditableRow
-                key={idx}
-                idx={idx}
-                line={line}
-                selected={selectedRows.has(idx)}
-                isCurrent={idx === currentLineIdx}
-                onSeek={onSeek}
-                onToggleSelect={onToggleSelect}
-                onUpdateLine={onUpdateLine}
+    // 改用原生 overflow-y-auto div：Radix ScrollArea 的 Viewport 内置一层 display:table
+    // 包裹，会破坏 sticky 元素的 containing block；用裸 div 作为滚动祖先 sticky 才稳。
+    // wrapperClassName=overflow-visible 取消 Table 自带 overflow-auto wrapper，
+    // 让 sticky 直接锚定到外层 div。
+    <div ref={containerRef} className="h-full overflow-y-auto">
+      <Table wrapperClassName="overflow-visible">
+        <TableHeader className="sticky top-0 z-10 bg-background">
+          <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                checked={allChecked}
+                onCheckedChange={(v) => onToggleSelectAll(!!v)}
+                aria-label="全选"
               />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </ScrollArea>
+            </TableHead>
+            <TableHead className="w-28">时间</TableHead>
+            <TableHead>歌词内容</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {lines.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={3} className="py-8 text-center text-sm text-muted-foreground">
+                暂无歌词
+              </TableCell>
+            </TableRow>
+          )}
+          {lines.map((line, idx) => (
+            <EditableRow
+              key={idx}
+              idx={idx}
+              line={line}
+              selected={selectedRows.has(idx)}
+              isCurrent={idx === currentLineIdx}
+              onSeek={onSeek}
+              onToggleSelect={onToggleSelect}
+              onUpdateLine={onUpdateLine}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
