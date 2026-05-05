@@ -54,6 +54,15 @@ export interface AudioCacheAdapter {
   getStats(): Promise<AudioCacheStats>;
   setMaxBytes(bytes: number): Promise<AudioCacheStats>;
   clear(): Promise<void>;
+  /** 返回当前生效的缓存目录绝对路径 */
+  getDir(): Promise<string>;
+  /**
+   * 修改缓存目录。null/空 = 恢复默认。立即清空旧目录缓存 + 持久化新路径，
+   * **重启应用后新路径生效**。
+   */
+  setDir(path: string | null): Promise<void>;
+  /** 弹 OS 文件夹选择对话框，返回选中绝对路径或 null（用户取消） */
+  pickDir(currentPath?: string): Promise<string | null>;
 }
 
 /** 平台桥接接口 */

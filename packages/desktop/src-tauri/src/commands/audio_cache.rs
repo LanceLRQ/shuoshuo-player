@@ -196,14 +196,19 @@ fn unix_now() -> u64 {
         .unwrap_or(0)
 }
 
-/// 启动期初始化：创建目录 + 加载 index.json → LRU + 加载用户配置的 max_bytes
+/// 启动期初始化：创建目录 + 加载 index.json → LRU + 加载用户配置的 max_bytes / cache_dir
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AudioCacheState, String> {
-    let app_cache_dir = app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| format!("get app_cache_dir failed: {}", e))?;
-    let root = app_cache_dir.join(CACHE_DIR_NAME);
-    // 优先用用户上次配置的 max_bytes（plugin-store 持久化），否则用默认 1GB
+    // 优先用用户配置的 cache_dir（plugin-store 持久化），否则用 app_cache_dir/audio
+    let root = match load_user_cache_dir(app) {
+        Some(custom) => custom,
+        None => {
+            let app_cache_dir = app
+                .path()
+                .app_cache_dir()
+                .map_err(|e| format!("get app_cache_dir failed: {}", e))?;
+            app_cache_dir.join(CACHE_DIR_NAME)
+        }
+    };
     let max_bytes = load_user_max_bytes(app).unwrap_or(DEFAULT_MAX_BYTES);
     let state = AudioCacheState::new(root.clone(), max_bytes);
 
@@ -587,6 +592,7 @@ pub async fn get_cache_stats(
 
 const MAX_BYTES_STORE_FILE: &str = "audio_cache_settings.json";
 const MAX_BYTES_STORE_KEY: &str = "audio_cache_max_bytes";
+const CACHE_DIR_STORE_KEY: &str = "audio_cache_dir";
 /// 容量配置硬下限（256MB）/ 上限（50GB），防止用户设极端值
 const USER_CAP_MIN: u64 = 256 * 1024 * 1024;
 const USER_CAP_MAX: u64 = 50 * 1024 * 1024 * 1024;
@@ -619,30 +625,8 @@ pub async fn set_cache_max_bytes<R: Runtime>(
 /// 一键清空缓存：删除所有 chunks 文件 + LRU + mem_cache + 索引文件
 #[tauri::command]
 pub async fn clear_cache(state: tauri::State<'_, AudioCacheState>) -> Result<(), String> {
-    // 收集要删的文件名
-    let to_delete: Vec<String> = {
-        let mut lru = state.lru.lock().map_err(|e| format!("lru: {}", e))?;
-        let mut total = state
-            .current_bytes
-            .lock()
-            .map_err(|e| format!("bytes: {}", e))?;
-        let names: Vec<String> = lru.iter().map(|(_, e)| e.uuid.clone()).collect();
-        lru.clear();
-        *total = 0;
-        names
-    };
-    // 清 mem_cache
-    if let Ok(mut g) = state.mem_cache.lock() {
-        g.clear();
-    }
-    // 物理删文件
-    for uuid in &to_delete {
-        let path = state.chunks_dir.join(format!("{}.bin", uuid));
-        let _ = fs::remove_file(path).await;
-    }
-    // 重写索引（写入空 entries，便于下次启动加载到空状态）
-    persist_index(state.inner()).await.ok();
-    eprintln!("[audio_cache] cleared all entries (count={})", to_delete.len());
+    clear_cache_internal(state.inner()).await;
+    eprintln!("[audio_cache] cleared all entries");
     Ok(())
 }
 
@@ -659,4 +643,94 @@ async fn persist_max_bytes<R: Runtime>(app: &AppHandle<R>, bytes: u64) -> Result
     let store = app.store(MAX_BYTES_STORE_FILE).map_err(|e| e.to_string())?;
     store.set(MAX_BYTES_STORE_KEY.to_string(), serde_json::json!(bytes));
     store.save().map_err(|e| e.to_string())
+}
+
+/// 从 plugin-store 加载用户配置的 cache_dir；不存在 / 路径无效时返回 None
+pub fn load_user_cache_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store(MAX_BYTES_STORE_FILE).ok()?;
+    let val = store.get(CACHE_DIR_STORE_KEY)?;
+    let s = val.as_str()?.trim().to_string();
+    if s.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(s))
+}
+
+async fn persist_cache_dir<R: Runtime>(
+    app: &AppHandle<R>,
+    path: Option<&str>,
+) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store(MAX_BYTES_STORE_FILE).map_err(|e| e.to_string())?;
+    match path {
+        Some(p) if !p.trim().is_empty() => {
+            store.set(CACHE_DIR_STORE_KEY.to_string(), serde_json::json!(p));
+        }
+        _ => {
+            store.delete(CACHE_DIR_STORE_KEY);
+        }
+    }
+    store.save().map_err(|e| e.to_string())
+}
+
+/// 当前生效的缓存目录（启动时确定，运行时不变；改路径需重启后生效）
+#[tauri::command]
+pub async fn get_cache_dir(state: tauri::State<'_, AudioCacheState>) -> Result<String, String> {
+    Ok(state.root.to_string_lossy().to_string())
+}
+
+/// 设置自定义缓存目录：清空当前缓存 → 持久化新路径 → 提示前端重启生效
+///
+/// 传 null/empty 字符串表示恢复默认（删除自定义配置）。
+/// 不会立即把 root 切换到新路径（避免运行时迁移复杂逻辑），重启后启动序列读取新路径。
+#[tauri::command]
+pub async fn set_cache_dir<R: Runtime>(
+    path: Option<String>,
+    state: tauri::State<'_, AudioCacheState>,
+    app: AppHandle<R>,
+) -> Result<(), String> {
+    // 验证路径：非空时必须可创建（或已存在）；不做格式校验（Rust 跨平台 PathBuf 容错）
+    if let Some(ref p) = path {
+        if !p.trim().is_empty() {
+            let pb = PathBuf::from(p);
+            std::fs::create_dir_all(&pb)
+                .map_err(|e| format!("路径不可写或无效：{}", e))?;
+        }
+    }
+    // 先清空当前缓存（旧路径下的所有文件 + 索引），避免孤儿文件
+    clear_cache_internal(state.inner()).await;
+    // 持久化新路径
+    persist_cache_dir(&app, path.as_deref()).await?;
+    eprintln!(
+        "[audio_cache] cache_dir updated (restart to take effect): {:?}",
+        path
+    );
+    Ok(())
+}
+
+/// clear_cache 的内部实现（不带 #[tauri::command]，可被其他 command 复用）
+async fn clear_cache_internal(state: &AudioCacheState) {
+    let to_delete: Vec<String> = {
+        let mut lru = match state.lru.lock() {
+            Ok(g) => g,
+            Err(_) => return,
+        };
+        let mut total = match state.current_bytes.lock() {
+            Ok(g) => g,
+            Err(_) => return,
+        };
+        let names: Vec<String> = lru.iter().map(|(_, e)| e.uuid.clone()).collect();
+        lru.clear();
+        *total = 0;
+        names
+    };
+    if let Ok(mut g) = state.mem_cache.lock() {
+        g.clear();
+    }
+    for uuid in &to_delete {
+        let path = state.chunks_dir.join(format!("{}.bin", uuid));
+        let _ = fs::remove_file(path).await;
+    }
+    persist_index(state).await.ok();
 }

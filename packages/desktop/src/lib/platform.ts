@@ -4,7 +4,14 @@ import { TauriAuthAdapter } from './tauri-auth-adapter';
 import { TauriSpiderAdapter } from './tauri-spider-adapter';
 import { TauriShellAdapter } from './tauri-shell-adapter';
 import { transformBilibiliAudioUrl } from './tauri-audio-url-transformer';
-import { getCacheStats, setCacheMaxBytes, clearCache } from './tauri-audio-cache-commands';
+import {
+  getCacheStats,
+  setCacheMaxBytes,
+  clearCache,
+  getCacheDir,
+  setCacheDir,
+  pickCacheDir,
+} from './tauri-audio-cache-commands';
 
 /**
  * 创建 Tauri 桌面端 PlatformBridge
@@ -30,6 +37,9 @@ export function createTauriPlatformBridge(): PlatformBridge {
       getStats: () => getCacheStats(),
       setMaxBytes: (bytes) => setCacheMaxBytes(bytes),
       clear: () => clearCache(),
+      getDir: () => getCacheDir(),
+      setDir: (path) => setCacheDir(path),
+      pickDir: (current) => pickCacheDir(current),
     },
   };
 }

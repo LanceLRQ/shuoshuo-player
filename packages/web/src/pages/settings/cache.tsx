@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Trash2, RefreshCw, AlertTriangle, FolderOpen, RotateCcw } from 'lucide-react';
 import {
   getPlatformBridge,
   useUIStore,
@@ -36,15 +36,17 @@ export function CacheSettings() {
   const [loading, setLoading] = useState(false);
   const [draftGB, setDraftGB] = useState<number>(DEFAULT_GB);
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const [cacheDir, setCacheDir] = useState<string>('');
 
   const cache = getPlatformBridge().audioCache;
 
   const refresh = useCallback(async () => {
     if (!cache) return;
     try {
-      const next = await cache.getStats();
+      const [next, dir] = await Promise.all([cache.getStats(), cache.getDir()]);
       setStats(next);
       setDraftGB(Number(bytesToGB(next.max_bytes).toFixed(2)));
+      setCacheDir(dir);
     } catch (err) {
       sendNotice({
         type: NoticeType.ERROR,
@@ -118,6 +120,53 @@ export function CacheSettings() {
     }
   };
 
+  const handlePickDir = async () => {
+    if (!cache) return;
+    setLoading(true);
+    try {
+      const picked = await cache.pickDir(cacheDir);
+      if (!picked || picked === cacheDir) return;
+      await cache.setDir(picked);
+      sendNotice({
+        type: NoticeType.SUCCESS,
+        message: '缓存路径已保存，重启应用后生效（旧路径缓存已清空）',
+        duration: 5000,
+      });
+      // 不立即 refresh dir：root 仍是旧值；下次启动后 getDir 才返回新值
+      setStats(null);
+    } catch (err) {
+      sendNotice({
+        type: NoticeType.ERROR,
+        message: `修改路径失败：${String(err)}`,
+        duration: 3000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetDir = async () => {
+    if (!cache) return;
+    setLoading(true);
+    try {
+      await cache.setDir(null);
+      sendNotice({
+        type: NoticeType.SUCCESS,
+        message: '已恢复默认缓存路径，重启应用后生效（旧路径缓存已清空）',
+        duration: 5000,
+      });
+      setStats(null);
+    } catch (err) {
+      sendNotice({
+        type: NoticeType.ERROR,
+        message: `恢复默认失败：${String(err)}`,
+        duration: 3000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const usagePercent = stats ? Math.min(100, (stats.current_bytes / stats.max_bytes) * 100) : 0;
 
   return (
@@ -155,6 +204,34 @@ export function CacheSettings() {
           ) : (
             <p className="text-sm text-muted-foreground">加载中…</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>缓存目录</CardTitle>
+          <CardDescription>
+            自定义音频缓存的存储位置。修改后**清空旧目录缓存**并保存新路径，
+            <span className="font-medium">重启应用后生效</span>。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">当前路径</Label>
+            <code className="block break-all rounded bg-muted px-3 py-2 text-xs">
+              {cacheDir || '加载中…'}
+            </code>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => void handlePickDir()} disabled={loading}>
+              <FolderOpen className="mr-1 h-4 w-4" />
+              选择目录…
+            </Button>
+            <Button variant="ghost" onClick={() => void handleResetDir()} disabled={loading}>
+              <RotateCcw className="mr-1 h-4 w-4" />
+              恢复默认
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

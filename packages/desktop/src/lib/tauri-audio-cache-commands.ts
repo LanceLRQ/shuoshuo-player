@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 
 /**
  * Tauri 端音频缓存管理 - 前端 invoke 包装
@@ -34,4 +35,36 @@ export async function setCacheMaxBytes(bytes: number): Promise<CacheStats> {
 /** 一键清空所有缓存（删除磁盘文件 + 清 LRU + 清 mem cache + 重写空索引） */
 export async function clearCache(): Promise<void> {
   await invoke<void>('clear_cache');
+}
+
+/** 当前生效的缓存目录路径（启动时确定，运行时不变） */
+export async function getCacheDir(): Promise<string> {
+  return invoke<string>('get_cache_dir');
+}
+
+/**
+ * 设置自定义缓存目录。
+ *
+ * - 传 `null` / 空字符串：恢复默认（删除自定义配置）
+ * - 立即清空当前缓存（旧路径下文件 + 索引）+ 持久化新路径
+ * - **重启应用后才生效**（避免运行时迁移逻辑复杂）
+ */
+export async function setCacheDir(path: string | null): Promise<void> {
+  await invoke<void>('set_cache_dir', { path });
+}
+
+/**
+ * 弹 OS 文件夹选择对话框。返回选中的绝对路径或 null（用户取消）。
+ * 仅在 Tauri 平台可用。
+ */
+export async function pickCacheDir(currentPath?: string): Promise<string | null> {
+  const selected = await openDialog({
+    directory: true,
+    multiple: false,
+    title: '选择音频缓存目录',
+    defaultPath: currentPath,
+  });
+  if (!selected) return null;
+  // openDialog directory:true 单选时返回 string；multiple:false 不应得到数组，但保险处理
+  return Array.isArray(selected) ? (selected[0] ?? null) : selected;
 }

@@ -9,6 +9,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(commands::auth::CookieState::default())
         // bili-stream:// custom protocol：让 audio 标签的 src 走 Rust 代理，
         // 由 Rust 注入 Cookie/Origin/Referer/UA 绕过 B 站音视频流反盗链
@@ -51,6 +52,8 @@ pub fn run() {
             commands::audio_cache::get_cache_stats,
             commands::audio_cache::set_cache_max_bytes,
             commands::audio_cache::clear_cache,
+            commands::audio_cache::get_cache_dir,
+            commands::audio_cache::set_cache_dir,
             commands::spider::qqmusic_search,
             commands::spider::qqmusic_get_lrc,
         ])
