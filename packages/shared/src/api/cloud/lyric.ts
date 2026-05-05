@@ -35,9 +35,13 @@ export const LyricApi = {
       data: data as Record<string, unknown>,
     }),
 
-  /** 历史快照（按 lyric.id，最多返回 10 条） */
+  /**
+   * 历史快照（按 lyric.id，最多返回 10 条）。
+   * v2 normalized：entities.lyric_snapshot + entities.account（作者通过 author_id 反查），
+   * result.lyric_snapshots = id 数组。caller 走 pickCloudList + 手动 join author。
+   */
   getLyricHistory: (id: number) =>
-    buildCloudApiCall<{ result: LyricSnapshot[]; entities?: Record<string, unknown> }>({
+    buildCloudApiCall<CloudListResponse<LyricSnapshot>>({
       url: `/lyric/manage/${id}/snap`,
     })(),
 

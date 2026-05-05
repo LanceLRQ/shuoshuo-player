@@ -27,7 +27,12 @@ export function LiveSlicersPage() {
     LiveSlicerApi.publicList({ page: 1, limit: 100 })
       .then((resp) => {
         if (cancelled) return;
-        setSlicerList(pickCloudList<LiveSlicerMan>(resp));
+        setSlicerList(
+          pickCloudList<LiveSlicerMan>(resp, {
+            entityKey: 'live_slicer_man',
+            resultKey: 'live_slicer_men',
+          }),
+        );
       })
       .catch(() => {
         if (cancelled) return;

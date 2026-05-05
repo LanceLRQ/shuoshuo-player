@@ -83,7 +83,10 @@ export function LiveSlicerMenPage() {
           limit: PAGE_SIZE,
           keyword: targetKeyword || undefined,
         });
-        const items = pickCloudList<LiveSlicerMan>(resp);
+        const items = pickCloudList<LiveSlicerMan>(resp, {
+          entityKey: 'live_slicer_man',
+          resultKey: 'live_slicer_men',
+        });
         setList(items);
         setTotal(pickCloudListTotal(resp, items.length));
       } catch (e) {
@@ -246,11 +249,11 @@ export function LiveSlicerMenPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px]">头像</TableHead>
+              <TableHead className="w-[64px]">头像</TableHead>
               <TableHead>名称</TableHead>
-              <TableHead>UID</TableHead>
-              <TableHead className="w-[180px]">更新时间</TableHead>
-              <TableHead className="w-[200px] text-right">操作</TableHead>
+              <TableHead className="w-[120px]">UID</TableHead>
+              <TableHead className="w-[140px] whitespace-nowrap">更新时间</TableHead>
+              <TableHead className="w-[120px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -281,40 +284,45 @@ export function LiveSlicerMenPage() {
                     {slicer.name}
                   </TableCell>
                   <TableCell className="font-mono text-xs">{slicer.mid}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {dayjs(slicer.updated_at).format('YYYY-MM-DD HH:mm')}
+                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    {/* Unix 秒时间戳，dayjs 默认毫秒，必须 *1000 否则解析为 1970 */}
+                    {dayjs(slicer.updated_at * 1000).format('YYYY-MM-DD HH:mm')}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title="从 B 站同步"
-                      disabled={refreshingId === slicer.id}
-                      onClick={() => void handleRefreshFromBilibili(slicer)}
-                    >
-                      {refreshingId === slicer.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title="编辑"
-                      onClick={() => handleOpenEdit(slicer)}
-                    >
-                      <Edit3 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title="删除"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(slicer)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="从 B 站同步"
+                        disabled={refreshingId === slicer.id}
+                        onClick={() => void handleRefreshFromBilibili(slicer)}
+                      >
+                        {refreshingId === slicer.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="编辑"
+                        onClick={() => handleOpenEdit(slicer)}
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        title="删除"
+                        onClick={() => handleDelete(slicer)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

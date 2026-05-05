@@ -2,7 +2,7 @@
  * 类型已对齐 shuoshuo-crystal/backend（PostgreSQL + GORM）：
  * - 主键由 MongoDB ObjectID 改为 number（uint64）
  * - 角色枚举：User=1（v1 是 0）、Admin=512、WebMaster=1024，权限判定走位与 (role & mask) === mask
- * - 时间字段：created_at / updated_at / deleted_at（ISO 字符串）
+ * - 时间字段：created_at / updated_at / deleted_at（Unix 秒，number；展示前 *1000 给 dayjs）
  * - 歌词上传字段名 lyric → content
  */
 
@@ -25,8 +25,8 @@ export interface CloudAccount {
   open_id?: string;
   /** 0 表示未锁定，否则为 Unix 时间戳（秒） */
   locked?: number;
-  created_at: string;
-  updated_at: string;
+  created_at: number;
+  updated_at: number;
 }
 
 /** 云服务会话（与新版 /login 响应对齐） */
@@ -59,8 +59,8 @@ export interface CloudLyric {
   bvid: string;
   title: string;
   content: string;
-  created_at: string;
-  updated_at: string;
+  created_at: number;
+  updated_at: number;
 }
 
 /** 歌词快照（对齐 LyricSnapshot 模型，最多保留 10 条） */
@@ -71,7 +71,7 @@ export interface LyricSnapshot {
   author?: CloudAccount;
   title: string;
   content: string;
-  created_at: string;
+  created_at: number;
 }
 
 /** 直播切片 UP 主（对齐后端 LiveSlicerMan 模型，mid 为字符串支持超大 UID） */
@@ -80,8 +80,8 @@ export interface LiveSlicerMan {
   mid: string;
   name: string;
   face: string;
-  created_at: string;
-  updated_at: string;
+  created_at: number;
+  updated_at: number;
 }
 
 /** 通用分页响应 */
@@ -91,11 +91,26 @@ export interface CloudPager {
   total: number;
 }
 
-/** 通用列表响应（部分接口字段名为 list 或 result，需在调用层适配） */
+/**
+ * 通用列表响应。v2 后端为 normalized 形态：
+ *  - `entities[<entityKey>]` 是 id → 实体的字典
+ *  - `result[<resultKey>]` 是有序 id 数组（字符串）
+ * v1/部分老接口直接把数组放在 list/result 字段。
+ *
+ * 解包统一走 utils/cloud-list 的 pickCloudList，业务代码不应直接读 entities/result。
+ */
 export interface CloudListResponse<T> {
+  /** v1 兼容字段：实体数组直接挂在 list */
   list?: T[];
-  result?: T[];
-  entities?: Record<string, unknown>;
+  /**
+   * - v1 兼容：result 直接是 T[]
+   * - v2 normalized：result 是 `{ <resultKey>: string[] }`，对象内 key 由后端定（如 lyrics）
+   */
+  result?: T[] | Record<string, string[] | undefined>;
+  /**
+   * v2 normalized：`{ <entityKey>: { <id>: T } }`；entityKey 由后端定（如 lyric / live_slicer_man）
+   */
+  entities?: Record<string, Record<string, T> | undefined>;
   pager?: CloudPager;
   pagination?: { page: number; pageSize: number; total: number };
 }

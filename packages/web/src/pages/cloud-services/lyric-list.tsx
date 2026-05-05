@@ -20,6 +20,7 @@ import {
   pickCloudList,
   pickCloudListTotal,
   type CloudLyric,
+  type CloudAccount,
   type LyricSnapshot,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
@@ -97,7 +98,10 @@ export function LyricListPage() {
           limit: PAGE_SIZE,
           keyword: targetKeyword || undefined,
         });
-        const items = pickCloudList<CloudLyric>(resp);
+        const items = pickCloudList<CloudLyric>(resp, {
+          entityKey: 'lyric',
+          resultKey: 'lyrics',
+        });
         setList(items);
         setTotal(pickCloudListTotal(resp, items.length));
       } catch (e) {
@@ -171,7 +175,18 @@ export function LyricListPage() {
     setHistoryLoading(true);
     try {
       const resp = await LyricApi.getLyricHistory(lyric.id);
-      setHistoryList(resp?.result ?? []);
+      const snapshots = pickCloudList<LyricSnapshot>(resp, {
+        entityKey: 'lyric_snapshot',
+        resultKey: 'lyric_snapshots',
+      });
+      // entities.account 字典里只放摘要字段（id/nick_name/avatar/role），按 author_id 反查注入
+      const accounts = resp?.entities?.account as Record<string, Partial<CloudAccount>> | undefined;
+      const joined = snapshots.map((snap) =>
+        snap.author_id != null && accounts?.[String(snap.author_id)]
+          ? { ...snap, author: accounts[String(snap.author_id)] as CloudAccount }
+          : snap,
+      );
+      setHistoryList(joined);
     } catch (e) {
       const message = (e as { message?: string })?.message ?? '加载历史失败';
       sendNotice({ type: NoticeType.ERROR, message, duration: 3000 });
@@ -250,24 +265,23 @@ export function LyricListPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[180px]">BV 号</TableHead>
+              <TableHead className="w-[140px]">BV 号</TableHead>
               <TableHead>标题</TableHead>
-              <TableHead className="w-[180px]">创建时间</TableHead>
-              <TableHead className="w-[180px]">更新时间</TableHead>
-              <TableHead className="w-[200px] text-right">操作</TableHead>
+              <TableHead className="w-[160px] whitespace-nowrap">创建 / 更新</TableHead>
+              <TableHead className="w-[120px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && list.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={4} className="h-32 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin" />
                   加载中…
                 </TableCell>
               </TableRow>
             ) : list.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={4} className="h-32 text-center text-sm text-muted-foreground">
                   <AlertCircle className="mx-auto mb-2 h-4 w-4" />
                   暂无歌词
                 </TableCell>
@@ -279,38 +293,44 @@ export function LyricListPage() {
                   <TableCell className="max-w-md truncate" title={lyric.title}>
                     {lyric.title}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {dayjs(lyric.created_at).format('YYYY-MM-DD HH:mm')}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {dayjs(lyric.updated_at).format('YYYY-MM-DD HH:mm')}
+                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    {/* Unix 秒时间戳，dayjs 默认毫秒，必须 *1000 否则解析为 1970 */}
+                    <div>{dayjs(lyric.created_at * 1000).format('YYYY-MM-DD HH:mm')}</div>
+                    <div className="text-[10px] opacity-70">
+                      {dayjs(lyric.updated_at * 1000).format('YYYY-MM-DD HH:mm')}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenEdit(lyric)}
-                      title="编辑"
-                    >
-                      <Edit3 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleOpenHistory(lyric)}
-                      title="历史快照"
-                    >
-                      <History className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(lyric)}
-                      className="text-destructive hover:text-destructive"
-                      title="删除"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    {/* whitespace-nowrap + flex-end 防止小屏下三按钮换行成田字 */}
+                    <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleOpenEdit(lyric)}
+                        title="编辑"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => void handleOpenHistory(lyric)}
+                        title="历史快照"
+                      >
+                        <History className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(lyric)}
+                        title="删除"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -415,8 +435,10 @@ export function LyricListPage() {
                 {historyList.map((snap) => (
                   <div key={snap.id} className="rounded-md border p-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{dayjs(snap.created_at).format('YYYY-MM-DD HH:mm:ss')}</span>
-                      {snap.author?.user_name && <span>by {snap.author.user_name}</span>}
+                      <span>{dayjs(snap.created_at * 1000).format('YYYY-MM-DD HH:mm:ss')}</span>
+                      {(snap.author?.nick_name || snap.author?.user_name) && (
+                        <span>by {snap.author.nick_name || snap.author.user_name}</span>
+                      )}
                     </div>
                     <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs">
                       {snap.content || '（空内容）'}

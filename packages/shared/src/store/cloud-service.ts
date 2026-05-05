@@ -10,8 +10,8 @@ const DEFAULT_ACCOUNT: CloudAccount = {
   email: '',
   avatar: '',
   role: CloudServiceUserRole.User,
-  created_at: '',
-  updated_at: '',
+  created_at: 0,
+  updated_at: 0,
 };
 
 const DEFAULT_SESSION: CloudServiceSession = {
