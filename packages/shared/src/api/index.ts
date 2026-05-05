@@ -29,6 +29,8 @@ export {
   setCloudApiBaseUrl,
   getCloudApiBaseUrl,
   setSessionExpiredHandler,
+  setBilibiliHttpAdapter,
+  setCloudHttpAdapter,
   buildBilibiliApiCall,
   buildCloudApiCall,
   CLOUD_API_BASE_URL_STORAGE_KEY,

@@ -4,10 +4,14 @@ import {
   setCloudServiceToken,
   setWbiInfo,
   setSessionExpiredHandler,
+  setBilibiliHttpAdapter,
+  setCloudHttpAdapter,
   buildBilibiliApiCall,
   buildCloudApiCall,
   bilibiliPure,
+  bilibiliService,
   cloudPure,
+  cloudService,
 } from './client';
 import { DEFAULT_CLOUD_API_BASE_URL } from '../constants';
 
@@ -232,5 +236,53 @@ describe('A8: 云服务错误码 fallback', () => {
     setSessionExpiredHandler(handler);
     await expect(buildCloudApiCall({ url: '/string-code' })()).rejects.toBeDefined();
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe('setBilibiliHttpAdapter', () => {
+  afterEach(() => {
+    setBilibiliHttpAdapter(null);
+  });
+
+  it('注入 adapter 后 bilibiliService.defaults.adapter 引用注入值', () => {
+    const adapter = vi.fn();
+    setBilibiliHttpAdapter(adapter);
+    expect(bilibiliService.defaults.adapter).toBe(adapter);
+  });
+
+  it('传 null 恢复默认 adapter（清空）', () => {
+    setBilibiliHttpAdapter(vi.fn());
+    setBilibiliHttpAdapter(null);
+    expect(bilibiliService.defaults.adapter).toBeUndefined();
+  });
+
+  it('cloudService 不受影响（仅 bilibiliService 受 setter 控制）', () => {
+    const adapter = vi.fn();
+    setBilibiliHttpAdapter(adapter);
+    expect(cloudPure.defaults.adapter).not.toBe(adapter);
+  });
+});
+
+describe('setCloudHttpAdapter', () => {
+  afterEach(() => {
+    setCloudHttpAdapter(null);
+  });
+
+  it('注入 adapter 后 cloudService.defaults.adapter 引用注入值', () => {
+    const adapter = vi.fn();
+    setCloudHttpAdapter(adapter);
+    expect(cloudService.defaults.adapter).toBe(adapter);
+  });
+
+  it('传 null 恢复默认 adapter（清空）', () => {
+    setCloudHttpAdapter(vi.fn());
+    setCloudHttpAdapter(null);
+    expect(cloudService.defaults.adapter).toBeUndefined();
+  });
+
+  it('bilibiliService 不受影响（仅 cloudService 受 setter 控制）', () => {
+    const adapter = vi.fn();
+    setCloudHttpAdapter(adapter);
+    expect(bilibiliService.defaults.adapter).not.toBe(adapter);
   });
 });

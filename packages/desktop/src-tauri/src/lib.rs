@@ -10,6 +10,12 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
         .manage(commands::auth::CookieState::default())
+        // bili-stream:// custom protocol：让 audio 标签的 src 走 Rust 代理，
+        // 由 Rust 注入 Cookie/Origin/Referer/UA 绕过 B 站音视频流反盗链
+        .register_asynchronous_uri_scheme_protocol(
+            "bili-stream",
+            commands::audio_proxy::handle_audio_proxy,
+        )
         .setup(|app| {
             // 启动时回放 bilibili_cookies.json 到 CookieState（v1 main.js 行为）
             let handle = app.handle();
@@ -30,6 +36,7 @@ pub fn run() {
             commands::store::store_remove,
             commands::auth::bilibili_login,
             commands::auth::bilibili_logout,
+            commands::auth::get_bilibili_cookies,
             commands::spider::qqmusic_search,
             commands::spider::qqmusic_get_lrc,
         ])

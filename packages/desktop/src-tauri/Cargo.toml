@@ -16,7 +16,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-store = "2"
 tauri-plugin-shell = "2"
-tauri-plugin-http = "2"
+# unsafe-headers：允许前端 fetch 设置 Cookie / Origin / Referer 等 forbidden headers。
+# B 站 API 必须显式注入这三个 header（手动管理鉴权 cookie + 满足反爬规则），
+# 否则 plugin-http 默认行为会丢弃它们，请求被 B 站 403 拦截。
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["json", "cookies"] }

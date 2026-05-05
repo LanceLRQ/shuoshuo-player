@@ -103,13 +103,64 @@ pub async fn bilibili_login<R: Runtime>(app: AppHandle<R>) -> Result<(), String>
         .inner_size(1000.0, 640.0)
         .resizable(false)
         .on_navigation(move |url| {
-            if url.host_str() == Some("www.bilibili.com") {
+            // 诊断：每次 navigation 都打印目标 URL，帮助排查跳转目标分支
+            eprintln!("[auth] on_navigation: {}", url);
+            // 命中条件放宽：除 passport.bilibili.com 外的 *.bilibili.com 都视为登录成功跳出。
+            // B 站登录后实际可能跳转到 www / m / space / live 等子域，原硬编码 www
+            // 在 macOS WKWebView 下偶尔不命中（passport 内 JS replace 跳转）。
+            let host = url.host_str().unwrap_or("");
+            let is_bilibili = host.ends_with(".bilibili.com") || host == "bilibili.com";
+            let is_passport = host == "passport.bilibili.com";
+            if is_bilibili && !is_passport {
+                eprintln!("[auth] login success detected, host={}", host);
                 let app_emit = app_for_nav.clone();
                 tauri::async_runtime::spawn(async move {
                     if let Some(win) = app_emit.get_webview_window(LOGIN_WINDOW_LABEL) {
+                        // 提取 webview cookie（含 HttpOnly 的 SESSDATA）→ CookieState → persist
+                        // 这是绕开浏览器 CORS 限制后，主窗口 axios 请求注入 Cookie header
+                        // 的数据源。详见 tauri-bilibili-http-adapter.ts。
+                        match win.cookies() {
+                            Ok(cookies) => {
+                                let total = cookies.len();
+                                let records: Vec<CookieRecord> = cookies
+                                    .iter()
+                                    .filter(|c| {
+                                        c.domain()
+                                            .map(|d| d.contains("bilibili.com"))
+                                            .unwrap_or(false)
+                                    })
+                                    .map(|c| CookieRecord {
+                                        name: c.name().to_string(),
+                                        value: c.value().to_string(),
+                                        domain: c.domain().map(String::from),
+                                        path: c.path().map(String::from),
+                                        session: false,
+                                    })
+                                    .collect();
+                                eprintln!(
+                                    "[auth] cookies extracted: total={}, bilibili_filtered={}, names={:?}",
+                                    total,
+                                    records.len(),
+                                    records.iter().map(|c| &c.name).collect::<Vec<_>>()
+                                );
+                                let cookie_state = app_emit.state::<CookieState>();
+                                if let Ok(mut guard) = cookie_state.0.lock() {
+                                    *guard = records;
+                                }
+                                if let Err(e) = persist_cookies(&app_emit, &cookie_state) {
+                                    eprintln!("[auth] persist_cookies failed: {}", e);
+                                } else {
+                                    eprintln!("[auth] persist_cookies ok");
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("[auth] cookies() failed: {}", e);
+                            }
+                        }
                         win.close().ok();
                     }
                     app_emit.emit("bilibili:login_success", ()).ok();
+                    eprintln!("[auth] emitted bilibili:login_success");
                 });
                 return false;
             }
@@ -119,6 +170,23 @@ pub async fn bilibili_login<R: Runtime>(app: AppHandle<R>) -> Result<(), String>
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+/// 取出当前 CookieState 序列化为 HTTP Cookie header 形态（"k1=v1; k2=v2"）
+///
+/// 由前端 TauriBilibiliHttpAdapter 在每次请求 B 站 API 前调用，注入到 Cookie header。
+/// 因为 reqwest（plugin-http 底层）的 cookie store 与 webview cookie store 是隔离的，
+/// 必须由 Rust 端在 axios 请求前显式拼接注入。
+#[tauri::command]
+pub async fn get_bilibili_cookies(
+    state: tauri::State<'_, CookieState>,
+) -> Result<String, String> {
+    let cookies = state.0.lock().map_err(|e| e.to_string())?;
+    Ok(cookies
+        .iter()
+        .map(|c| format!("{}={}", c.name, c.value))
+        .collect::<Vec<_>>()
+        .join("; "))
 }
 
 /// 退出 B 站登录

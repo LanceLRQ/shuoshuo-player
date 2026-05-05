@@ -87,6 +87,9 @@ importers:
       autoprefixer:
         specifier: ^10.5.0
         version: 10.5.0(postcss@8.5.13)
+      axios:
+        specifier: ^1.15.2
+        version: 1.15.2
       postcss:
         specifier: ^8.5.13
         version: 8.5.13

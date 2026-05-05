@@ -2,24 +2,35 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   bootstrapPersistence,
+  setBilibiliHttpAdapter,
+  setCloudHttpAdapter,
   setPlatformBridge,
   triggerWbiRefresh,
   useBilibiliUserStore,
 } from '@shuoshuo-player/shared';
 import App from './App';
 import { createTauriPlatformBridge } from '@desktop/lib/platform';
+import {
+  createTauriBilibiliHttpAdapter,
+  createTauriCloudHttpAdapter,
+} from '@desktop/lib/tauri-bilibili-http-adapter';
 import '@/styles/globals.css';
 
-// Tauri WebView 直连 api.bilibili.com 可能因 CORS preflight hang（未走
-// @tauri-apps/plugin-http），导致 getLoginUserInfo 长时间不返回、isInited
-// 永远 false、UI 卡在 spinner。给 5 秒超时兜底：到点仍未 inited 则强制置位，
-// UI 切到引导卡片让用户能操作；后续 nav 真返回成功仍会再次 setState 覆盖。
+// 启动期 nav 接口若长时间未响应（极端网络场景），UI 不应永久卡在 spinner；
+// 5 秒超时仍未 inited 则强制置位让引导卡片可见（CORS 路径已由 Tauri adapter 解决）
 const INIT_FALLBACK_TIMEOUT_MS = 5000;
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {
   throw new Error('未找到根节点 #root');
 }
+
+// 注入 Tauri axios adapter：底层走 plugin-http（Rust reqwest）绕开 WebView CORS。
+// 必须早于任何 API 请求执行（bootstrap 后 triggerWbiRefresh 即调 nav）。
+// - bilibili adapter：注入 Cookie/Referer/Origin/UA 满足 B 站反爬
+// - cloud adapter：纯透传（云服务后端未配 Allow-Origin，但不需要 bilibili headers）
+setBilibiliHttpAdapter(createTauriBilibiliHttpAdapter());
+setCloudHttpAdapter(createTauriCloudHttpAdapter());
 
 setPlatformBridge(createTauriPlatformBridge());
 

@@ -5,10 +5,27 @@ import {
   CLICK_STAT_THROTTLE,
   CLICK_STAT_DELAY_MS,
 } from '../constants';
+import { getPlatformBridge } from '../platform';
 import { useRiskControlStore } from '../store/risk-control';
 import { timeStampNow } from './format';
 import type { DashAudioStream, MusicUrlCache } from '../types';
 import type { VideoViewInfo } from '../api/bilibili/video';
+
+/**
+ * 应用平台特定的音频 URL 转换（仅 Tauri 端实现 bili-stream://* 包装）
+ *
+ * 缓存中始终保存原始 URL；包装在每次 return 时应用，避免缓存失效后还原困难。
+ * bridge 未初始化（测试环境）时静默回落原 URL，不抛错。
+ */
+function applyAudioUrlTransformer(url: string): string {
+  if (!url) return url;
+  try {
+    const transformer = getPlatformBridge().audioUrlTransformer;
+    return transformer ? transformer(url) : url;
+  } catch {
+    return url;
+  }
+}
 
 /** 全局缓存：bvid → MusicUrlCache（v1 window.MUSIC_PLAY_URL_CACHED 等价，但封装在模块作用域） */
 const musicPlayUrlCache: Record<string, MusicUrlCache> = {};
@@ -70,7 +87,7 @@ export async function fetchMusicUrl(
         cached.playUrl ? cached.playUrl.slice(0, 80) + '...' : '<EMPTY>',
       );
     }
-    return cached.playUrl;
+    return applyAudioUrlTransformer(cached.playUrl);
   }
 
   const promise = (async () => {
@@ -207,7 +224,7 @@ export async function fetchMusicUrl(
           });
       }, CLICK_STAT_DELAY_MS);
 
-      return cached.playUrl;
+      return applyAudioUrlTransformer(cached.playUrl);
     } catch (e) {
       if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl 失败:', bvId, e);
       return '';

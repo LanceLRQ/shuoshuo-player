@@ -19,7 +19,9 @@ import logoUrl from '@/assets/logo.png';
  */
 export function BilibiliLoginRequired() {
   useEffect(() => {
+    console.info('[BilibiliLoginRequired] subscribed onLoginSuccess');
     const unsubscribe = getPlatformBridge().auth.onLoginSuccess(() => {
+      console.info('[BilibiliLoginRequired] login_success received → reload');
       window.location.reload();
     });
     return unsubscribe;

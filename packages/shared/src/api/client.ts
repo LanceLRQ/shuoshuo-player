@@ -1,4 +1,5 @@
 import axios, {
+  type AxiosAdapter,
   type AxiosInstance,
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
@@ -71,6 +72,34 @@ export const bilibiliService: AxiosInstance = axios.create({
     'Content-Type': 'application/x-www-form-urlencoded',
   },
 });
+
+/**
+ * 注入自定义 axios adapter（仅 bilibiliService）
+ *
+ * 默认 null 表示走浏览器原生 fetch/XHR（Chrome 扩展 / Web 行为）；
+ * Tauri 端在启动时注入基于 plugin-http 的 adapter，绕过 WebView CORS 限制。
+ *
+ * 传 null 可以恢复默认行为（用于测试 / 平台切换场景）。
+ *
+ * 注意：axios request interceptor 在 adapter 之前运行，因此 WBI 签名 / qs.stringify
+ * 等现有处理对自定义 adapter 完全透明，无需在 adapter 内重复实现。
+ */
+export function setBilibiliHttpAdapter(adapter: AxiosAdapter | null): void {
+  bilibiliService.defaults.adapter = adapter ?? undefined;
+}
+
+/**
+ * 注入自定义 axios adapter（仅 cloudService）
+ *
+ * 与 setBilibiliHttpAdapter 同一注入模式：默认 null 走浏览器原生 fetch（扩展行为不变），
+ * Tauri 端注入 plugin-http adapter 绕过 WebView CORS。
+ *
+ * 云服务后端（shuoshuo.sikong.ren）实际未配置 Access-Control-Allow-Origin，
+ * Tauri 主窗口（http://localhost:1420）直连会被 CORS 拦截。
+ */
+export function setCloudHttpAdapter(adapter: AxiosAdapter | null): void {
+  cloudService.defaults.adapter = adapter ?? undefined;
+}
 
 // 响应拦截器：dev 模式打印网络层错误（超时、4xx、5xx、CORS、断网），定位"接口不可用"现象
 bilibiliService.interceptors.response.use(

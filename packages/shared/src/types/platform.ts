@@ -49,4 +49,14 @@ export interface PlatformBridge {
   auth: AuthAdapter;
   shell: ShellAdapter;
   spider?: SpiderAdapter;
+  /**
+   * 音频 URL 转换器（可选，仅 Tauri 端实现）
+   *
+   * 用于把原始 B 站 m4s URL 包装为自定义 Tauri scheme（如 bili-stream://），
+   * 让 audio 标签的浏览器原生 fetch 走 Rust 后端代理，绕过 Tauri WebView 的
+   * Referer 反盗链拦截。Chrome 扩展靠 declarativeNetRequest 改 header，无需此字段。
+   *
+   * 由 fetchMusicUrl 在返回 URL 前调用：transformer ? transformer(url) : url。
+   */
+  audioUrlTransformer?: (url: string) => string;
 }
