@@ -24,6 +24,17 @@ pub fn run() {
                 eprintln!("[startup] restore_cookies failed: {}", e);
             }
 
+            // 初始化音频缓存（创建目录 + 加载 index.json LRU 索引）
+            // 失败时降级为空 cache state，handler 会全走 reqwest 不影响功能
+            match commands::audio_cache::init(handle) {
+                Ok(cache_state) => {
+                    app.manage(cache_state);
+                }
+                Err(e) => {
+                    eprintln!("[startup] audio_cache init failed: {} (cache disabled)", e);
+                }
+            }
+
             if let Err(e) = tray::setup_tray(handle) {
                 eprintln!("[startup] tray setup failed: {}", e);
             }
