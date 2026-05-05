@@ -4,6 +4,7 @@ import {
   useCloudServiceStore,
   useUIStore,
   LyricApi,
+  getPlatformBridge,
   parseLRC,
   formatTimeLyric,
   textToDownload,
@@ -29,7 +30,10 @@ interface LyricEditorProps {
   onExit: () => void;
   /** 嵌入 Dialog 时由外层关闭按钮承担退出，避免双入口冗余 */
   hideExit?: boolean;
-  /** 平台桥接 spider，存在则启用 QQ 音乐搜索 */
+  /**
+   * 平台桥接 spider，缺省时自动从 PlatformBridge 取（Tauri 端有，扩展 / Web 无）。
+   * 显式传入时优先生效（便于测试桩注入 / 未来多 provider 场景）。
+   */
   spider?: SpiderAdapter;
 }
 
@@ -49,8 +53,19 @@ export function LyricEditor({
   onSeek,
   onExit,
   hideExit,
-  spider,
+  spider: spiderOverride,
 }: LyricEditorProps) {
+  // 默认从 PlatformBridge 自取 spider；prop 传入则优先（向后兼容 + 测试桩）。
+  // try/catch：bridge 未注入的单测环境（如 lyric-editor.test.tsx 测纯函数时）静默 fallback，
+  // 避免抛错传染到无关用例。
+  const spider = useMemo<SpiderAdapter | undefined>(() => {
+    if (spiderOverride) return spiderOverride;
+    try {
+      return getPlatformBridge().spider;
+    } catch {
+      return undefined;
+    }
+  }, [spiderOverride]);
   const lyricEntry = useLyricsStore((s) =>
     currentVideo ? s.lyricMaps[currentVideo.bvid] : undefined,
   );

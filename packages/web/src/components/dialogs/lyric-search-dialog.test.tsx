@@ -72,7 +72,7 @@ describe('LyricSearchDialog', () => {
     });
   });
 
-  it('选中歌曲 → spider.getLRC + onPick + onClose', async () => {
+  it('选中歌曲 → spider.getLRC → 进入预览态（不立即 onPick / onClose）', async () => {
     const spider = makeSpider();
     const onPick = vi.fn();
     const onClose = vi.fn();
@@ -90,11 +90,62 @@ describe('LyricSearchDialog', () => {
 
     fireEvent.click(screen.getByText('夜空中最亮的星').closest('button')!);
 
-    await waitFor(() => {
-      expect(spider.getLRC).toHaveBeenCalledWith('m001');
-      expect(onPick).toHaveBeenCalledWith('[00:00.00]Hello', SAMPLE_SONG);
-      expect(onClose).toHaveBeenCalled();
-    });
+    // 拉到 LRC 后进入预览态：标题切换，LRC 文本可见
+    await screen.findByText('预览：夜空中最亮的星');
+    expect(screen.getByText('[00:00.00]Hello')).toBeInTheDocument();
+    expect(spider.getLRC).toHaveBeenCalledWith('m001');
+    // 关键不变量：未点"使用"前不触发 onPick / onClose
+    expect(onPick).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('预览态点"使用" → onPick + onClose', async () => {
+    const spider = makeSpider();
+    const onPick = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <LyricSearchDialog
+        open
+        onClose={onClose}
+        onPick={onPick}
+        defaultKeyword="夜空"
+        spider={spider}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /搜索$/ }));
+    await screen.findByText('夜空中最亮的星');
+    fireEvent.click(screen.getByText('夜空中最亮的星').closest('button')!);
+    await screen.findByText('预览：夜空中最亮的星');
+
+    fireEvent.click(screen.getByRole('button', { name: '使用' }));
+    expect(onPick).toHaveBeenCalledWith('[00:00.00]Hello', SAMPLE_SONG);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('预览态点"返回" → 清预览回搜索结果，不触发 onPick / onClose', async () => {
+    const spider = makeSpider();
+    const onPick = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <LyricSearchDialog
+        open
+        onClose={onClose}
+        onPick={onPick}
+        defaultKeyword="夜空"
+        spider={spider}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /搜索$/ }));
+    await screen.findByText('夜空中最亮的星');
+    fireEvent.click(screen.getByText('夜空中最亮的星').closest('button')!);
+    await screen.findByText('预览：夜空中最亮的星');
+
+    fireEvent.click(screen.getByRole('button', { name: /返回/ }));
+    // 回到搜索结果界面：标题切回，结果列表仍在
+    expect(screen.getByText('QQ 音乐歌词搜索')).toBeInTheDocument();
+    expect(screen.getByText('夜空中最亮的星')).toBeInTheDocument();
+    expect(onPick).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('spider 缺失时点击搜索给出 WARN 通知（桌面端独占）', () => {
