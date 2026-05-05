@@ -7,14 +7,7 @@ export { LiveSlicerApi } from './cloud/live-slicer';
 export { triggerWbiRefresh } from './wbi-refresh';
 
 export type { LyricListParams, LyricSavePayload } from './cloud/lyric';
-export type {
-  LoginPayload,
-  UpdateSelfPayload,
-  CheckLoginResponse,
-  CreateAccountPayload,
-  UpdateAccountPayload,
-  AccountListParams,
-} from './cloud/account';
+export type { LoginPayload, UpdateSelfPayload, CheckLoginResponse } from './cloud/account';
 export type { LiveSlicerListParams, LiveSlicerSavePayload } from './cloud/live-slicer';
 export type { VideoViewInfo, VideoPlayUrlResponse, VideoSearchResponse } from './bilibili/video';
 

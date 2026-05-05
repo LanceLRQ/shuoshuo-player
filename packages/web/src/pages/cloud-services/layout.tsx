@@ -4,7 +4,7 @@ import { useCloudServiceStore, useUIStore, NoticeType } from '@shuoshuo-player/s
 import { useUIShell } from '@/stores/ui-shell';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const TAB_ORDER = ['lyrics', 'live-slicer-men', 'accounts'] as const;
+const TAB_ORDER = ['lyrics', 'live-slicer-men'] as const;
 type CloudTab = (typeof TAB_ORDER)[number];
 
 export function CloudServicesLayout() {
@@ -53,7 +53,6 @@ export function CloudServicesLayout() {
         <TabsList>
           <TabsTrigger value="lyrics">歌词管理</TabsTrigger>
           <TabsTrigger value="live-slicer-men">切片 UP 主</TabsTrigger>
-          <TabsTrigger value="accounts">账户管理</TabsTrigger>
         </TabsList>
       </Tabs>
 

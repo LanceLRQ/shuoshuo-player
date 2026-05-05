@@ -56,7 +56,7 @@ describe('CloudServicesLayout', () => {
     expect(useUIStore.getState().notices.length).toBeGreaterThan(0);
   });
 
-  it('登录管理员 → 渲染 3 个 Tab + 子路由（settings 已迁移到全局）', () => {
+  it('登录管理员 → 渲染 2 个 Tab + 子路由（账户管理 / 服务设置 均已下线）', () => {
     act(() => {
       useCloudServiceStore.getState().updateSession(ADMIN_SESSION);
     });
@@ -66,7 +66,8 @@ describe('CloudServicesLayout', () => {
     expect(screen.getByText('管理员视图')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '歌词管理' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '切片 UP 主' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '账户管理' })).toBeInTheDocument();
+    // 账户管理已下线（不再走 v1 后端 /accounts/*）
+    expect(screen.queryByRole('tab', { name: '账户管理' })).not.toBeInTheDocument();
     // 服务设置 已迁到 /settings?tab=cloud
     expect(screen.queryByRole('tab', { name: '服务设置' })).not.toBeInTheDocument();
     expect(screen.getByTestId('child-lyrics')).toBeInTheDocument();

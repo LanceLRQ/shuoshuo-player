@@ -41,9 +41,6 @@ const LiveSlicerMenPage = lazy(() =>
     default: m.LiveSlicerMenPage,
   })),
 );
-const AccountsPage = lazy(() =>
-  import('@/pages/cloud-services/accounts').then((m) => ({ default: m.AccountsPage })),
-);
 
 function RouteFallback() {
   return (
@@ -107,7 +104,8 @@ const router = createHashRouter([
           { index: true, element: <Navigate to="lyrics" replace /> },
           { path: 'lyrics', element: <LyricListPage /> },
           { path: 'live-slicer-men', element: <LiveSlicerMenPage /> },
-          { path: 'accounts', element: <AccountsPage /> },
+          // 已废弃的 accounts 子页：兜底重定向到 lyrics，避免 v1/书签外链 404
+          { path: 'accounts', element: <Navigate to="/cloud-services/lyrics" replace /> },
           // 旧云服务设置子页 → 重定向到统一设置页（cloud tab）
           { path: 'settings', element: <Navigate to="/settings?tab=cloud" replace /> },
         ],
