@@ -115,6 +115,16 @@ pnpm --filter @shuoshuo-player/desktop tauri build    # 单独构建桌面端
 
 Hash Router，路径用短横线（`/live-slicers` / `/cloud-services`）。v1 旧路径（下划线）通过 `<Navigate replace>` 自动重定向到新路径，添加新路由时同步保留兼容项。
 
+### 静态资源与素材目录
+
+| 路径 | 用途 | 访问方式 | 跨平台可用 |
+|---|---|---|---|
+| `packages/web/public/` | Chrome 扩展 manifest 引用的 icon、需要绝对 URL 的运行期资源（如 `manifest.json` / `rules.json` / `logo16.png` 等） | 绝对路径 `/foo.png`，由 Vite publicDir 复制到产物 | ❌ 仅 Web/扩展。Tauri 端无对应 publicDir，引用会 404 |
+| **`packages/web/src/assets/`** | **跨包公共图片素材**（组件内嵌图片、图标） | ES import：`import logoUrl from '@/assets/logo.png'` | ✅ Web/扩展 + Desktop（desktop `vite.config.ts` 中 alias `@` → `../web/src` 自动解析） |
+| `packages/desktop/src-tauri/icons/` | Tauri 应用图标（dock / 任务栏 / 安装包） | 仅打包配置使用，不进 webview | ❌ 仅打包用 |
+
+**新增跨平台图片资源时**：放到 `packages/web/src/assets/`，组件用 `import xxx from '@/assets/xxx.png'` 引入。Vite 编译期会处理为带 hash 的资源 URL，desktop 与 web/扩展同步可用。**禁止**通过 `<img src="/xxx.png">` 引用组件级图片——desktop 端无 publicDir 会 404。
+
 ## 代码规范与约定
 
 ### 命名
