@@ -41,46 +41,55 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">设置</h1>
-        <p className="text-sm text-muted-foreground">配置应用外观、云服务、本地缓存等。</p>
+    // 用 -mx-6 -my-4 反向抵消 RootLayout 的 px-6 py-4 包装，让设置页跨满 main；
+    // h-[calc(100%+2rem)] 补偿 -my-4 抵消后的高度。
+    <Tabs
+      value={tab}
+      onValueChange={handleTabChange}
+      className="-mx-6 -my-4 flex h-[calc(100%+2rem)] flex-col"
+    >
+      {/* 头部跨整宽，border-b 顶到 NavMenu 分隔线；TabsList 在 max-w 居中容器内左对齐 */}
+      <div className="flex-none border-b">
+        <div className="mx-auto max-w-3xl px-6 py-3">
+          <TabsList>
+            {availableTabs.includes('appearance') && (
+              <TabsTrigger value="appearance">
+                <Palette className="mr-1.5 h-4 w-4" />
+                外观
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('cloud') && (
+              <TabsTrigger value="cloud">
+                <Cloud className="mr-1.5 h-4 w-4" />
+                云服务
+              </TabsTrigger>
+            )}
+            {availableTabs.includes('cache') && (
+              <TabsTrigger value="cache">
+                <HardDrive className="mr-1.5 h-4 w-4" />
+                缓存
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </div>
       </div>
 
-      <Tabs value={tab} onValueChange={handleTabChange}>
-        <TabsList>
-          {availableTabs.includes('appearance') && (
-            <TabsTrigger value="appearance">
-              <Palette className="mr-1.5 h-4 w-4" />
-              外观
-            </TabsTrigger>
-          )}
-          {availableTabs.includes('cloud') && (
-            <TabsTrigger value="cloud">
-              <Cloud className="mr-1.5 h-4 w-4" />
-              云服务
-            </TabsTrigger>
-          )}
-          {availableTabs.includes('cache') && (
-            <TabsTrigger value="cache">
-              <HardDrive className="mr-1.5 h-4 w-4" />
-              缓存
-            </TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="appearance" className="mt-4">
-          <AppearanceSettings />
-        </TabsContent>
-        <TabsContent value="cloud" className="mt-4">
-          <CloudSettings />
-        </TabsContent>
-        {isTauri && (
-          <TabsContent value="cache" className="mt-4">
-            <CacheSettings />
+      {/* min-h-0 让 flex 子级允许收缩出现 overflow */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl px-6 py-4">
+          <TabsContent value="appearance">
+            <AppearanceSettings />
           </TabsContent>
-        )}
-      </Tabs>
-    </div>
+          <TabsContent value="cloud">
+            <CloudSettings />
+          </TabsContent>
+          {isTauri && (
+            <TabsContent value="cache">
+              <CacheSettings />
+            </TabsContent>
+          )}
+        </div>
+      </div>
+    </Tabs>
   );
 }
