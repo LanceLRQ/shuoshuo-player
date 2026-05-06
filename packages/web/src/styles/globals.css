@@ -53,6 +53,12 @@
   * {
     @apply border-border;
   }
+  /* 禁用 macOS / 触摸板的 overscroll 橡皮筋与"下拉刷新"。
+     html/body：阻止顶层滚动反弹；内部 overflow 容器各自再设以阻止滚动链向外传播。 */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
   body {
     @apply bg-background text-foreground;
   }
