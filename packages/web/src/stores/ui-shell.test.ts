@@ -13,7 +13,7 @@ function reset() {
     addSongOpen: false,
     addSongTargetFavId: null,
     addToFavOpen: false,
-    addToFavBvid: null,
+    addToFavBvids: [],
     addToFavExcludeId: null,
     addToFavFromSearch: false,
     confirmOpen: false,
@@ -96,7 +96,7 @@ describe('useUIShell', () => {
       useUIShell.getState().openAddToFav('BV1');
       const s = useUIShell.getState();
       expect(s.addToFavOpen).toBe(true);
-      expect(s.addToFavBvid).toBe('BV1');
+      expect(s.addToFavBvids).toEqual(['BV1']);
       expect(s.addToFavExcludeId).toBeNull();
       expect(s.addToFavFromSearch).toBe(false);
     });
@@ -113,9 +113,19 @@ describe('useUIShell', () => {
       useUIShell.getState().closeAddToFav();
       const s = useUIShell.getState();
       expect(s.addToFavOpen).toBe(false);
-      expect(s.addToFavBvid).toBeNull();
+      expect(s.addToFavBvids).toEqual([]);
       expect(s.addToFavExcludeId).toBeNull();
       expect(s.addToFavFromSearch).toBe(false);
+    });
+
+    it('openAddToFavBatch：写入多个 bvids，excludeId 重置', () => {
+      useUIShell.getState().openAddToFav('BV-OLD', { excludeFavId: 'fav-x' });
+      useUIShell.getState().openAddToFavBatch(['BV1', 'BV2', 'BV3'], { fromSearch: true });
+      const s = useUIShell.getState();
+      expect(s.addToFavOpen).toBe(true);
+      expect(s.addToFavBvids).toEqual(['BV1', 'BV2', 'BV3']);
+      expect(s.addToFavExcludeId).toBeNull();
+      expect(s.addToFavFromSearch).toBe(true);
     });
   });
 

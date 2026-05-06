@@ -23,7 +23,7 @@ function makeFav(id: string, name: string, type: FavListType, bv_ids: string[] =
 function reset() {
   useUIShell.setState({
     addToFavOpen: false,
-    addToFavBvid: null,
+    addToFavBvids: [],
     addToFavExcludeId: null,
     addToFavFromSearch: false,
   });
@@ -140,5 +140,34 @@ describe('AddToFavDialog', () => {
     act(() => useUIShell.getState().openAddToFav('BV1'));
 
     expect(screen.getByRole('button', { name: '确认添加' })).toBeDisabled();
+  });
+
+  it('批量模式：标题/描述切换 + 提交调用 addFavVideoByBvids', async () => {
+    const addFavVideoByBvids = vi.fn(async () => ({ success: 3, failed: 0 }));
+    useFavListStore.setState({
+      list: [
+        makeFav('c1', 'My Songs', FavListType.CUSTOM),
+        makeFav('c2', 'Other', FavListType.CUSTOM),
+      ],
+      addFavVideoByBvids,
+    });
+
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFavBatch(['BV1', 'BV2', 'BV3'], { fromSearch: true }));
+
+    expect(screen.getByText('批量添加到歌单')).toBeInTheDocument();
+    expect(screen.getByText('已选 3 首歌曲')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('My Songs').closest('button')!);
+    fireEvent.click(screen.getByText('Other').closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: '确认添加' }));
+
+    await waitFor(() => {
+      expect(addFavVideoByBvids).toHaveBeenCalledWith('c1', ['BV1', 'BV2', 'BV3']);
+      expect(addFavVideoByBvids).toHaveBeenCalledWith('c2', ['BV1', 'BV2', 'BV3']);
+    });
+    await waitFor(() => {
+      expect(useUIShell.getState().addToFavOpen).toBe(false);
+    });
   });
 });

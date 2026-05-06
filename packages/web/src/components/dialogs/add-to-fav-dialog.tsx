@@ -22,45 +22,52 @@ import {
 import { useUIShell } from '@/stores/ui-shell';
 
 /**
- * 添加到歌单弹窗。
+ * 添加到歌单弹窗（支持单条与批量两种模式）。
  *
- * - fromSearch=true 时，bvid 可能尚未在 store 中，需要先调用 getVideoByBvid 拉取
+ * - bvids.length === 1（单条）：fromSearch 模式下若视频不在 store 会预拉一次用于显示标题
+ * - bvids.length > 1（批量）：不预拉，提交时由 addFavVideoByBvids 串行拉取并写入
  * - 仅 CUSTOM 类型歌单可被选中（其他类型由 UP 主或 B 站收藏夹自动同步）
- * - excludeFavId 用于在已属于某歌单时禁用该选项
+ * - excludeFavId 用于在已属于某歌单时禁用该选项（仅单条场景生效）
  */
 export function AddToFavDialog() {
   const open = useUIShell((s) => s.addToFavOpen);
   const close = useUIShell((s) => s.closeAddToFav);
-  const bvid = useUIShell((s) => s.addToFavBvid);
+  const bvids = useUIShell((s) => s.addToFavBvids);
   const excludeId = useUIShell((s) => s.addToFavExcludeId);
   const fromSearch = useUIShell((s) => s.addToFavFromSearch);
 
   const favList = useFavListStore((s) => s.list);
   const addFavVideo = useFavListStore((s) => s.addFavVideo);
+  const addFavVideoByBvids = useFavListStore((s) => s.addFavVideoByBvids);
   const videoEntities = useBilibiliVideosStore((s) => s.entities);
   const getVideoByBvid = useBilibiliUserVideosStore((s) => s.getVideoByBvid);
   const sendNotice = useUIStore((s) => s.sendNotice);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fetching, setFetching] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const isBatch = bvids.length > 1;
+  const singleBvid = !isBatch ? bvids[0] : undefined;
 
   useEffect(() => {
     if (!open) {
       setSelected(new Set());
+      setSubmitting(false);
       return;
     }
-    // fromSearch 模式下确保视频信息已在 store
-    if (bvid && fromSearch && !videoEntities[bvid]) {
+    // 单条 + fromSearch 模式下确保视频信息已在 store（用于显示标题）
+    if (singleBvid && fromSearch && !videoEntities[singleBvid]) {
       setFetching(true);
-      getVideoByBvid(bvid).finally(() => setFetching(false));
+      getVideoByBvid(singleBvid).finally(() => setFetching(false));
     }
-  }, [open, bvid, fromSearch, videoEntities, getVideoByBvid]);
+  }, [open, singleBvid, fromSearch, videoEntities, getVideoByBvid]);
 
   const customLists = useMemo(
     () => favList.filter((f) => f.type === FavListType.CUSTOM),
     [favList],
   );
-  const video = bvid ? videoEntities[bvid] : undefined;
+  const singleVideo = singleBvid ? videoEntities[singleBvid] : undefined;
 
   const toggle = (favId: string) => {
     if (favId === excludeId) return;
@@ -72,29 +79,46 @@ export function AddToFavDialog() {
     });
   };
 
-  const handleConfirm = () => {
-    if (!bvid || selected.size === 0) {
+  const handleConfirm = async () => {
+    if (bvids.length === 0 || selected.size === 0) {
       close();
       return;
     }
-    selected.forEach((favId) => addFavVideo(favId, bvid));
-    sendNotice({
-      type: NoticeType.SUCCESS,
-      message: `已添加到 ${selected.size} 个歌单`,
-      duration: 2000,
-    });
-    close();
+    if (!isBatch) {
+      // 单条：同步逐歌单写入
+      selected.forEach((favId) => addFavVideo(favId, bvids[0]));
+      sendNotice({
+        type: NoticeType.SUCCESS,
+        message: `已添加到 ${selected.size} 个歌单`,
+        duration: 2000,
+      });
+      close();
+      return;
+    }
+    // 批量：并发对每个目标歌单调用 addFavVideoByBvids（自带视频拉取与进度 toast）
+    setSubmitting(true);
+    try {
+      await Promise.all(Array.from(selected).map((favId) => addFavVideoByBvids(favId, bvids)));
+    } finally {
+      setSubmitting(false);
+      close();
+    }
   };
 
+  const titleText = isBatch ? '批量添加到歌单' : '添加到歌单';
+  const descriptionText = isBatch
+    ? `已选 ${bvids.length} 首歌曲`
+    : (singleVideo?.title ?? singleBvid ?? '');
+
   return (
-    <Dialog open={open} onOpenChange={(o) => (o ? null : close())}>
+    <Dialog open={open} onOpenChange={(o) => (o || submitting ? null : close())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>添加到歌单</DialogTitle>
-          <DialogDescription className="truncate">{video?.title ?? bvid}</DialogDescription>
+          <DialogTitle>{titleText}</DialogTitle>
+          <DialogDescription className="truncate">{descriptionText}</DialogDescription>
         </DialogHeader>
 
-        {fetching && <p className="text-sm text-muted-foreground">加载视频信息…</p>}
+        {!isBatch && fetching && <p className="text-sm text-muted-foreground">加载视频信息…</p>}
 
         {customLists.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
@@ -104,18 +128,18 @@ export function AddToFavDialog() {
           <ScrollArea className="max-h-[40vh]">
             <div className="flex flex-col gap-1">
               {customLists.map((fav) => {
-                const isExcluded = fav.id === excludeId;
+                const isExcluded = !isBatch && fav.id === excludeId;
                 const isSelected = selected.has(fav.id);
                 return (
                   <button
                     key={fav.id}
                     type="button"
-                    disabled={isExcluded}
+                    disabled={isExcluded || submitting}
                     onClick={() => toggle(fav.id)}
                     className={cn(
                       'flex items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors',
                       isSelected ? 'border-primary bg-primary/10' : 'border-input',
-                      isExcluded && 'cursor-not-allowed opacity-50',
+                      (isExcluded || submitting) && 'cursor-not-allowed opacity-50',
                     )}
                   >
                     {iconForType(fav.type)}
@@ -134,11 +158,11 @@ export function AddToFavDialog() {
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={close}>
+          <Button variant="outline" onClick={close} disabled={submitting}>
             取消
           </Button>
-          <Button onClick={handleConfirm} disabled={selected.size === 0}>
-            确认添加
+          <Button onClick={handleConfirm} disabled={selected.size === 0 || submitting}>
+            {submitting ? '添加中…' : '确认添加'}
           </Button>
         </DialogFooter>
       </DialogContent>

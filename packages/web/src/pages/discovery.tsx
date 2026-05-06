@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search, X, Loader2, AlertCircle } from 'lucide-react';
+import { Search, X, Loader2, AlertCircle, ListChecks, Plus } from 'lucide-react';
 import {
   VideoApi,
   VIDEO_SEARCH_RESULT_HARD_LIMIT,
@@ -58,6 +58,11 @@ export function DiscoveryPage() {
 
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openAddToFav = useUIShell((s) => s.openAddToFav);
+  const openAddToFavBatch = useUIShell((s) => s.openAddToFavBatch);
+
+  // 批量选择模式
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedBvids, setSelectedBvids] = useState<Set<string>>(new Set());
 
   const parentRef = useRef<HTMLDivElement>(null);
   const isLoadingMoreRef = useRef(false);
@@ -85,6 +90,8 @@ export function DiscoveryPage() {
           videos.length >= PAGE_SIZE && trimmedList.length < VIDEO_SEARCH_RESULT_HARD_LIMIT,
         );
         setHasSearched(true);
+        // 重新搜索（resetPage）时清空选中，但保留批量模式
+        if (resetPage) setSelectedBvids(new Set());
       } catch {
         sendNotice({
           type: NoticeType.ERROR,
@@ -105,7 +112,44 @@ export function DiscoveryPage() {
     setPage(1);
     setHasMore(false);
     setHasSearched(false);
+    setSelectMode(false);
+    setSelectedBvids(new Set());
   };
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedBvids(new Set());
+  }, []);
+
+  const toggleSelect = useCallback((bvid: string) => {
+    setSelectedBvids((prev) => {
+      const next = new Set(prev);
+      if (next.has(bvid)) next.delete(bvid);
+      else next.add(bvid);
+      return next;
+    });
+  }, []);
+
+  const allSelected = useMemo(
+    () => results.length > 0 && selectedBvids.size === results.length,
+    [results.length, selectedBvids.size],
+  );
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedBvids(new Set());
+    } else {
+      setSelectedBvids(new Set(results.map((v) => v.bvid)));
+    }
+  }, [allSelected, results]);
+
+  const handleBatchAddToFav = useCallback(() => {
+    if (selectedBvids.size === 0) return;
+    const bvids = Array.from(selectedBvids);
+    openAddToFavBatch(bvids, { fromSearch: true });
+    // 立即退出批量模式（dialog 自身管理后续流程）
+    exitSelectMode();
+  }, [selectedBvids, openAddToFavBatch, exitSelectMode]);
 
   // 虚拟列表
   const virtualizer = useVirtualizer({
@@ -179,15 +223,46 @@ export function DiscoveryPage() {
             <Search className="h-4 w-4" />
           )}
         </Button>
+        <Button
+          variant={selectMode ? 'default' : 'outline'}
+          size="icon"
+          title={selectMode ? '退出批量选择' : '批量选择'}
+          disabled={!hasSearched || results.length === 0}
+          onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+        >
+          <ListChecks className="h-4 w-4" />
+        </Button>
       </div>
 
-      {/* 状态栏 */}
-      {hasSearched && (
+      {/* 状态栏 / 批量工具栏 */}
+      {hasSearched && !selectMode && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>找到 {results.length} 条结果</span>
           {reachedHardLimit && (
             <span className="text-amber-600">已达 {VIDEO_SEARCH_RESULT_HARD_LIMIT} 条上限</span>
           )}
+        </div>
+      )}
+      {hasSearched && selectMode && (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={exitSelectMode}>
+              <X className="h-3 w-3" />
+            </Button>
+            <span className="text-muted-foreground">
+              已选 <span className="font-medium text-foreground">{selectedBvids.size}</span> /{' '}
+              {results.length} 条
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
+              {allSelected ? '取消全选' : '全选'}
+            </Button>
+            <Button size="sm" disabled={selectedBvids.size === 0} onClick={handleBatchAddToFav}>
+              <Plus className="mr-1 h-3 w-3" />
+              添加到歌单 ({selectedBvids.size})
+            </Button>
+          </div>
         </div>
       )}
 
@@ -237,6 +312,9 @@ export function DiscoveryPage() {
                       htmlTitle
                       fromSearch
                       onAddToFav={handleAddToFav}
+                      selectMode={selectMode}
+                      selected={selectedBvids.has(video.bvid)}
+                      onToggleSelect={toggleSelect}
                     />
                   </div>
                 </div>

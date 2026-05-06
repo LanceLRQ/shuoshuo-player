@@ -22,6 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -48,6 +49,12 @@ export interface VideoItemProps {
   showRemoveBtn?: boolean;
   onRemove?: (bvid: string) => void;
   onAddToFav?: (video: BilibiliVideo, fromSearch?: boolean) => void;
+  /** 批量勾选模式：左侧显示复选框，整行点击切换选中，隐藏右侧操作按钮 */
+  selectMode?: boolean;
+  /** 当前条目是否被选中（仅 selectMode 下生效） */
+  selected?: boolean;
+  /** 选中态切换回调（仅 selectMode 下生效） */
+  onToggleSelect?: (bvid: string) => void;
   style?: CSSProperties;
   className?: string;
 }
@@ -64,6 +71,9 @@ function VideoItemImpl({
   showRemoveBtn = false,
   onRemove,
   onAddToFav,
+  selectMode = false,
+  selected = false,
+  onToggleSelect,
   style,
   className,
 }: VideoItemProps) {
@@ -94,9 +104,7 @@ function VideoItemImpl({
   }, [onAddToFav, video, fromSearch]);
 
   const handleOpenBilibili = useCallback(() => {
-    void getPlatformBridge().shell.openExternal(
-      `https://www.bilibili.com/video/${video.bvid}`,
-    );
+    void getPlatformBridge().shell.openExternal(`https://www.bilibili.com/video/${video.bvid}`);
   }, [video.bvid]);
 
   const createdLabel = video.created
@@ -105,15 +113,33 @@ function VideoItemImpl({
       : dayjs(video.created * 1000).fromNow()
     : '';
 
+  const handleRowClick = useCallback(() => {
+    if (selectMode) onToggleSelect?.(video.bvid);
+  }, [selectMode, onToggleSelect, video.bvid]);
+
   return (
     <div
       style={style}
+      onClick={selectMode ? handleRowClick : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-accent/50',
-        isPlaying && 'bg-accent',
+        'flex items-center gap-3 rounded-md px-3 py-2 transition-colors',
+        !selectMode && 'hover:bg-accent/50',
+        !selectMode && isPlaying && 'bg-accent',
+        selectMode && 'cursor-pointer hover:bg-accent/50',
+        selectMode && selected && 'border border-primary/40 bg-primary/10',
+        selectMode && !selected && 'border border-transparent',
         className,
       )}
     >
+      {selectMode && (
+        <div className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect?.(video.bvid)}
+            aria-label={selected ? '取消选择' : '选择'}
+          />
+        </div>
+      )}
       <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded bg-muted">
         {!imgError && video.pic ? (
           <img
@@ -171,68 +197,69 @@ function VideoItemImpl({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
-        <TooltipProvider delayDuration={300}>
-          {fromSearch ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={handleAddToFav}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>添加到歌单</TooltipContent>
-            </Tooltip>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={handlePlayClick}>
-                  <PlayCircle className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>立即播放</TooltipContent>
-            </Tooltip>
-          )}
+      {!selectMode && (
+        <div className="flex shrink-0 items-center gap-1">
+          <TooltipProvider delayDuration={300}>
+            {fromSearch ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleAddToFav}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>添加到歌单</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handlePlayClick}>
+                    <PlayCircle className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>立即播放</TooltipContent>
+              </Tooltip>
+            )}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {showAddToPlayBtn && (
-                <DropdownMenuItem onSelect={handleAddToPlay}>
-                  <Clock className="mr-2 h-4 w-4" />
-                  稍后播放
-                </DropdownMenuItem>
-              )}
-              {showAddBtn && (
-                <DropdownMenuItem onSelect={handleAddToFav}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  添加到歌单
-                </DropdownMenuItem>
-              )}
-              {(showAddBtn || showAddToPlayBtn) && <DropdownMenuSeparator />}
-              <DropdownMenuItem onSelect={handleOpenBilibili}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                去 B 站看
-              </DropdownMenuItem>
-              {showRemoveBtn && onRemove && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={() => onRemove(video.bvid)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    移除歌曲
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {showAddToPlayBtn && (
+                  <DropdownMenuItem onSelect={handleAddToPlay}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    稍后播放
                   </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </TooltipProvider>
-      </div>
+                )}
+                {showAddBtn && (
+                  <DropdownMenuItem onSelect={handleAddToFav}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    添加到歌单
+                  </DropdownMenuItem>
+                )}
+                {(showAddBtn || showAddToPlayBtn) && <DropdownMenuSeparator />}
+                <DropdownMenuItem onSelect={handleOpenBilibili}>
+                  <ExternalLink className="mr-2 h-4 w-4" />去 B 站看
+                </DropdownMenuItem>
+                {showRemoveBtn && onRemove && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => onRemove(video.bvid)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      移除歌曲
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </TooltipProvider>
+        </div>
+      )}
     </div>
   );
 }

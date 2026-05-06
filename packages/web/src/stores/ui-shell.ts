@@ -32,13 +32,16 @@ interface UIShellState {
   closeAddSong: () => void;
 
   addToFavOpen: boolean;
-  addToFavBvid: string | null;
+  /** 待添加的 bvid 列表；单条添加时长度=1，批量添加时长度>1 */
+  addToFavBvids: string[];
   addToFavExcludeId: string | null;
   addToFavFromSearch: boolean;
   openAddToFav: (
     bvid: string,
     options?: { excludeFavId?: string | null; fromSearch?: boolean },
   ) => void;
+  /** 批量添加多条到歌单（搜索发现页批量选择模式入口） */
+  openAddToFavBatch: (bvids: string[], options?: { fromSearch?: boolean }) => void;
   closeAddToFav: () => void;
 
   /** 通用确认弹窗 */
@@ -89,20 +92,27 @@ export const useUIShell = create<UIShellState>((set) => ({
   closeAddSong: () => set({ addSongOpen: false, addSongTargetFavId: null }),
 
   addToFavOpen: false,
-  addToFavBvid: null,
+  addToFavBvids: [],
   addToFavExcludeId: null,
   addToFavFromSearch: false,
   openAddToFav: (bvid, options) =>
     set({
       addToFavOpen: true,
-      addToFavBvid: bvid,
+      addToFavBvids: [bvid],
       addToFavExcludeId: options?.excludeFavId ?? null,
+      addToFavFromSearch: options?.fromSearch ?? false,
+    }),
+  openAddToFavBatch: (bvids, options) =>
+    set({
+      addToFavOpen: true,
+      addToFavBvids: [...bvids],
+      addToFavExcludeId: null,
       addToFavFromSearch: options?.fromSearch ?? false,
     }),
   closeAddToFav: () =>
     set({
       addToFavOpen: false,
-      addToFavBvid: null,
+      addToFavBvids: [],
       addToFavExcludeId: null,
       addToFavFromSearch: false,
     }),
