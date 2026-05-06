@@ -3,6 +3,7 @@ import { TauriStorageAdapter } from './tauri-storage-adapter';
 import { TauriAuthAdapter } from './tauri-auth-adapter';
 import { TauriSpiderAdapter } from './tauri-spider-adapter';
 import { TauriShellAdapter } from './tauri-shell-adapter';
+import { TauriFileSaverAdapter } from './tauri-file-saver';
 import { transformBilibiliAudioUrl } from './tauri-audio-url-transformer';
 import {
   getCacheStats,
@@ -29,6 +30,9 @@ export function createTauriPlatformBridge(): PlatformBridge {
     auth: new TauriAuthAdapter(),
     shell: new TauriShellAdapter(),
     spider: new TauriSpiderAdapter(),
+    // PC 端文件保存：plugin-dialog.save() 弹原生对话框，用户主动选路径
+    // Web/扩展端 bridge 不注入此字段，textToDownload 自动回退浏览器原生下载
+    fileSaver: new TauriFileSaverAdapter(),
     // audio 标签的浏览器原生 fetch 无法被 axios adapter 拦截；改 URL 让其走
     // Rust 端 bili-stream:// custom protocol 代理（注入 Cookie/Origin/Referer/UA）
     audioUrlTransformer: transformBilibiliAudioUrl,

@@ -192,11 +192,24 @@ export function LyricEditor({
     sendNotice({ type: NoticeType.SUCCESS, message: '已保存到本地', duration: 2000 });
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!currentVideo) return;
     const text = serializeLrc(lines);
     const filename = `${filterInvalidFileNameChars(currentVideo.title || currentVideo.bvid)}.lrc`;
-    textToDownload(text, filename);
+    try {
+      const result = await textToDownload(text, filename);
+      if (result === 'saved') {
+        sendNotice({
+          type: NoticeType.SUCCESS,
+          message: `已保存：${filename}`,
+          duration: 2000,
+        });
+      }
+      // 'cancelled' 静默忽略：用户主动放弃保存是合法行为，不该弹通知
+    } catch (e) {
+      const message = (e as { message?: string })?.message ?? '下载失败';
+      sendNotice({ type: NoticeType.ERROR, message, duration: 3000 });
+    }
   };
 
   const handleLoadFromFile = () => {

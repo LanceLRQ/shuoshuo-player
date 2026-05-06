@@ -65,6 +65,31 @@ export interface AudioCacheAdapter {
   pickDir(currentPath?: string): Promise<string | null>;
 }
 
+/**
+ * 文件保存适配器（仅 Tauri 端实现）
+ *
+ * Web/扩展端不实现：浏览器原生 a[download].click() 直接下载到浏览器默认目录，
+ * 无路径选择需求；调用方走 textToDownload 的浏览器 fallback 分支即可。
+ *
+ * Tauri 端实现：plugin-dialog.save() 弹系统原生保存对话框 → invoke Rust 命令写盘，
+ * 给用户明确的"选位置 / 取消"语义，避免静默落到默认 Downloads。
+ */
+export interface FileSaverAdapter {
+  /**
+   * 弹保存对话框并写入文本。
+   *
+   * @returns 'saved' = 已写入；'cancelled' = 用户在对话框点了取消（合法行为，不应报错）
+   * @throws Error 真正的写入失败（权限不足 / 磁盘满 等）
+   */
+  saveText(args: {
+    text: string;
+    /** 默认文件名（含扩展名），用户可在对话框中改写 */
+    defaultFilename: string;
+    /** 文件类型过滤数组（如 ['lrc', 'txt']），不传则不限制 */
+    extensions?: string[];
+  }): Promise<'saved' | 'cancelled'>;
+}
+
 /** 平台桥接接口 */
 export interface PlatformBridge {
   type: PlatformType;
@@ -72,6 +97,8 @@ export interface PlatformBridge {
   auth: AuthAdapter;
   shell: ShellAdapter;
   spider?: SpiderAdapter;
+  /** 文件保存（弹原生对话框选路径），仅 Tauri 端实现；缺省时调用方走浏览器原生下载 */
+  fileSaver?: FileSaverAdapter;
   /**
    * 音频 URL 转换器（可选，仅 Tauri 端实现）
    *

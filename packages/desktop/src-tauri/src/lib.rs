@@ -56,6 +56,7 @@ pub fn run() {
             commands::audio_cache::set_cache_dir,
             commands::spider::qqmusic_search,
             commands::spider::qqmusic_get_lrc,
+            commands::file::save_text_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
