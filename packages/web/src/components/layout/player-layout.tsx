@@ -43,13 +43,27 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
   }, [theme, getEffectiveTheme]);
 
   // 注入用户自定义主色到 CSS variable --primary（globals.css 的默认值会被覆盖）。
+  // 同步根据主色亮度生成 --primary-foreground：保留原 H/S，只反向 L，
+  // 让 bg-primary 上的文字/图标使用"主色暗色版/亮色版"，避免纯黑白与底色割裂。
   // 设置为空字符串时 removeProperty 让 globals.css 默认值生效。
   useEffect(() => {
     const root = document.documentElement;
     if (primaryColor) {
       root.style.setProperty('--primary', primaryColor);
+      const m = primaryColor.trim().match(/^([0-9.]+)\s+([0-9.]+)%\s+([0-9.]+)%$/);
+      if (m) {
+        const h = m[1];
+        const s = m[2];
+        const l = parseFloat(m[3]);
+        // 阈值 60% 经验值：偏亮主色用深同色相（L=30，可辨色调而非视觉近黑）作前景；偏暗主色用极亮版（L=96）。
+        const lFg = l >= 60 ? 30 : 96;
+        root.style.setProperty('--primary-foreground', `${h} ${s}% ${lFg}%`);
+      } else {
+        root.style.removeProperty('--primary-foreground');
+      }
     } else {
       root.style.removeProperty('--primary');
+      root.style.removeProperty('--primary-foreground');
     }
   }, [primaryColor]);
 

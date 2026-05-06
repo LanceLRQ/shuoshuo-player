@@ -38,5 +38,5 @@ export interface PlayerProfile {
   primaryColor: string;
 }
 
-/** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致） */
-export const DEFAULT_PRIMARY_COLOR = '221.2 83.2% 53.3%';
+/** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致；#FF8FA7 中粉） */
+export const DEFAULT_PRIMARY_COLOR = '347 100% 78%';

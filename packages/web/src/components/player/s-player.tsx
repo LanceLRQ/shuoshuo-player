@@ -38,6 +38,9 @@ const LOOP_MODE_TIPS: Record<LoopMode, string> = {
   random: '随机播放',
 };
 
+// 播放控制栏 ghost 按钮文字色：亮色模式用主色调，暗色模式保持默认前景。
+const CTRL_BTN_TEXT = 'text-primary dark:text-foreground';
+
 interface SPlayerProps {
   /** 触发"添加到歌单"时由调用方接管（默认 fallback：openAddToFav） */
   onAddToFav?: (bvid: string) => void;
@@ -114,7 +117,7 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0"
+                className={cn('h-8 w-8 shrink-0', CTRL_BTN_TEXT)}
                 onClick={() =>
                   void getPlatformBridge().shell.openExternal(
                     `https://www.bilibili.com/video/${cur.bvid}`,
@@ -132,7 +135,12 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={player.cycleLoopMode}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={CTRL_BTN_TEXT}
+                    onClick={player.cycleLoopMode}
+                  >
                     <LoopIcon className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
@@ -140,7 +148,12 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={player.prev}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={CTRL_BTN_TEXT}
+                    onClick={player.prev}
+                  >
                     <SkipBack className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
@@ -168,7 +181,12 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={player.next}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={CTRL_BTN_TEXT}
+                    onClick={player.next}
+                  >
                     <SkipForward className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
@@ -185,7 +203,7 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
               </span>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className={CTRL_BTN_TEXT}>
                     <VolumeIcon className="h-5 w-5" />
                   </Button>
                 </PopoverTrigger>
@@ -209,7 +227,12 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
                 <>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={handleAddToFav}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={CTRL_BTN_TEXT}
+                        onClick={handleAddToFav}
+                      >
                         <Plus className="h-5 w-5" />
                       </Button>
                     </TooltipTrigger>
@@ -221,7 +244,7 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
                         variant="ghost"
                         size="icon"
                         onClick={toggleLyric}
-                        className={cn(showLyric && 'text-primary')}
+                        className={cn(CTRL_BTN_TEXT, showLyric && 'bg-accent')}
                       >
                         <Music className="h-5 w-5" />
                       </Button>
@@ -232,7 +255,12 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => setShowQueue((s) => !s)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={CTRL_BTN_TEXT}
+                    onClick={() => setShowQueue((s) => !s)}
+                  >
                     <ListMusic className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
