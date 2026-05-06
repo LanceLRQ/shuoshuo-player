@@ -8,8 +8,6 @@ export interface LyricListParams {
 }
 
 export interface LyricSavePayload {
-  /** 创建时必填；更新时可省略 */
-  bvid?: string;
   title?: string;
   /** LRC 文本（v2 字段名 content，v1 旧字段是 lyric） */
   content: string;
@@ -23,16 +21,18 @@ export const LyricApi = {
   getLyricList: (params?: LyricListParams) =>
     buildCloudApiCall<CloudListResponse<CloudLyric>>({ url: '/lyric/manage/list' })({ params }),
 
-  /** 创建歌词（id 字面量 'new'） */
-  createLyric: (data: LyricSavePayload) =>
-    buildCloudApiCall<CloudLyric>({ url: '/lyric/manage/new', method: 'post' })({
+  /**
+   * 保存歌词（bvid 寻址，新建/更新统一端点）。
+   *
+   * 后端按 bvid 自动 upsert：
+   * - 数据库已有该 bvid 记录 → 更新（保留 id 不变）
+   * - 数据库无记录 → 新建
+   *
+   * 路径用 `by-bvid/` 段与数字 id 端点显式区分语义，避免与 /lyric/manage/:id 混淆。
+   */
+  saveLyric: (bvid: string, data: LyricSavePayload) =>
+    buildCloudApiCall<CloudLyric>({ url: `/lyric/manage/by-bvid/${bvid}`, method: 'post' })({
       data: data as unknown as Record<string, unknown>,
-    }),
-
-  /** 更新歌词（按数字 ID） */
-  updateLyric: (id: number, data: Partial<LyricSavePayload>) =>
-    buildCloudApiCall<CloudLyric>({ url: `/lyric/manage/${id}`, method: 'post' })({
-      data: data as Record<string, unknown>,
     }),
 
   /**

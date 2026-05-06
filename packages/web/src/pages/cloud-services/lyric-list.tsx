@@ -206,8 +206,7 @@ export function LyricListPage() {
       return;
     }
     try {
-      await LyricApi.createLyric({
-        bvid,
+      await LyricApi.saveLyric(bvid, {
         title: createTitle.trim() || bvid,
         content: '',
       });

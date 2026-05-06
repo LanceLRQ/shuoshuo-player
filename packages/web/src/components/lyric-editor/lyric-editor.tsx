@@ -221,23 +221,17 @@ export function LyricEditor({
       onConfirm: async () => {
         const content = serializeLrc(lines);
         try {
-          const cloudId = lyricEntry?.cloudLyricId;
-          let resp;
-          if (cloudId) {
-            resp = await LyricApi.updateLyric(cloudId, { content });
-          } else {
-            resp = await LyricApi.createLyric({
-              bvid: currentVideo.bvid,
-              title: currentVideo.title || currentVideo.bvid,
-              content,
-            });
-          }
+          // bvid 寻址：upsert 语义，新增/更新都走同一端点；不依赖本地 cloudLyricId
+          const resp = await LyricApi.saveLyric(currentVideo.bvid, {
+            title: currentVideo.title || currentVideo.bvid,
+            content,
+          });
           const id = (resp as { id?: number })?.id;
           updateLyric({
             bvid: currentVideo.bvid,
             lyricText: content,
             offset: lyricEntry?.offset ?? 0,
-            cloudLyricId: id ?? cloudId,
+            cloudLyricId: id ?? lyricEntry?.cloudLyricId,
           });
           // 上传成功 = 远端已持久化，与本地保存语义一致：刷新 dirty 基线
           setSavedSerialized(content);
