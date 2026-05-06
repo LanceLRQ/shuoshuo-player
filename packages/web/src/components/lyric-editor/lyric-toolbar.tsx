@@ -12,6 +12,7 @@ import {
   Plus,
   Minus,
   ListX,
+  Trash2,
   Undo,
   Columns2,
   Square,
@@ -48,6 +49,10 @@ export interface LyricToolbarProps {
   onInsertHere: () => void;
   onDeleteSelected: () => void;
   onClearSelection: () => void;
+  /** 清空所有歌词行（推入撤销栈，仅改内存 state；用户需主动点保存按钮才落盘） */
+  onClearAll: () => void;
+  /** 当前是否有歌词行，无则禁用清空按钮避免无意义操作 */
+  hasLines: boolean;
   onUndo: () => void;
   /** 打开 LRC 源代码编辑 Dialog（直接编辑文本，保存时校验解析） */
   onEditSource: () => void;
@@ -209,6 +214,19 @@ export function LyricToolbar(props: LyricToolbarProps) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>清空选择</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={props.onClearAll}
+              disabled={!props.hasLines}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>清空所有歌词（保留至保存后才生效）</TooltipContent>
         </Tooltip>
 
         <Separator orientation="vertical" className="mx-1 h-6" />

@@ -35,6 +35,8 @@ function makeProps(overrides: Partial<LyricToolbarProps> = {}): LyricToolbarProp
     onInsertHere: vi.fn(),
     onDeleteSelected: vi.fn(),
     onClearSelection: vi.fn(),
+    onClearAll: vi.fn(),
+    hasLines: true,
     onUndo: vi.fn(),
     onEditSource: vi.fn(),
     ...overrides,
@@ -44,8 +46,8 @@ function makeProps(overrides: Partial<LyricToolbarProps> = {}): LyricToolbarProp
 /**
  * 按渲染顺序的非 IO 按钮：
  * 0=退出 1=搜索 2=整体提前 3=整体延后 4=选中提前 5=选中延后
- * 6=插入 7=删除 8=清空选择 9=撤销
- * IO 组（加载/保存/上传/下载）通过 data-testid="lyric-toolbar-io-group" 定位
+ * 6=插入 7=删除 8=清空选择 9=清空所有 10=撤销
+ * IO 组（源码/加载/保存/上传/下载）通过 data-testid="lyric-toolbar-io-group" 定位
  */
 
 describe('LyricToolbar', () => {
@@ -122,15 +124,29 @@ describe('LyricToolbar', () => {
   it('撤销按钮在 hasHistory=false 时 disabled', () => {
     render(<LyricToolbar {...makeProps({ hasHistory: false })} />);
     const buttons = screen.getAllByRole('button');
-    expect(buttons[9]).toBeDisabled();
+    expect(buttons[10]).toBeDisabled();
   });
 
   it('撤销按钮在 hasHistory=true 时点击触发 onUndo', () => {
     const onUndo = vi.fn();
     render(<LyricToolbar {...makeProps({ hasHistory: true, onUndo })} />);
     const buttons = screen.getAllByRole('button');
-    fireEvent.click(buttons[9]);
+    fireEvent.click(buttons[10]);
     expect(onUndo).toHaveBeenCalledTimes(1);
+  });
+
+  it('清空所有按钮在 hasLines=false 时 disabled', () => {
+    render(<LyricToolbar {...makeProps({ hasLines: false })} />);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[9]).toBeDisabled();
+  });
+
+  it('清空所有按钮在 hasLines=true 时点击触发 onClearAll', () => {
+    const onClearAll = vi.fn();
+    render(<LyricToolbar {...makeProps({ hasLines: true, onClearAll })} />);
+    const buttons = screen.getAllByRole('button');
+    fireEvent.click(buttons[9]);
+    expect(onClearAll).toHaveBeenCalledTimes(1);
   });
 
   describe('文件 IO 组：右对齐 + 5 个按钮（源码/加载/保存/上传/下载）', () => {

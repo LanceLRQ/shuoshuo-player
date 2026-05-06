@@ -168,6 +168,31 @@ export function LyricEditor({
 
   const handleClearSelection = () => setSelectedRows(new Set());
 
+  /**
+   * 清空所有歌词行：弹确认 → mutateLines 推入撤销栈，仅改内存 state。
+   * 不直接落盘 lyricMaps：保留 dirty 标记，用户必须主动点"保存"才生效，
+   * 与 v1"清空"语义对齐，也避免误触造成不可逆数据丢失。
+   */
+  const handleClearAll = () => {
+    if (lines.length === 0) return;
+    openConfirm({
+      title: '清空所有歌词',
+      description:
+        '将清空当前编辑器中的全部歌词行。可通过撤销恢复，或在未保存前关闭编辑器放弃改动。',
+      confirmText: '清空',
+      destructive: true,
+      onConfirm: () => {
+        mutateLines(() => []);
+        setSelectedRows(new Set());
+        sendNotice({
+          type: NoticeType.SUCCESS,
+          message: '已清空（点保存按钮后生效）',
+          duration: 2500,
+        });
+      },
+    });
+  };
+
   const handleUndo = () => {
     setHistory((prev) => {
       if (prev.length === 0) return prev;
@@ -416,6 +441,8 @@ export function LyricEditor({
         onInsertHere={handleInsertHere}
         onDeleteSelected={handleDeleteSelected}
         onClearSelection={handleClearSelection}
+        onClearAll={handleClearAll}
+        hasLines={lines.length > 0}
         onUndo={handleUndo}
         onEditSource={() => setSourceEditorOpen(true)}
       />
