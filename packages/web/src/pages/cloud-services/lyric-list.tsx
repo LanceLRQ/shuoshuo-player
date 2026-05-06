@@ -86,6 +86,8 @@ export function LyricListPage() {
   const [historyTarget, setHistoryTarget] = useState<CloudLyric | null>(null);
   const [historyList, setHistoryList] = useState<LyricSnapshot[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // 历史快照 → 单条详情：嵌套 Dialog，列表层不展示完整文本，避免长 LRC 撑爆弹层
+  const [previewSnapshot, setPreviewSnapshot] = useState<LyricSnapshot | null>(null);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
@@ -415,12 +417,22 @@ export function LyricListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 历史快照弹窗 */}
-      <Dialog open={!!historyTarget} onOpenChange={(o) => !o && setHistoryTarget(null)}>
-        <DialogContent className="max-w-3xl">
+      {/* 历史快照弹窗：列表只展示元信息，点击行查看完整内容（避免长 LRC 撑爆） */}
+      <Dialog
+        open={!!historyTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setHistoryTarget(null);
+            setPreviewSnapshot(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>历史快照 — {historyTarget?.bvid}</DialogTitle>
-            <DialogDescription>最多展示 10 条最近的快照（按时间倒序）</DialogDescription>
+            <DialogDescription>
+              最多展示 10 条最近的快照（按时间倒序），点击查看内容
+            </DialogDescription>
           </DialogHeader>
           {historyLoading ? (
             <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
@@ -433,23 +445,58 @@ export function LyricListPage() {
             </div>
           ) : (
             <ScrollArea className="max-h-[60vh]">
-              <div className="space-y-3">
-                {historyList.map((snap) => (
-                  <div key={snap.id} className="rounded-md border p-3">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{dayjs(snap.created_at * 1000).format('YYYY-MM-DD HH:mm:ss')}</span>
-                      {(snap.author?.nick_name || snap.author?.user_name) && (
-                        <span>by {snap.author.nick_name || snap.author.user_name}</span>
-                      )}
-                    </div>
-                    <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs">
-                      {snap.content || '（空内容）'}
-                    </pre>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                {historyList.map((snap) => {
+                  const len = snap.content?.length ?? 0;
+                  return (
+                    <button
+                      key={snap.id}
+                      type="button"
+                      onClick={() => setPreviewSnapshot(snap)}
+                      className="flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="flex flex-col gap-0.5 text-xs">
+                        <span className="font-medium">
+                          {dayjs(snap.created_at * 1000).format('YYYY-MM-DD HH:mm:ss')}
+                        </span>
+                        {(snap.author?.nick_name || snap.author?.user_name) && (
+                          <span className="text-muted-foreground">
+                            by {snap.author.nick_name || snap.author.user_name}
+                          </span>
+                        )}
+                      </div>
+                      <span className="whitespace-nowrap text-xs text-muted-foreground">
+                        {len > 0 ? `${len} 字符` : '（空内容）'}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </ScrollArea>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 单条快照详情弹窗：从历史列表中点击进入，叠加在历史 Dialog 之上 */}
+      <Dialog open={!!previewSnapshot} onOpenChange={(o) => !o && setPreviewSnapshot(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              快照内容 —{' '}
+              {previewSnapshot &&
+                dayjs(previewSnapshot.created_at * 1000).format('YYYY-MM-DD HH:mm:ss')}
+            </DialogTitle>
+            <DialogDescription>
+              {previewSnapshot?.author?.nick_name || previewSnapshot?.author?.user_name
+                ? `作者：${previewSnapshot.author?.nick_name || previewSnapshot.author?.user_name}`
+                : '（无作者信息）'}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh]">
+            <pre className="whitespace-pre-wrap break-words text-xs">
+              {previewSnapshot?.content || '（空内容）'}
+            </pre>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>
