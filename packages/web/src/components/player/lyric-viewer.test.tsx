@@ -107,6 +107,23 @@ describe('LyricViewer', () => {
     expect(useUIShell.getState().showLyric).toBe(false);
   });
 
+  it('currentVideo.pic 存在时渲染封面背景图（urlPrefixFixed 修正协议）', () => {
+    useBilibiliVideosStore.setState({
+      entities: {
+        [SAMPLE_VIDEO.bvid]: { ...SAMPLE_VIDEO, pic: '//i0.hdslb.com/cover.jpg' },
+      },
+    });
+    render(<LyricViewer />);
+    // alt='' 是装饰性图片（aria-hidden 容器内），用 src 选择器定位
+    const bg = document.querySelector('img[alt=""]') as HTMLImageElement | null;
+    expect(bg?.src).toBe('https://i0.hdslb.com/cover.jpg');
+  });
+
+  it('currentVideo.pic 为空时不渲染封面背景图（避免空状态）', () => {
+    render(<LyricViewer />);
+    expect(document.querySelector('img[alt=""]')).toBeNull();
+  });
+
   it('Lrc 组件接收当前歌词文本（lyricMaps[bvid].lyricText）', () => {
     useLyricsStore.setState({
       lyricMaps: {

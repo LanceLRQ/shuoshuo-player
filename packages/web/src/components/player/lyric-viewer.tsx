@@ -18,6 +18,7 @@ import {
   NoticeType,
   usePlayingListStore,
   useBilibiliVideosStore,
+  urlPrefixFixed,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -100,15 +101,35 @@ export function LyricViewer({ children }: LyricViewerProps) {
   const lyricText = lyricEntry?.lyricText ?? '';
   const currentMillisecond = useMemo(() => currentTime * 1000 - offsetMs, [currentTime, offsetMs]);
 
+  // 封面背景图：仅作用于 LyricViewer 内（不污染其他页面），编辑模式下隐藏避免干扰复杂 UI
+  // v1 行为对齐：blur + 极低 opacity + brightness 暗化 + 半透明黑遮罩，让歌词文字仍可读
+  const showCoverBackdrop = !isEditing && !!currentVideo?.pic;
+  const coverUrl = currentVideo?.pic ? urlPrefixFixed(currentVideo.pic) : '';
+
   return (
     <div
       className={cn(
         // 默认作为 main 内嵌容器：撑满父级 (h-full) + 列布局
-        'flex h-full flex-col bg-background',
+        // relative+isolate 显式创建 stacking context，让 -z-10 的封面背景被关进本容器内，
+        // 不与外层全局元素争层级；overflow-hidden 防 blur 后的图片溢出
+        'relative isolate flex h-full flex-col overflow-hidden bg-background',
         // 全屏：脱离 main，覆盖整个 viewport（含 TopBar/footer）
         isFullscreen && 'fixed inset-0 z-50',
       )}
     >
+      {showCoverBackdrop && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <img
+            src={coverUrl}
+            alt=""
+            className="h-full w-full scale-110 object-cover opacity-30 blur-lg brightness-75"
+            draggable={false}
+          />
+          {/* 半透明背景层压暗，让前景歌词在浅色封面上仍有对比度 */}
+          <div className="absolute inset-0 bg-background/30" />
+        </div>
+      )}
+
       {!isEditing && (
         <div className="flex items-center justify-between border-b px-4 py-2">
           <div className="flex items-center gap-2 min-w-0">
