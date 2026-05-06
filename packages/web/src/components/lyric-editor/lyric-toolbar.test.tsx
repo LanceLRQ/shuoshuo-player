@@ -36,6 +36,7 @@ function makeProps(overrides: Partial<LyricToolbarProps> = {}): LyricToolbarProp
     onDeleteSelected: vi.fn(),
     onClearSelection: vi.fn(),
     onUndo: vi.fn(),
+    onEditSource: vi.fn(),
     ...overrides,
   };
 }
@@ -132,12 +133,12 @@ describe('LyricToolbar', () => {
     expect(onUndo).toHaveBeenCalledTimes(1);
   });
 
-  describe('文件 IO 组：右对齐 + 4 个按钮（加载/保存/上传/下载）', () => {
-    it('IO 组渲染于独立容器（data-testid=lyric-toolbar-io-group）且含 4 个按钮', () => {
+  describe('文件 IO 组：右对齐 + 5 个按钮（源码/加载/保存/上传/下载）', () => {
+    it('IO 组渲染于独立容器（data-testid=lyric-toolbar-io-group）且含 5 个按钮', () => {
       render(<LyricToolbar {...makeProps()} />);
       const ioGroup = screen.getByTestId('lyric-toolbar-io-group');
       expect(ioGroup).toBeInTheDocument();
-      expect(within(ioGroup).getAllByRole('button')).toHaveLength(4);
+      expect(within(ioGroup).getAllByRole('button')).toHaveLength(5);
     });
 
     it('IO 容器含 ml-auto class（确保右对齐不被未来重构误删）', () => {
@@ -146,26 +147,28 @@ describe('LyricToolbar', () => {
       expect(ioGroup.className).toContain('ml-auto');
     });
 
-    it('点击加载/保存/下载按钮触发对应回调', () => {
+    it('点击源码/加载/保存/下载按钮触发对应回调', () => {
       const props = makeProps({ isAdmin: true });
       render(<LyricToolbar {...props} />);
       const ioButtons = within(screen.getByTestId('lyric-toolbar-io-group')).getAllByRole('button');
-      // 顺序：加载 / 保存 / 上传 / 下载
+      // 顺序：源码 / 加载 / 保存 / 上传 / 下载
       fireEvent.click(ioButtons[0]);
-      expect(props.onLoadFromFile).toHaveBeenCalledTimes(1);
+      expect(props.onEditSource).toHaveBeenCalledTimes(1);
       fireEvent.click(ioButtons[1]);
-      expect(props.onSaveLocal).toHaveBeenCalledTimes(1);
+      expect(props.onLoadFromFile).toHaveBeenCalledTimes(1);
       fireEvent.click(ioButtons[2]);
-      expect(props.onUploadCloud).toHaveBeenCalledTimes(1);
+      expect(props.onSaveLocal).toHaveBeenCalledTimes(1);
       fireEvent.click(ioButtons[3]);
+      expect(props.onUploadCloud).toHaveBeenCalledTimes(1);
+      fireEvent.click(ioButtons[4]);
       expect(props.onDownloadLrc).toHaveBeenCalledTimes(1);
     });
 
     it('云上传按钮在 isAdmin=false 时 disabled', () => {
       render(<LyricToolbar {...makeProps({ isAdmin: false })} />);
       const ioButtons = within(screen.getByTestId('lyric-toolbar-io-group')).getAllByRole('button');
-      // ioButtons[2] = 云上传
-      expect(ioButtons[2]).toBeDisabled();
+      // ioButtons[3] = 云上传（源码=0/加载=1/保存=2/上传=3/下载=4）
+      expect(ioButtons[3]).toBeDisabled();
     });
   });
 });

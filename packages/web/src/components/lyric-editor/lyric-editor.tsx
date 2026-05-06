@@ -19,6 +19,7 @@ import {
 import { LyricToolbar } from './lyric-toolbar';
 import { LyricTable, type LyricLine } from './lyric-table';
 import { LyricCompareView } from './lyric-compare-view';
+import { LyricSourceEditorDialog } from './lyric-source-editor-dialog';
 import { LyricSearchDialog } from '@/components/dialogs/lyric-search-dialog';
 import { useUIShell } from '@/stores/ui-shell';
 
@@ -80,6 +81,7 @@ export function LyricEditor({
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [customStep, setCustomStep] = useState(500);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sourceEditorOpen, setSourceEditorOpen] = useState(false);
   // 暂存歌词（QQ 音乐搜索 / 文件加载产物）+ 对比视图状态。本地 state，不持久化到云端。
   // 切换曲目时一并清空，避免上一首的搜索结果污染当前曲目。
   const [suggested, setSuggested] = useState<LyricLine[]>([]);
@@ -205,6 +207,13 @@ export function LyricEditor({
       },
       () => sendNotice({ type: NoticeType.ERROR, message: '文件读取失败', duration: 3000 }),
     );
+  };
+
+  /** 源代码 Dialog 保存：Dialog 内部已校验通过，这里只负责把文本接管成 lines（推入撤销栈） */
+  const handleSourceEditorSave = (text: string) => {
+    mutateLines(() => parseInitial(text));
+    setSourceEditorOpen(false);
+    sendNotice({ type: NoticeType.SUCCESS, message: '已应用源代码改动', duration: 2000 });
   };
 
   const handleUploadCloud = () => {
@@ -395,6 +404,7 @@ export function LyricEditor({
         onDeleteSelected={handleDeleteSelected}
         onClearSelection={handleClearSelection}
         onUndo={handleUndo}
+        onEditSource={() => setSourceEditorOpen(true)}
       />
       <div className="min-h-0 flex-1 overflow-hidden p-2">
         {viewMode === 'compare' && suggested.length > 0 ? (
@@ -434,6 +444,12 @@ export function LyricEditor({
         defaultKeyword={currentVideo?.title ?? ''}
         onPick={handleSearchPick}
         spider={spider}
+      />
+      <LyricSourceEditorDialog
+        open={sourceEditorOpen}
+        initialText={serializeLrc(lines)}
+        onClose={() => setSourceEditorOpen(false)}
+        onSave={handleSourceEditorSave}
       />
     </div>
   );

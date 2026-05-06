@@ -15,6 +15,7 @@ import {
   Undo,
   Columns2,
   Square,
+  Code2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +49,8 @@ export interface LyricToolbarProps {
   onDeleteSelected: () => void;
   onClearSelection: () => void;
   onUndo: () => void;
+  /** 打开 LRC 源代码编辑 Dialog（直接编辑文本，保存时校验解析） */
+  onEditSource: () => void;
 }
 
 export function LyricToolbar(props: LyricToolbarProps) {
@@ -224,6 +227,14 @@ export function LyricToolbar(props: LyricToolbarProps) {
          * 内层 flex 包一组按钮 → 在 flex-wrap 容器中作为单个不可拆 item，窄屏会整体折行仍保持右对齐。
          */}
         <div className="ml-auto flex items-center gap-1" data-testid="lyric-toolbar-io-group">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={props.onEditSource}>
+                <Code2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>编辑 LRC 源代码</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={props.onLoadFromFile}>
