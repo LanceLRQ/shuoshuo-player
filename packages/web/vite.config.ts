@@ -1,10 +1,15 @@
 import { defineConfig, type UserConfig, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const pkg = JSON.parse(
+  readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'),
+) as { version: string };
 
 /**
  * 第三方库分包策略
@@ -66,6 +71,7 @@ export default defineConfig(({ mode }): UserConfig => {
     // 仅 dev:extension（mode=extension-dev）置 true；prod 构建时整段 if (false) {} 被 DCE
     define: {
       __DEV_LOG__: JSON.stringify(isExtensionDev),
+      __APP_VERSION__: JSON.stringify(pkg.version),
     },
     // packages/web/public 内的 manifest.json / rules.json / logo*.png 由 Vite 默认 publicDir
     // 行为复制到 outDir 根（既适用 dev 也适用 build），扩展模式无需额外插件

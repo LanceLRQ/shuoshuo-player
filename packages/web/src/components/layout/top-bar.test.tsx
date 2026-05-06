@@ -71,6 +71,28 @@ describe('TopBar', () => {
     expect(screen.getByRole('button', { name: '展开菜单' })).toBeInTheDocument();
   });
 
+  it('展开态：渲染 logo + 收起菜单按钮', () => {
+    const { container } = render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
+    // logo 是装饰性元素，alt="" 走 hidden role；用 querySelector 直接查元素
+    expect(container.querySelector('img')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /收起菜单/ })).toBeInTheDocument();
+  });
+
+  it('折叠态：logo 与展开按钮共用同一 button（hover 切换）', () => {
+    const { container } = render(<TopBar menuOpen={false} onToggleMenu={vi.fn()} />);
+    const expandBtn = screen.getByRole('button', { name: '展开菜单' });
+    // logo img 嵌在 button 内
+    expect(expandBtn.querySelector('img')).toBeTruthy();
+    // 折叠态不应再渲染单独的 PanelLeftClose 按钮
+    expect(screen.queryByRole('button', { name: /收起菜单/ })).toBeNull();
+    void container;
+  });
+
+  it('显示版本号 v{version}', () => {
+    render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
+    expect(screen.getByText(/^v\d+\.\d+\.\d+/)).toBeInTheDocument();
+  });
+
   it('点击 GitHub 按钮调用 shell.openExternal', () => {
     const bridge = setPlatformBridge as unknown; // 让 ts 别报错
     void bridge;

@@ -1,5 +1,14 @@
 import { useCallback } from 'react';
-import { Menu, Sun, Moon, Cloud, LogOut, Download, Upload } from 'lucide-react';
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sun,
+  Moon,
+  Cloud,
+  LogOut,
+  Download,
+  Upload,
+} from 'lucide-react';
 import {
   useBilibiliUserStore,
   usePlayerProfileStore,
@@ -22,7 +31,9 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { useUIShell } from '@/stores/ui-shell';
+import logoUrl from '@/assets/logo.png';
 
 interface TopBarProps {
   menuOpen: boolean;
@@ -113,94 +124,127 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
   }, [sendNotice]);
 
   return (
-    <header className="z-50 flex h-14 items-center border-b bg-background px-4">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onToggleMenu}
-        aria-label={menuOpen ? '收起菜单' : '展开菜单'}
+    <header className="z-50 flex h-14 items-center border-b bg-background">
+      {/* 左段：与 NavMenu 同宽切换；border-r 与 NavMenu 边线视觉延续 */}
+      <div
+        className={cn(
+          'flex h-full shrink-0 items-center border-r transition-[width] duration-300',
+          menuOpen ? 'w-64 justify-between px-3' : 'w-16 justify-center',
+        )}
       >
-        <Menu className="h-5 w-5" />
-      </Button>
-      <span className="ml-2 font-semibold tracking-tight">说说播放器</span>
-
-      <div className="ml-auto flex items-center gap-1">
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => void getPlatformBridge().shell.openExternal(GITHUB_URL)}
-                aria-label="GitHub"
-              >
-                <GithubIcon className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>喜欢的话点个 star</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleToggleTheme} aria-label="切换主题">
-                <ThemeIcon className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {effectiveTheme === 'dark' ? '切换到亮色' : '切换到暗色'}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="账户菜单">
-              <Avatar className="h-8 w-8">
-                {user?.face ? <AvatarImage src={user.face} alt={user.uname} /> : null}
-                <AvatarFallback className="text-xs">{user?.uname?.[0] ?? '?'}</AvatarFallback>
-              </Avatar>
+        {menuOpen ? (
+          <>
+            <img src={logoUrl} alt="" className="h-8 w-8 shrink-0" />
+            <Button variant="ghost" size="icon" onClick={onToggleMenu} aria-label="收起菜单">
+              <PanelLeftClose className="h-5 w-5" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[200px]">
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <span className="truncate">{user?.uname ?? '未登录'}</span>
-              {theme === 'auto' && (
-                <Badge variant="secondary" className="ml-auto">
-                  自动主题
-                </Badge>
-              )}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={openCloudLogin}>
-              <Cloud className="mr-2 h-4 w-4" />
-              <span className="flex-1">云服务</span>
-              {cloudIsLogin && (
-                <Badge variant="default" className="ml-2">
-                  {cloudRoleName}
-                </Badge>
-              )}
-            </DropdownMenuItem>
-            {cloudIsLogin && (
-              <DropdownMenuItem onSelect={() => clearCloudSession()}>
-                <LogOut className="mr-2 h-4 w-4" />
-                退出云服务
+          </>
+        ) : (
+          // 折叠态：logo 与"展开按钮"共用一个 button，hover 切换 opacity
+          <button
+            type="button"
+            onClick={onToggleMenu}
+            aria-label="展开菜单"
+            className="group relative flex h-10 w-10 items-center justify-center rounded-md hover:bg-accent"
+          >
+            <img
+              src={logoUrl}
+              alt=""
+              className="h-8 w-8 shrink-0 transition-opacity group-hover:opacity-0"
+            />
+            <PanelLeftOpen className="absolute h-5 w-5 opacity-0 transition-opacity group-hover:opacity-100" />
+          </button>
+        )}
+      </div>
+
+      {/* 右段：标题 + 版本号 + 现有操作 */}
+      <div className="flex flex-1 items-center gap-2 px-4">
+        <span className="font-semibold tracking-tight">说说播放器</span>
+        <span className="text-xs text-muted-foreground">v{__APP_VERSION__}</span>
+
+        <div className="ml-auto flex items-center gap-1">
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => void getPlatformBridge().shell.openExternal(GITHUB_URL)}
+                  aria-label="GitHub"
+                >
+                  <GithubIcon className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>喜欢的话点个 star</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleToggleTheme}
+                  aria-label="切换主题"
+                >
+                  <ThemeIcon className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {effectiveTheme === 'dark' ? '切换到亮色' : '切换到暗色'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="账户菜单">
+                <Avatar className="h-8 w-8">
+                  {user?.face ? <AvatarImage src={user.face} alt={user.uname} /> : null}
+                  <AvatarFallback className="text-xs">{user?.uname?.[0] ?? '?'}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[200px]">
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <span className="truncate">{user?.uname ?? '未登录'}</span>
+                {theme === 'auto' && (
+                  <Badge variant="secondary" className="ml-auto">
+                    自动主题
+                  </Badge>
+                )}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={openCloudLogin}>
+                <Cloud className="mr-2 h-4 w-4" />
+                <span className="flex-1">云服务</span>
+                {cloudIsLogin && (
+                  <Badge variant="default" className="ml-2">
+                    {cloudRoleName}
+                  </Badge>
+                )}
               </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={handleImport}>
-              <Upload className="mr-2 h-4 w-4" />
-              导入数据
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={handleExport}>
-              <Download className="mr-2 h-4 w-4" />
-              导出数据
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              主题模式
-            </DropdownMenuLabel>
-            <ThemeRadio current={theme} onChange={setTheme} />
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {cloudIsLogin && (
+                <DropdownMenuItem onSelect={() => clearCloudSession()}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  退出云服务
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={handleImport}>
+                <Upload className="mr-2 h-4 w-4" />
+                导入数据
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleExport}>
+                <Download className="mr-2 h-4 w-4" />
+                导出数据
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                主题模式
+              </DropdownMenuLabel>
+              <ThemeRadio current={theme} onChange={setTheme} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

@@ -1,14 +1,20 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const pkg = JSON.parse(
+  readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'),
+) as { version: string };
+
 export default defineConfig({
   // 与 vite.config.ts 的 define 对齐：测试默认走非 dev 路径，关闭调试日志
   define: {
     __DEV_LOG__: 'false',
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
   plugins: [react()],
   resolve: {
