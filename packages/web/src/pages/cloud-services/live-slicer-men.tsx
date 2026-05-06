@@ -137,21 +137,43 @@ export function LiveSlicerMenPage() {
       });
       return;
     }
+    const userName = formState.name.trim();
+    const userFace = formState.face.trim();
     setSubmitting(true);
     try {
+      // 用户未手动填写 name/face 时，自动从 B 站空间接口拉取并兜底回填；
+      // 手动填写的字段保留（覆盖优先），与 v1 行为一致同时兼容 v2 可编辑能力。
+      let resolvedName = userName;
+      let resolvedFace = userFace;
+      if (!resolvedName || !resolvedFace) {
+        try {
+          const space = await UserApi.getUserSpaceInfo({ params: { mid } });
+          if (!resolvedName) resolvedName = (space?.name ?? '').trim();
+          if (!resolvedFace) {
+            // 协议修正：B 站 face 偶发 `//i0.hdslb.com` 前缀，统一补 https，避免后端校验失败
+            resolvedFace = urlPrefixFixed(space?.face ?? '').trim();
+          }
+        } catch (e) {
+          // 仅在用户也未填时阻断；否则容错继续保存
+          if (!userName && !userFace) {
+            const message = (e as { message?: string })?.message ?? '该 B 站用户不存在或网络异常';
+            sendNotice({ type: NoticeType.WARN, message, duration: 3000 });
+            return;
+          }
+        }
+      }
+
+      const payload = {
+        mid,
+        name: resolvedName || undefined,
+        face: resolvedFace || undefined,
+      };
+
       if (formState.id == null) {
-        await LiveSlicerApi.create({
-          mid,
-          name: formState.name.trim() || undefined,
-          face: formState.face.trim() || undefined,
-        });
+        await LiveSlicerApi.create(payload);
         sendNotice({ type: NoticeType.SUCCESS, message: '已创建', duration: 2000 });
       } else {
-        await LiveSlicerApi.update(formState.id, {
-          mid,
-          name: formState.name.trim() || undefined,
-          face: formState.face.trim() || undefined,
-        });
+        await LiveSlicerApi.update(formState.id, payload);
         sendNotice({ type: NoticeType.SUCCESS, message: '已更新', duration: 2000 });
       }
       handleCloseForm();
@@ -365,7 +387,8 @@ export function LiveSlicerMenPage() {
           <DialogHeader>
             <DialogTitle>{formState?.id == null ? '新建切片 UP 主' : '编辑切片 UP 主'}</DialogTitle>
             <DialogDescription>
-              UID 支持纯数字或 https://space.bilibili.com/&lt;UID&gt; 形式
+              UID 支持纯数字或 https://space.bilibili.com/&lt;UID&gt;；名称/头像留空将自动从 B
+              站拉取
             </DialogDescription>
           </DialogHeader>
           {formState && (
@@ -385,7 +408,7 @@ export function LiveSlicerMenPage() {
                   id="slicer-name"
                   value={formState.name}
                   onChange={(e) => setFormState({ ...formState, name: e.target.value })}
-                  placeholder='留空则在保存后用"从 B 站同步"按钮回填'
+                  placeholder="留空将自动从 B 站空间拉取"
                 />
               </div>
               <div className="space-y-1">
