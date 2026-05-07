@@ -13,15 +13,16 @@ const pkg = JSON.parse(
 // Tauri v2 默认监听端口；首次开发时由 tauri.conf.json 通过 devUrl 指向此 server
 const TAURI_DEV_HOST = process.env.TAURI_DEV_HOST;
 
-export default defineConfig(async (): Promise<UserConfig> => ({
+export default defineConfig(async ({ mode }): Promise<UserConfig> => ({
   plugins: [react()],
   // shared 层用 __DEV_LOG__ 控制 [WBI-DEBUG]/[BILI-API] 调试日志输出。
-  // 该变量原由 web 端 vite define 注入；desktop 必须独立声明，否则编译产物中
-  // 所有 `if (__DEV_LOG__)` 在 Tauri WebView 运行时抛 ReferenceError，
-  // 进而导致 axios 拦截器/store catch 路径在第一次访问该变量时中断，
-  // isInited setState 永不执行 → UI 卡 spinner。Tauri 端固定 false。
+  // 必须声明：未声明时 `if (__DEV_LOG__)` 在 Tauri WebView 运行时会访问全局变量
+  // 抛 ReferenceError，导致 axios 拦截器 / store catch 路径中断，UI 卡 spinner。
+  // 声明后 vite 做编译期字面量替换，无运行时风险，可按 mode 切换：
+  // - dev (`pnpm dev:desktop`)：true → 控制台可见 [BILI-API] / [WBI-DEBUG] 链路日志
+  // - prod (`pnpm build:desktop`)：false → 整段 if (false) {} 被 DCE 消除
   define: {
-    __DEV_LOG__: JSON.stringify(false),
+    __DEV_LOG__: JSON.stringify(mode === 'development'),
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   resolve: {
