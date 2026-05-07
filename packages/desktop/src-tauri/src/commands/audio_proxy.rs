@@ -28,12 +28,16 @@ const ALLOWED_HOST_PREFIXES: &[&str] = &["upos-"];
 
 /// 单次代理上限（chunk 大小）。
 ///
-/// 4 MB 的权衡：
-/// - 千兆带宽：~50ms 下完一段，首播延迟可接受
-/// - 50 KB/s 慢速：每段 80s，buffer 满 1-2 段就开播
-/// - 整曲 5-10 MB → 仅 2-3 次 reqwest（vs 1MB 时 6 次），HTTP 调用降为 1/3
-/// - 重复下载浪费 4MB（已用 single-flight 防止并发重复）
-const MAX_CHUNK_BYTES: u64 = 4 * 1024 * 1024;
+/// 16 MB 的权衡（针对常见 5 分钟以内音频，192K ~ 320K Dolby 单 chunk 全覆盖）：
+/// - 192K 5min ≈ 7MB / 320K Dolby 5min ≈ 12MB → 大多数曲目 1 个 chunk 搞定
+/// - HTTP 调用次数最小化：单首歌通常仅 1 次 reqwest，避免跨 chunk RTT
+/// - mem_cache 4 条 × 16MB = 64 MB 内存上限（仍在合理范围）
+/// - miss 时浪费的下载量从 4MB → 16MB；single-flight 防并发重复
+/// - 慢速 50 KB/s 等 320s 才能吃下一段（早已不是主流网络场景）
+///
+/// ⚠️ 修改此值必须同步更新 compute_chunk_cache_key 的 chunk_size 入参，
+/// 否则旧 cache 文件会被新读取路径切片越界。
+const MAX_CHUNK_BYTES: u64 = 16 * 1024 * 1024;
 
 /// 解析 Range 头：`bytes=N-` / `bytes=N-M` → (start, Some(end)) 或 (start, None)
 pub fn parse_range(range_header: Option<&str>) -> Option<(u64, Option<u64>)> {
@@ -114,9 +118,10 @@ pub fn chunk_bounds(audio_start: u64) -> (u64, u64, u64) {
 
 /// custom URI scheme handler：异步代理 B 站音频 / 视频流（chunk-aligned 缓存）
 ///
-/// 核心策略：audio 标签会发大量碎片小 Range（mp4 atom 探测），但都落在 1 MB chunk
-/// 边界内。handler 一次下载整段 1 MB 缓存到本地，后续 audio 任意小 Range 都从
-/// cache 切片返回，避免重复 reqwest 调用（千兆带宽下 RTT 串行才是真正瓶颈）。
+/// 核心策略：audio 标签会发大量碎片小 Range（mp4 atom 探测），但都落在
+/// MAX_CHUNK_BYTES (16 MB) 边界内。handler 一次下载整段 chunk 缓存到本地，
+/// 后续 audio 任意小 Range 都从 cache 切片返回，避免重复 reqwest 调用
+/// （千兆带宽下 RTT 串行才是真正瓶颈）。
 pub fn handle_audio_proxy<R: tauri::Runtime>(
     ctx: tauri::UriSchemeContext<'_, R>,
     request: tauri::http::Request<Vec<u8>>,
@@ -149,7 +154,7 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
         let (audio_start, audio_end_opt) =
             parse_range(range_header.as_deref()).unwrap_or((0, None));
         let (chunk_index, chunk_start, chunk_end_inclusive) = chunk_bounds(audio_start);
-        let cache_key = audio_cache::compute_chunk_cache_key(&real_url, chunk_index);
+        let cache_key = audio_cache::compute_chunk_cache_key(&real_url, chunk_index, MAX_CHUNK_BYTES);
 
         let cache_state_opt = app.try_state::<AudioCacheState>();
 
@@ -351,7 +356,7 @@ async fn prefetch_chunk<R: tauri::Runtime>(
     chunk_index: u64,
 ) {
     let cache_state_opt = app.try_state::<AudioCacheState>();
-    let cache_key = audio_cache::compute_chunk_cache_key(&real_url, chunk_index);
+    let cache_key = audio_cache::compute_chunk_cache_key(&real_url, chunk_index, MAX_CHUNK_BYTES);
 
     // 1. 缓存已有？跳过
     if let Some(cs) = cache_state_opt.as_ref() {
@@ -604,9 +609,8 @@ mod tests {
     }
 
     #[test]
-    fn chunk_bounds_audio_atom_probe_within_first_4mb_chunk() {
-        // 模拟 audio 在 m4s 中段探测：bytes=2674671-2674678
-        // 4MB chunk 下都落在 chunk 0（0..=4194303）
+    fn chunk_bounds_audio_atom_probe_within_first_chunk() {
+        // 模拟 audio 在 m4s 中段探测：bytes=2674671-2674678 都落在 chunk 0
         let (idx, start, end) = chunk_bounds(2674671);
         assert_eq!(idx, 0);
         assert_eq!(start, 0);
@@ -614,8 +618,8 @@ mod tests {
     }
 
     #[test]
-    fn chunk_bounds_audio_atom_probe_in_second_4mb_chunk() {
-        // 4194304 (4MB) 进入第 1 chunk
+    fn chunk_bounds_audio_atom_probe_in_second_chunk() {
+        // 落到 MAX_CHUNK_BYTES 边界进入第 1 chunk
         let (idx, start, end) = chunk_bounds(MAX_CHUNK_BYTES);
         assert_eq!(idx, 1);
         assert_eq!(start, MAX_CHUNK_BYTES);

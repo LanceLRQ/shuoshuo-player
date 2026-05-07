@@ -36,10 +36,10 @@ const CHUNKS_DIR_NAME: &str = "chunks";
 const INDEX_FILE_NAME: &str = "index.json";
 /// LRU 容量上限：1 GB（约 200 首平均 5 MB 的歌）
 pub const DEFAULT_MAX_BYTES: u64 = 1 * 1024 * 1024 * 1024;
-/// LRU 条目数硬上限（防内存爆炸；按平均 1MB/段，可容纳约 1024 段 = 几十首）
+/// LRU 条目数硬上限（防内存爆炸；当前 chunk=16MB，可容纳约 64 首 5MB 单 chunk 歌曲）
 const LRU_MAX_ENTRIES: usize = 8192;
-/// 内存级解混缓存条目数（每条 ~4MB，4 条约 16MB 内存）。
-/// 命中后直接切片返回，避免重复 fs::read + 解密 4MB → 大幅降低 audio 标签
+/// 内存级解混缓存条目数（每条 ~16MB，4 条约 64MB 内存）。
+/// 命中后直接切片返回，避免重复 fs::read + 解密整段 → 大幅降低 audio 标签
 /// 高频小 Range 的累积 CPU/IO 开销。
 const MEM_CACHE_ENTRIES: usize = 4;
 
@@ -121,13 +121,16 @@ impl AudioCacheState {
     }
 }
 
-/// 计算 chunk-aligned cache key（去签名参数 + chunk_index）
+/// 计算 chunk-aligned cache key（去签名参数 + chunk_index + chunk_size 维度）
 ///
 /// 设计要点：audio 标签会发大量碎片 Range（如 8 字节探测 mp4 atom），但都落在
-/// 1 MB chunk 边界内。按 chunk_index 缓存而非任意 range，让任何 audio Range 都能
-/// 命中已下载的 1 MB 段，再切片返回。大幅减少 reqwest 调用次数（千兆带宽下原本
+/// chunk_size 边界内。按 chunk_index 缓存而非任意 range，让任何 audio Range 都能
+/// 命中已下载的整段 chunk，再切片返回。大幅减少 reqwest 调用次数（千兆带宽下原本
 /// RTT 串行成为瓶颈）。
-pub fn compute_chunk_cache_key(url: &str, chunk_index: u64) -> String {
+///
+/// chunk_size 加入 hash 是为了让"调整 chunk 大小"这种破坏性变更下旧 cache 自动
+/// miss（key 不命中）→ 重新下载新格式，避免新读取路径用旧切片越界。
+pub fn compute_chunk_cache_key(url: &str, chunk_index: u64, chunk_size: u64) -> String {
     let parsed = url::Url::parse(url);
     let normalized = match parsed {
         Ok(u) => format!(
@@ -138,7 +141,7 @@ pub fn compute_chunk_cache_key(url: &str, chunk_index: u64) -> String {
         ),
         Err(_) => url.to_string(),
     };
-    let payload = format!("{}:chunk:{}", normalized, chunk_index);
+    let payload = format!("{}:chunk:{}:size{}", normalized, chunk_index, chunk_size);
     let mut hasher = Sha256::new();
     hasher.update(payload.as_bytes());
     let bytes = hasher.finalize();
@@ -501,14 +504,17 @@ mod tests {
         assert_eq!(decrypt_with_header(&e2).unwrap(), plain);
     }
 
+    /// 单测内固定 chunk_size 以保证断言稳定（与生产 MAX_CHUNK_BYTES 解耦）
+    const TEST_CHUNK_SIZE: u64 = 16 * 1024 * 1024;
+
     #[test]
     fn chunk_cache_key_strips_query() {
         let url1 = "https://upos-x.bilivideo.com/path/1234.m4s?e=AAA&upsig=BBB";
         let url2 = "https://upos-x.bilivideo.com/path/1234.m4s?e=CCC&upsig=DDD";
         // 同一文件不同签名 → 同一 key
         assert_eq!(
-            compute_chunk_cache_key(url1, 2),
-            compute_chunk_cache_key(url2, 2)
+            compute_chunk_cache_key(url1, 2, TEST_CHUNK_SIZE),
+            compute_chunk_cache_key(url2, 2, TEST_CHUNK_SIZE)
         );
     }
 
@@ -516,8 +522,8 @@ mod tests {
     fn chunk_cache_key_distinguishes_chunk_index() {
         let url = "https://upos-x.bilivideo.com/path/1234.m4s?e=AAA";
         assert_ne!(
-            compute_chunk_cache_key(url, 0),
-            compute_chunk_cache_key(url, 1)
+            compute_chunk_cache_key(url, 0, TEST_CHUNK_SIZE),
+            compute_chunk_cache_key(url, 1, TEST_CHUNK_SIZE)
         );
     }
 
@@ -526,16 +532,26 @@ mod tests {
         let url1 = "https://upos-x.bilivideo.com/a.m4s";
         let url2 = "https://upos-x.bilivideo.com/b.m4s";
         assert_ne!(
-            compute_chunk_cache_key(url1, 0),
-            compute_chunk_cache_key(url2, 0)
+            compute_chunk_cache_key(url1, 0, TEST_CHUNK_SIZE),
+            compute_chunk_cache_key(url2, 0, TEST_CHUNK_SIZE)
+        );
+    }
+
+    #[test]
+    fn chunk_cache_key_distinguishes_chunk_size() {
+        // 同 url + 同 chunk_index，chunk_size 不同必须产生不同 key（旧 cache 失效语义）
+        let url = "https://upos-x.bilivideo.com/path/1234.m4s";
+        assert_ne!(
+            compute_chunk_cache_key(url, 0, 4 * 1024 * 1024),
+            compute_chunk_cache_key(url, 0, 16 * 1024 * 1024)
         );
     }
 
     #[test]
     fn chunk_cache_key_invalid_url_falls_back_to_raw() {
         // 不抛错，给原字符串 hash
-        let k1 = compute_chunk_cache_key("not-a-url", 0);
-        let k2 = compute_chunk_cache_key("not-a-url", 0);
+        let k1 = compute_chunk_cache_key("not-a-url", 0, TEST_CHUNK_SIZE);
+        let k2 = compute_chunk_cache_key("not-a-url", 0, TEST_CHUNK_SIZE);
         assert_eq!(k1, k2);
     }
 
