@@ -11,6 +11,7 @@ export const PERSIST_KEYS = [
   'ui_profile',
   'lyrics',
   'cloud_service',
+  'music_url_cache',
 ] as const;
 
 /** 可导出的 store key（cloud_service 出于安全不导出） */

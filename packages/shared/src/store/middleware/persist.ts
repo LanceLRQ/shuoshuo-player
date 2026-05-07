@@ -15,12 +15,14 @@ import { useFavListStore } from '../fav-list';
 import { usePlayerProfileStore } from '../player-profile';
 import { useLyricsStore } from '../lyrics';
 import { useCloudServiceStore } from '../cloud-service';
+import { useMusicUrlCacheStore } from '../music-url-cache';
 import type {
   PersistedBilibiliUserVideosShape,
   PersistedBilibiliVideosShape,
   PersistedCloudServiceShape,
   PersistedFavListShape,
   PersistedLyricsShape,
+  PersistedMusicUrlCacheShape,
   PersistedPlayerProfileShape,
   PersistedPlayingListShape,
 } from '../persisted-types';
@@ -226,6 +228,20 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     },
     subscribe(cb) {
       return useCloudServiceStore.subscribe(cb);
+    },
+  },
+  {
+    key: 'music_url_cache',
+    hydrate(raw) {
+      const data = asRecord(raw) as PersistedMusicUrlCacheShape | null;
+      if (!data) return;
+      useMusicUrlCacheStore.setState({ entries: data.entries ?? {} });
+    },
+    snapshot() {
+      return useMusicUrlCacheStore.getState().persistSnapshot();
+    },
+    subscribe(cb) {
+      return useMusicUrlCacheStore.subscribe(cb);
     },
   },
 ];

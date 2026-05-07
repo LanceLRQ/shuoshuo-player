@@ -1,14 +1,11 @@
 import { VideoApi } from '../api';
-import {
-  AUDIO_QUALITY,
-  MUSIC_URL_CACHE_TTL,
-  CLICK_STAT_THROTTLE,
-  CLICK_STAT_DELAY_MS,
-} from '../constants';
+import { AUDIO_QUALITY, CLICK_STAT_THROTTLE, CLICK_STAT_DELAY_MS } from '../constants';
 import { getPlatformBridge } from '../platform';
 import { useRiskControlStore } from '../store/risk-control';
+import { useMusicUrlCacheStore } from '../store/music-url-cache';
+import { useBilibiliVideosStore } from '../store/bilibili-videos';
 import { timeStampNow } from './format';
-import type { DashAudioStream, MusicUrlCache } from '../types';
+import type { DashAudioStream } from '../types';
 import type { VideoViewInfo } from '../api/bilibili/video';
 
 /**
@@ -27,8 +24,6 @@ function applyAudioUrlTransformer(url: string): string {
   }
 }
 
-/** 全局缓存：bvid → MusicUrlCache（v1 window.MUSIC_PLAY_URL_CACHED 等价，但封装在模块作用域） */
-const musicPlayUrlCache: Record<string, MusicUrlCache> = {};
 /** 模拟点击节流：bvid → 上次发送时间（秒） */
 const musicPlayClickTime: Record<string, number> = {};
 /**
@@ -48,13 +43,31 @@ function pickPlayableUrl(audioInfo: DashAudioStream | undefined): string {
 }
 
 /**
+ * 从已知来源解析 cid，避免 fetchMusicUrl 中重复调 view 接口
+ *
+ * 优先级：
+ * 1. URL 缓存中已存的 cid（上次成功 fetch 时回填）
+ * 2. bili_videos store 中 view 模式入库的视频 entity（mapViewItem 拾取的 cid）
+ *
+ * 取不到（如收藏夹来源 / 历史数据）则返回 undefined，调用方需 fallback 到 view 接口
+ */
+function resolveCachedCid(bvid: string): number | undefined {
+  const fromUrlCache = useMusicUrlCacheStore.getState().entries[bvid]?.cid;
+  if (typeof fromUrlCache === 'number' && fromUrlCache > 0) return fromUrlCache;
+  const fromVideoStore = useBilibiliVideosStore.getState().entities[bvid]?.cid;
+  if (typeof fromVideoStore === 'number' && fromVideoStore > 0) return fromVideoStore;
+  return undefined;
+}
+
+/**
  * 获取 B 站视频音频流 URL（含缓存 / 音质降级 / 模拟点击统计）
  *
- * 与 v1 行为完全对齐：
- * 1. 1 小时（MUSIC_URL_CACHE_TTL）内同 bvid 命中缓存，不重复请求
- * 2. loading 标记防并发
- * 3. 音质降级链：30280 (192K) → 30232 (132K) → 30216 (64K)
- * 4. 成功后 500ms 延迟发起一次 doClickStat（同一视频 600s 节流）
+ * 优化路径（相对 v1）：
+ * 1. URL 缓存升级为持久化 store（useMusicUrlCacheStore），TTL 内重启秒命中
+ * 2. cid 已知（来自 URL 缓存或 view 模式入库）时跳过 view 接口调用
+ * 3. 移除 v2 早期版本的 view→playurl jitter（反风控由 doClickStat 兜底已足够）
+ * 4. 音质降级链：30280 (192K) → 30232 (132K) → 30216 (64K)
+ * 5. 成功后 500ms 延迟发起一次 doClickStat（同一视频 600s 节流）
  */
 export async function fetchMusicUrl(
   bvId: string,
@@ -69,51 +82,50 @@ export async function fetchMusicUrl(
     return existing;
   }
 
-  const cached = (musicPlayUrlCache[bvId] ??= {
-    loading: false,
-    last_update: 0,
-    viewInfo: {},
-    playInfo: {},
-    playUrl: '',
-  });
-
-  // 命中 1 小时缓存
-  if (cached.last_update > 0 && cached.last_update + MUSIC_URL_CACHE_TTL > timeStampNow()) {
+  // 命中 TTL 内的持久化 URL 缓存：直接 return（重启后同样有效）
+  const urlCacheStore = useMusicUrlCacheStore.getState();
+  const cachedEntry = urlCacheStore.getValid(bvId);
+  if (cachedEntry?.playUrl) {
     if (__DEV_LOG__) {
       console.debug(
         '[BILI-API] fetchMusicUrl cache hit:',
         bvId,
         'playUrl=',
-        cached.playUrl ? cached.playUrl.slice(0, 80) + '...' : '<EMPTY>',
+        cachedEntry.playUrl.slice(0, 80) + '...',
       );
     }
-    return applyAudioUrlTransformer(cached.playUrl);
+    return applyAudioUrlTransformer(cachedEntry.playUrl);
   }
 
   const promise = (async () => {
-    cached.loading = true;
     try {
-      const viewInfo = (await VideoApi.getVideoViewInfo({
-        params: { bvid: bvId },
-      })) as VideoViewInfo & { cid?: number; aid?: number };
+      // 优先从已知来源拿 cid（URL 缓存 / bili_videos store），命中则跳过 view 接口
+      let cid = resolveCachedCid(bvId);
+      let aid: number | undefined;
+      let descType: string | number | undefined;
 
-      if (__DEV_LOG__) {
-        console.debug(
-          '[BILI-API] viewInfo ok:',
-          bvId,
-          'cid=',
-          viewInfo?.cid,
-          'aid=',
-          viewInfo?.aid,
-        );
+      if (typeof cid !== 'number') {
+        const viewInfo = (await VideoApi.getVideoViewInfo({
+          params: { bvid: bvId },
+        })) as VideoViewInfo & { cid?: number; aid?: number };
+
+        if (__DEV_LOG__) {
+          console.debug(
+            '[BILI-API] viewInfo ok:',
+            bvId,
+            'cid=',
+            viewInfo?.cid,
+            'aid=',
+            viewInfo?.aid,
+          );
+        }
+
+        cid = viewInfo?.cid ?? 0;
+        aid = viewInfo?.aid;
+        descType = viewInfo?.desc_v2?.[0]?.type;
+      } else if (__DEV_LOG__) {
+        console.debug('[BILI-API] fetchMusicUrl cid hit (skip view):', bvId, 'cid=', cid);
       }
-
-      const cid = viewInfo?.cid ?? 0;
-
-      // 模拟人为浏览延迟（200-500ms 随机），降低 view→playurl 短间隔触发 B 站频控/风控的概率
-      const jitterMs = 200 + Math.floor(Math.random() * 301);
-      await new Promise<void>((resolve) => setTimeout(resolve, jitterMs));
-      if (__DEV_LOG__) console.debug('[BILI-API] playurl jitter:', bvId, jitterMs, 'ms');
 
       const playInfo = await VideoApi.getVideoPlayurl({
         params: { cid, fnval: 16, bvid: bvId },
@@ -175,27 +187,29 @@ export async function fetchMusicUrl(
         );
       }
 
-      cached.viewInfo = viewInfo as unknown as Record<string, unknown>;
-      cached.playInfo = playInfo as unknown as Record<string, unknown>;
       // dash 拿不到时回落到 durl 第一项 url
-      cached.playUrl = pickPlayableUrl(audio) || durl?.[0]?.url || '';
-      cached.last_update = timeStampNow();
+      const playUrl = pickPlayableUrl(audio) || durl?.[0]?.url || '';
+
+      // 写入持久化 URL 缓存：携带 cid 以便重启 / TTL 过期后下次仍可跳过 view
+      if (playUrl) {
+        useMusicUrlCacheStore.getState().upsert(bvId, { playUrl, cid });
+      }
 
       if (__DEV_LOG__) {
         console.debug(
           '[BILI-API] fetchMusicUrl resolved:',
           bvId,
           'playUrl=',
-          cached.playUrl ? cached.playUrl.slice(0, 80) + '...' : '<EMPTY>',
+          playUrl ? playUrl.slice(0, 80) + '...' : '<EMPTY>',
         );
       }
 
-      // 异步发起模拟点击（节流 600s）
+      // 异步发起模拟点击（节流 600s）。aid / type 在 cid 命中跳过 view 时不可知，
+      // 此时以 0 / '1' 兜底（B 站接口允许 aid=0 但点击成功率低，可接受）
       setTimeout(() => {
         const now = timeStampNow();
         if ((musicPlayClickTime[bvId] ?? 0) + CLICK_STAT_THROTTLE > now) return;
-        const aid = viewInfo?.aid;
-        const type = viewInfo?.desc_v2?.[0]?.type ?? '1';
+        const type = descType ?? '1';
         VideoApi.doClickStat({
           params: {
             w_aid: aid,
@@ -206,7 +220,7 @@ export async function fetchMusicUrl(
           },
           data: {
             aid,
-            cid: viewInfo?.cid,
+            cid,
             bvid: bvId,
             part: '1',
             ftime: now,
@@ -224,12 +238,11 @@ export async function fetchMusicUrl(
           });
       }, CLICK_STAT_DELAY_MS);
 
-      return applyAudioUrlTransformer(cached.playUrl);
+      return applyAudioUrlTransformer(playUrl);
     } catch (e) {
       if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl 失败:', bvId, e);
       return '';
     } finally {
-      cached.loading = false;
       delete inflightRequests[bvId];
     }
   })();
@@ -243,11 +256,10 @@ export async function fetchMusicUrl(
  * 不传 bvid 则清空全部缓存与 inflight。
  */
 export function invalidateMusicUrlCache(bvId?: string): void {
+  useMusicUrlCacheStore.getState().invalidate(bvId);
   if (bvId) {
-    delete musicPlayUrlCache[bvId];
     delete inflightRequests[bvId];
     return;
   }
-  Object.keys(musicPlayUrlCache).forEach((k) => delete musicPlayUrlCache[k]);
   Object.keys(inflightRequests).forEach((k) => delete inflightRequests[k]);
 }

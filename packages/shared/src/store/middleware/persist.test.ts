@@ -54,8 +54,8 @@ describe('A5/C3: createPersistMiddleware 节流写入', () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(adapter.setItem).toHaveBeenCalledTimes(1);
-    const [key, raw] = (adapter.setItem as unknown as { mock: { calls: [string, string][] } })
-      .mock.calls[0];
+    const [key, raw] = (adapter.setItem as unknown as { mock: { calls: [string, string][] } }).mock
+      .calls[0];
     expect(key).toBe(PERSIST_DATA_KEY);
     expect(JSON.parse(raw)).toEqual({ ui_profile: { theme: 'auto' } });
   });
@@ -141,7 +141,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     return entry;
   }
 
-  it('注册表覆盖 7 个 PERSIST_KEYS', () => {
+  it('注册表覆盖 8 个 PERSIST_KEYS', () => {
     const keys = STORE_PERSIST_REGISTRY.map((e) => e.key).sort();
     expect(keys).toEqual(
       [
@@ -152,6 +152,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
         'ui_profile',
         'lyrics',
         'cloud_service',
+        'music_url_cache',
       ].sort(),
     );
   });
@@ -353,9 +354,7 @@ describe('bootstrapPersistence', () => {
       // 优化后：仅 1 次（dirty-flag + microtask 合并）
       for (let i = 0; i < 5; i++) {
         useFavListStore.setState({
-          list: [
-            { id: `id-${i}`, name: `n-${i}`, type: 'CUSTOM' as never, bv_ids: [] } as never,
-          ],
+          list: [{ id: `id-${i}`, name: `n-${i}`, type: 'CUSTOM' as never, bv_ids: [] } as never],
         });
       }
 

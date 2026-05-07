@@ -8,6 +8,8 @@ export { useLyricsStore } from './lyrics';
 export { useCloudServiceStore } from './cloud-service';
 export { useUIStore } from './ui';
 export { useRiskControlStore } from './risk-control';
+export { useMusicUrlCacheStore } from './music-url-cache';
+export type { MusicUrlCacheEntry } from './music-url-cache';
 export type {
   NoticeItem,
   SendNoticePayload,
@@ -31,4 +33,5 @@ export type {
   PersistedPlayerProfileShape,
   PersistedLyricsShape,
   PersistedCloudServiceShape,
+  PersistedMusicUrlCacheShape,
 } from './persisted-types';

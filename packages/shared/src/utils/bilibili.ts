@@ -54,6 +54,8 @@ function mapViewItem(i: RawItem): Mapped {
     comment: stat.reply,
     author: owner.name,
     mid: owner.mid,
+    // view 接口返回单 P 的 cid；fetchMusicUrl 走 playurl 时可直接复用，省一次 view 调用
+    cid: typeof i.cid === 'number' ? (i.cid as number) : undefined,
     description: (i.desc ?? i.description) as string,
   };
 }

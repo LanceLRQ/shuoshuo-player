@@ -71,15 +71,6 @@ export interface DashAudioStream {
   codecid: number;
 }
 
-/** 音乐播放 URL 全局缓存条目 */
-export interface MusicUrlCache {
-  loading: boolean;
-  last_update: number;
-  viewInfo: Record<string, unknown>;
-  playInfo: Record<string, unknown>;
-  playUrl: string;
-}
-
 /** WBI 密钥信息 */
 export interface WbiInfo {
   img_key: string;

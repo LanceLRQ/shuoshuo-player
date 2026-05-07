@@ -18,6 +18,7 @@ import type {
   LyricEntry,
   VideoListCacheEntry,
 } from '../types';
+import type { MusicUrlCacheEntry } from './music-url-cache';
 
 export interface PersistedBilibiliVideosShape {
   ids?: string[];
@@ -56,4 +57,8 @@ export interface PersistedLyricsShape {
 
 export interface PersistedCloudServiceShape {
   session?: CloudServiceSession;
+}
+
+export interface PersistedMusicUrlCacheShape {
+  entries?: Record<string, MusicUrlCacheEntry>;
 }
