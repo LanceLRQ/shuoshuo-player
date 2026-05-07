@@ -1,8 +1,8 @@
-// 音频缓存模块（XOR 混淆 + LRU + 持久化索引）
+// 音频缓存模块（ChaCha20 流密码混淆 + LRU + 持久化索引）
 //
 // 数据流：
-//   handler 收到 Range 请求 → cache_key = sha256(url_no_query + start-end)
-//     ├─ hit: 读 chunks/<UUID>.bin → XOR 解混 → 返回字节
+//   handler 收到 Range 请求 → cache_key = sha256(url_no_query + chunk_index + chunk_size)
+//     ├─ hit: 读 chunks/<UUID>.bin → ChaCha20 解混 → 返回字节
 //     └─ miss: reqwest 下载 → respond 客户端 + 异步写盘 + 更新 LRU 索引
 //
 // 文件布局：
@@ -10,15 +10,18 @@
 //     ├─ index.json              # LRU 元数据（key → entry）
 //     └─ chunks/<UUID>.bin       # 单段混淆字节流
 //
-// 安全说明：XOR 仅做"误识别"防护，不是加密。文件名 UUID + 索引隔离，看磁盘
-// 文件无法直接识别歌曲；XOR 后字节流不能被 ffmpeg 直接当 m4s 解码。
+// 安全说明：ChaCha20 仅做"误识别"防护，不是真加密语义。文件名 UUID + 索引隔离让
+// 看磁盘无法直接识别歌曲；混淆后字节流也不能被 ffmpeg 直接当 m4s 解码。
+// 选择 ChaCha20 而非 AES-128-CBC：纯软件实现 500MB/s+，dev/release 速度等价，
+// 不依赖 AES-NI 硬件加速；流密码无 padding，加解密同算法，逻辑更简洁。
 
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+use chacha20::cipher::{KeyIvInit, StreamCipher};
+use chacha20::ChaCha20;
 use lru::LruCache;
 use once_cell::sync::Lazy;
 use rand::RngCore;
@@ -27,9 +30,6 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, Runtime};
 use tokio::fs;
 use uuid::Uuid;
-
-type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
-type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 
 const CACHE_DIR_NAME: &str = "audio";
 const CHUNKS_DIR_NAME: &str = "chunks";
@@ -43,10 +43,12 @@ const LRU_MAX_ENTRIES: usize = 8192;
 /// 高频小 Range 的累积 CPU/IO 开销。
 const MEM_CACHE_ENTRIES: usize = 4;
 
-/// 文件格式 magic：BPV2 = bilibili player v2（区别旧 XOR 版无 magic）
-/// 新文件结构：[4B magic][16B IV][AES-CBC PKCS7 encrypted body]
-const FILE_MAGIC: &[u8; 4] = b"BPV2";
-const FILE_HEADER_LEN: usize = 4 + 16; // magic + IV
+/// 文件格式 magic：BPV3 = bilibili player v3（ChaCha20 版；BPV2 是旧 AES-CBC 版）
+/// 新文件结构：[4B magic][12B nonce][ChaCha20 ciphertext]
+/// 旧 BPV2 文件 magic 不匹配 → decrypt_with_header 返回 None → handler 当 miss 重下
+const FILE_MAGIC: &[u8; 4] = b"BPV3";
+const NONCE_LEN: usize = 12; // ChaCha20 的 nonce 是 96-bit
+const FILE_HEADER_LEN: usize = 4 + NONCE_LEN; // magic + nonce
 /// 当 machine-uid crate 失败时的兜底 key 源（fallback 后跨机器仍同 key，安全级别约 = XOR）
 const FALLBACK_KEY_SEED: &[u8] = b"shuoshuo-player-v2-fallback";
 
@@ -148,8 +150,9 @@ pub fn compute_chunk_cache_key(url: &str, chunk_index: u64, chunk_size: u64) -> 
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-/// AES-128 key（启动时从 machine-uid 派生一次；跨机器拷贝缓存不可解）
-static AES_KEY: Lazy<[u8; 16]> = Lazy::new(|| {
+/// ChaCha20 key（启动时从 machine-uid 派生一次；跨机器拷贝缓存不可解）
+/// 256-bit 全用满 SHA-256 输出，对比旧 AES-128 切前 16 字节多用一倍熵
+static CHACHA_KEY: Lazy<[u8; 32]> = Lazy::new(|| {
     let seed = match machine_uid::get() {
         Ok(uid) if !uid.is_empty() => uid.into_bytes(),
         Ok(_) | Err(_) => {
@@ -158,38 +161,44 @@ static AES_KEY: Lazy<[u8; 16]> = Lazy::new(|| {
         }
     };
     let hash = Sha256::digest(&seed);
-    let mut key = [0u8; 16];
-    key.copy_from_slice(&hash[..16]);
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&hash);
     key
 });
 
-/// 加密 plain bytes → 完整文件字节（含 magic + IV + ciphertext）
+/// 加密 plain bytes → 完整文件字节（含 magic + nonce + ciphertext）
+///
+/// ChaCha20 是流密码：apply_keystream 就地 XOR plaintext，无 padding 开销。
+/// 每次随机 12B nonce 保证同 key 加密同明文产生不同密文。
 pub fn encrypt_with_header(plain: &[u8]) -> Vec<u8> {
-    let mut iv = [0u8; 16];
-    rand::thread_rng().fill_bytes(&mut iv);
-    let cipher = Aes128CbcEnc::new(AES_KEY.as_slice().into(), &iv.into());
-    let ciphertext = cipher.encrypt_padded_vec_mut::<Pkcs7>(plain);
+    let mut nonce = [0u8; NONCE_LEN];
+    rand::thread_rng().fill_bytes(&mut nonce);
+    let mut cipher = ChaCha20::new(&(*CHACHA_KEY).into(), &nonce.into());
 
-    let mut out = Vec::with_capacity(FILE_HEADER_LEN + ciphertext.len());
+    let mut out = Vec::with_capacity(FILE_HEADER_LEN + plain.len());
     out.extend_from_slice(FILE_MAGIC);
-    out.extend_from_slice(&iv);
-    out.extend_from_slice(&ciphertext);
+    out.extend_from_slice(&nonce);
+    out.extend_from_slice(plain);
+    // 就地 XOR 密文部分（流密码 ciphertext 长度 = plaintext 长度）
+    cipher.apply_keystream(&mut out[FILE_HEADER_LEN..]);
     out
 }
 
-/// 解密文件字节 → plain bytes；header magic 不匹配或解密失败返回 None
+/// 解密文件字节 → plain bytes；header magic 不匹配返回 None（旧 BPV2/XOR/损坏文件）
 pub fn decrypt_with_header(file_bytes: &[u8]) -> Option<Vec<u8>> {
     if file_bytes.len() < FILE_HEADER_LEN {
         return None;
     }
     if &file_bytes[..4] != FILE_MAGIC {
-        return None; // 旧 XOR 文件 / 损坏文件
+        return None; // 旧 BPV2 (AES-CBC) / 旧 XOR / 损坏文件
     }
-    let mut iv = [0u8; 16];
-    iv.copy_from_slice(&file_bytes[4..FILE_HEADER_LEN]);
-    let ciphertext = &file_bytes[FILE_HEADER_LEN..];
-    let cipher = Aes128CbcDec::new(AES_KEY.as_slice().into(), &iv.into());
-    cipher.decrypt_padded_vec_mut::<Pkcs7>(ciphertext).ok()
+    let mut nonce = [0u8; NONCE_LEN];
+    nonce.copy_from_slice(&file_bytes[4..FILE_HEADER_LEN]);
+    let mut cipher = ChaCha20::new(&(*CHACHA_KEY).into(), &nonce.into());
+
+    let mut plain = file_bytes[FILE_HEADER_LEN..].to_vec();
+    cipher.apply_keystream(&mut plain);
+    Some(plain)
 }
 
 fn unix_now() -> u64 {
@@ -254,11 +263,11 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AudioCacheState, String> {
     Ok(state)
 }
 
-/// 命中查询：返回 Arc<MemHitData>（已 XOR 解混）；不命中返回 None
+/// 命中查询：返回 Arc<MemHitData>（已解混）；不命中返回 None
 ///
 /// 两级缓存策略：
 /// 1. 先查 mem_cache（最近 4 个 chunk）：零开销，audio 标签连续小 Range 走这里
-/// 2. miss → 查磁盘 LRU + fs::read + XOR 解混 → 写 mem_cache → 返回
+/// 2. miss → 查磁盘 LRU + fs::read + ChaCha20 解混 → 写 mem_cache → 返回
 pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<Arc<MemHitData>> {
     // L1: 内存解混缓存
     if let Ok(mut g) = state.mem_cache.lock() {
@@ -288,7 +297,7 @@ pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<Arc<MemHitDa
     let plain = match decrypt_with_header(&file_bytes) {
         Some(p) => p,
         None => {
-            // magic 不匹配（旧 XOR 文件）或解密失败 → 视为缓存丢失
+            // magic 不匹配（旧 BPV2/XOR 文件）或解密失败 → 视为缓存丢失
             eprintln!(
                 "[audio_cache] decrypt failed (uuid={}); marking as miss",
                 entry.uuid
@@ -459,46 +468,55 @@ mod tests {
     use super::*;
 
     #[test]
-    fn aes_encrypt_decrypt_roundtrip() {
+    fn chacha20_encrypt_decrypt_roundtrip() {
         let original = b"Hello, B station audio chunk!".to_vec();
         let encrypted = encrypt_with_header(&original);
         assert_ne!(encrypted, original, "加密后内容必须改变");
-        // header 长度
-        assert!(encrypted.len() >= FILE_HEADER_LEN);
+        // header 长度（流密码 ciphertext = plaintext 长度，无 padding）
+        assert_eq!(encrypted.len(), FILE_HEADER_LEN + original.len());
         assert_eq!(&encrypted[..4], FILE_MAGIC);
         let decrypted = decrypt_with_header(&encrypted).expect("解密成功");
         assert_eq!(decrypted, original, "解密还原原始内容");
     }
 
     #[test]
-    fn aes_encrypt_empty_buffer() {
+    fn chacha20_encrypt_empty_buffer() {
         let encrypted = encrypt_with_header(&[]);
-        // 即使 plain 为空，PKCS7 也会产生一个 padding block
-        assert!(encrypted.len() >= FILE_HEADER_LEN + 16);
+        // 流密码无 padding：空 buffer 加密后只有 header
+        assert_eq!(encrypted.len(), FILE_HEADER_LEN);
         let decrypted = decrypt_with_header(&encrypted).expect("空 buffer 也能解");
         assert!(decrypted.is_empty());
     }
 
     #[test]
-    fn aes_decrypt_rejects_legacy_xor_file() {
-        // 旧 XOR 文件没有 magic header，应被识别为不可解
+    fn decrypt_rejects_legacy_bpv2_file() {
+        // 旧 BPV2 (AES-CBC) 文件 magic 不匹配，应被识别为不可解 → handler 当 miss 重下
+        let mut legacy = b"BPV2".to_vec();
+        legacy.extend_from_slice(&[0u8; 16]); // 假装的 IV
+        legacy.extend_from_slice(&[0u8; 32]); // 假装的密文
+        assert!(decrypt_with_header(&legacy).is_none());
+    }
+
+    #[test]
+    fn decrypt_rejects_legacy_no_magic_file() {
+        // 远古 XOR 版无 magic，也应识别为不可解
         let legacy = b"raw-bytes-no-magic".to_vec();
         assert!(decrypt_with_header(&legacy).is_none());
     }
 
     #[test]
-    fn aes_decrypt_rejects_truncated_file() {
+    fn decrypt_rejects_truncated_file() {
         let too_short = vec![0u8; 10];
         assert!(decrypt_with_header(&too_short).is_none());
     }
 
     #[test]
-    fn aes_iv_is_unique_per_call() {
-        // 两次加密同一 plain，IV 不同，密文应不同
+    fn chacha20_nonce_is_unique_per_call() {
+        // 两次加密同一 plain，nonce 不同，密文应不同
         let plain = b"same plaintext bytes".to_vec();
         let e1 = encrypt_with_header(&plain);
         let e2 = encrypt_with_header(&plain);
-        assert_ne!(e1, e2, "随机 IV 应让两次加密结果不同");
+        assert_ne!(e1, e2, "随机 nonce 应让两次加密结果不同");
         // 但都能解回
         assert_eq!(decrypt_with_header(&e1).unwrap(), plain);
         assert_eq!(decrypt_with_header(&e2).unwrap(), plain);
