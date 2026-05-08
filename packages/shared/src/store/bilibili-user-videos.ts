@@ -56,6 +56,9 @@ export const useBilibiliUserVideosStore = create<BilibiliUserVideosState>((set, 
   favFolders: {},
 
   readUserVideos: async (mid, mode = 'default') => {
+    // 防重入：组件层不再做这层守卫，避免 React.StrictMode 双触发 / 多个 FavCard 同时触发更新时
+    // 通过陈旧闭包绕过 useCallback 中的 isLoading 检查导致并发 API 调用
+    if (get().isLoading) return;
     set({ isLoading: true });
     const ui = useUIStore.getState();
     ui.sendNotice({
@@ -121,6 +124,8 @@ export const useBilibiliUserVideosStore = create<BilibiliUserVideosState>((set, 
   },
 
   readUserFavFolderVideos: async (mediaId, mode = 'default') => {
+    // 防重入：见 readUserVideos 同位置注释
+    if (get().isLoading) return;
     set({ isLoading: true });
     const ui = useUIStore.getState();
     ui.sendNotice({
