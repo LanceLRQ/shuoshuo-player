@@ -112,8 +112,11 @@ export const CLOUD_API_BASE_URL_STORAGE_KEY = 'cloud_api_base_url';
 /** 撤销栈最大深度（歌词编辑器，对齐 v1 行为） */
 export const LYRIC_EDITOR_UNDO_STACK_MAX = 999;
 
-/** 视频搜索结果硬上限（discovery 页面无限滚动安全保护） */
-export const VIDEO_SEARCH_RESULT_HARD_LIMIT = 520;
+/**
+ * 视频搜索结果硬上限：对齐 B 站 search/type 接口官方上限
+ * （numResults ≤ 1000，numPages ≤ 50，每页 20 条）
+ */
+export const VIDEO_SEARCH_RESULT_HARD_LIMIT = 1000;
 
 /**
  * 触发会话失效的后端错误码集合

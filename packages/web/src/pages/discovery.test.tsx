@@ -1,13 +1,11 @@
 /**
- * H3: discovery 页搜索结果上限单测
+ * discovery 页搜索行为单测
  *
- * 验证：
- * - 单次搜索返回 600 条时，results state 被裁剪到 VIDEO_SEARCH_RESULT_HARD_LIMIT（520）
- * - 超过上限的 bvid 不出现在状态文案中
- * - 命中上限后 hasMore=false，不再触发 loadMore
- *
- * jsdom 下 useVirtualizer 因 DOM 高度为 0 不会真实渲染所有 VideoItem，
- * 因此断言走"已达 520 条上限"提示文案 + state 行为。
+ * 覆盖：
+ * - 总条数 / 分页器文案 与硬上限 (VIDEO_SEARCH_RESULT_HARD_LIMIT=1000，折合 50 页) 的渲染
+ * - 排序下拉默认值 / 切换重新搜索
+ * - 翻页：点击下一页用 page=2 重新搜索
+ * - 批量选择联动：切换页码 / 切换排序时清空已选
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -44,16 +42,16 @@ function makeSearchItem(i: number) {
   };
 }
 
-describe('H3: DiscoveryPage 搜索结果上限保护', () => {
+describe('DiscoveryPage 搜索 / 分页 / 批量选择', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('单次返回 600 条时被裁剪到 VIDEO_SEARCH_RESULT_HARD_LIMIT (520)', async () => {
-    const result = Array.from({ length: 600 }, (_, i) => makeSearchItem(i));
+  it('numResults>硬上限时夹到 50 页并显示最多展示提示', async () => {
+    const result = Array.from({ length: 20 }, (_, i) => makeSearchItem(i));
     vi.spyOn(VideoApi, 'searchVideo').mockResolvedValue({
       result,
-      numResults: 600,
+      numResults: 1500,
       page: 1,
       pagesize: 20,
     });
@@ -65,15 +63,17 @@ describe('H3: DiscoveryPage 搜索结果上限保护', () => {
     await user.keyboard('{Enter}');
 
     await waitFor(() => {
-      expect(screen.getByText(`找到 ${VIDEO_SEARCH_RESULT_HARD_LIMIT} 条结果`)).toBeInTheDocument();
+      expect(screen.getByText(/共\s*1500\s*条结果/)).toBeInTheDocument();
     });
-
-    expect(VIDEO_SEARCH_RESULT_HARD_LIMIT).toBe(520);
-
-    expect(screen.getByText(`已达 ${VIDEO_SEARCH_RESULT_HARD_LIMIT} 条上限`)).toBeInTheDocument();
+    // 总页数夹到硬上限 = 1000 / 20 = 50
+    expect(screen.getByText(/第\s*1\s*\/\s*50\s*页/)).toBeInTheDocument();
+    expect(VIDEO_SEARCH_RESULT_HARD_LIMIT).toBe(1000);
+    expect(
+      screen.getByText(`（最多展示 ${VIDEO_SEARCH_RESULT_HARD_LIMIT} 条）`),
+    ).toBeInTheDocument();
   });
 
-  it('返回数量低于上限时不显示上限提示', async () => {
+  it('返回数量为 1 页时不显示最多展示提示且分页器隐藏', async () => {
     const result = Array.from({ length: 20 }, (_, i) => makeSearchItem(i));
     vi.spyOn(VideoApi, 'searchVideo').mockResolvedValue({
       result,
@@ -89,15 +89,16 @@ describe('H3: DiscoveryPage 搜索结果上限保护', () => {
     await user.keyboard('{Enter}');
 
     await waitFor(() => {
-      expect(screen.getByText('找到 20 条结果')).toBeInTheDocument();
+      expect(screen.getByText(/共\s*20\s*条结果/)).toBeInTheDocument();
     });
-
-    expect(
-      screen.queryByText(`已达 ${VIDEO_SEARCH_RESULT_HARD_LIMIT} 条上限`),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText(/第\s*1\s*\/\s*1\s*页/)).toBeInTheDocument();
+    expect(screen.queryByText(/最多展示/)).not.toBeInTheDocument();
+    // 总页数为 1 时分页导航不渲染
+    expect(screen.queryByLabelText('下一页')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('上一页')).not.toBeInTheDocument();
   });
 
-  it('搜索失败时显示空状态文案，不影响后续搜索', async () => {
+  it('搜索失败时不影响后续搜索，无总条数文案', async () => {
     vi.spyOn(VideoApi, 'searchVideo').mockRejectedValue(new Error('network'));
 
     const user = userEvent.setup();
@@ -106,10 +107,8 @@ describe('H3: DiscoveryPage 搜索结果上限保护', () => {
     await user.type(screen.getByPlaceholderText('搜索 B 站视频…'), 'foo');
     await user.keyboard('{Enter}');
 
-    // 错误后 results 仍为初始值 0，hasSearched=false（因为 finally 之前抛错）
-    // 只验证不崩溃
     await waitFor(() => {
-      expect(screen.queryByText(/找到 \d+ 条结果/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/共\s*\d+\s*条结果/)).not.toBeInTheDocument();
     });
   });
 
@@ -164,12 +163,10 @@ describe('H3: DiscoveryPage 搜索结果上限保护', () => {
     const user = userEvent.setup();
     render(<DiscoveryPage />);
 
-    // 先做一次默认搜索建立 hasSearched=true
     await user.type(screen.getByPlaceholderText('搜索 B 站视频…'), 'foo');
     await user.keyboard('{Enter}');
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
 
-    // 通过键盘交互切换 Radix Select：focus trigger → 打开 → 选中"最新发布"
     const trigger = screen.getByLabelText('排序方式');
     trigger.focus();
     await user.keyboard('{Enter}');
@@ -181,6 +178,91 @@ describe('H3: DiscoveryPage 搜索结果上限保护', () => {
       keyword: 'foo',
       order: 'pubdate',
       page: 1,
+    });
+  });
+
+  it('点击下一页时用 page=2 重新搜索', async () => {
+    const result1 = Array.from({ length: 20 }, (_, i) => makeSearchItem(i));
+    const result2 = Array.from({ length: 20 }, (_, i) => makeSearchItem(i + 100));
+    const spy = vi
+      .spyOn(VideoApi, 'searchVideo')
+      .mockResolvedValueOnce({ result: result1, numResults: 100, page: 1, pagesize: 20 })
+      .mockResolvedValueOnce({ result: result2, numResults: 100, page: 2, pagesize: 20 });
+
+    const user = userEvent.setup();
+    render(<DiscoveryPage />);
+
+    await user.type(screen.getByPlaceholderText('搜索 B 站视频…'), 'foo');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByLabelText('下一页'));
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    expect(spy.mock.calls[1]?.[0]?.params).toMatchObject({
+      keyword: 'foo',
+      order: 'totalrank',
+      page: 2,
+    });
+    // 当前页号已切到 2 页
+    await waitFor(() => {
+      expect(screen.getByText(/第\s*2\s*\/\s*5\s*页/)).toBeInTheDocument();
+    });
+  });
+
+  it('切换页码时自动清空批量选择', async () => {
+    const result1 = Array.from({ length: 20 }, (_, i) => makeSearchItem(i));
+    const result2 = Array.from({ length: 20 }, (_, i) => makeSearchItem(i + 100));
+    vi.spyOn(VideoApi, 'searchVideo')
+      .mockResolvedValueOnce({ result: result1, numResults: 100, page: 1, pagesize: 20 })
+      .mockResolvedValueOnce({ result: result2, numResults: 100, page: 2, pagesize: 20 });
+
+    const user = userEvent.setup();
+    render(<DiscoveryPage />);
+
+    await user.type(screen.getByPlaceholderText('搜索 B 站视频…'), 'foo');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText(/共\s*100\s*条/)).toBeInTheDocument());
+
+    // 进入批量模式 → 选中第一条
+    await user.click(screen.getByTitle('批量选择'));
+    const checkboxes = screen.getAllByRole('checkbox');
+    await user.click(checkboxes[0]);
+    expect(screen.getByRole('button', { name: /添加到歌单 \(1\)/ })).toBeInTheDocument();
+
+    // 切到下一页：已选应清零，selectMode 仍保留
+    await user.click(screen.getByLabelText('下一页'));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /添加到歌单 \(0\)/ })).toBeInTheDocument();
+    });
+  });
+
+  it('切换排序时自动清空批量选择', async () => {
+    const result1 = Array.from({ length: 20 }, (_, i) => makeSearchItem(i));
+    const result2 = Array.from({ length: 20 }, (_, i) => makeSearchItem(i + 100));
+    vi.spyOn(VideoApi, 'searchVideo')
+      .mockResolvedValueOnce({ result: result1, numResults: 100, page: 1, pagesize: 20 })
+      .mockResolvedValueOnce({ result: result2, numResults: 100, page: 1, pagesize: 20 });
+
+    const user = userEvent.setup();
+    render(<DiscoveryPage />);
+
+    await user.type(screen.getByPlaceholderText('搜索 B 站视频…'), 'foo');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText(/共\s*100\s*条/)).toBeInTheDocument());
+
+    await user.click(screen.getByTitle('批量选择'));
+    const checkboxes = screen.getAllByRole('checkbox');
+    await user.click(checkboxes[0]);
+    expect(screen.getByRole('button', { name: /添加到歌单 \(1\)/ })).toBeInTheDocument();
+
+    const trigger = screen.getByLabelText('排序方式');
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    const option = await screen.findByRole('option', { name: '最新发布' });
+    await user.click(option);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /添加到歌单 \(0\)/ })).toBeInTheDocument();
     });
   });
 });

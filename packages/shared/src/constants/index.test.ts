@@ -18,7 +18,9 @@ describe('E1: SESSION_EXPIRED_ERROR_CODES 集合稳定性快照', () => {
   });
 
   it('运行时定义为 readonly 元组（防止误 push）', () => {
-    expect(Object.isFrozen(SESSION_EXPIRED_ERROR_CODES) || Array.isArray(SESSION_EXPIRED_ERROR_CODES)).toBe(true);
+    expect(
+      Object.isFrozen(SESSION_EXPIRED_ERROR_CODES) || Array.isArray(SESSION_EXPIRED_ERROR_CODES),
+    ).toBe(true);
     // TS 层 as const 已保证只读；运行时仅断言长度稳定
     expect(SESSION_EXPIRED_ERROR_CODES.length).toBe(4);
   });
@@ -38,7 +40,7 @@ describe('E1: 关键不变量数值', () => {
     expect(PERSIST_THROTTLE_MS).toBe(1000);
     expect(VIDEO_LIST_REFRESH_THRESHOLD).toBe(86400);
     expect(LYRIC_EDITOR_UNDO_STACK_MAX).toBe(999);
-    expect(VIDEO_SEARCH_RESULT_HARD_LIMIT).toBe(520);
+    expect(VIDEO_SEARCH_RESULT_HARD_LIMIT).toBe(1000);
   });
 
   it('云服务默认 baseURL 与 storage key 不漂移', () => {

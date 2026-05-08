@@ -1,6 +1,14 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search, X, Loader2, AlertCircle, ListChecks, Plus } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import {
+  Search,
+  X,
+  Loader2,
+  AlertCircle,
+  ListChecks,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import {
   VideoApi,
   VIDEO_SEARCH_RESULT_HARD_LIMIT,
@@ -21,7 +29,8 @@ import {
 } from '@/components/ui/select';
 
 const PAGE_SIZE = 20;
-const ROW_HEIGHT = 108;
+// 由硬上限派生：520 / 20 = 26 页（B 站搜索结果硬上限折算）
+const PAGES_HARD_LIMIT = Math.floor(VIDEO_SEARCH_RESULT_HARD_LIMIT / PAGE_SIZE);
 
 // B 站 search/type 接口 order 参数枚举（视频搜索）
 type SearchOrder = 'totalrank' | 'click' | 'pubdate' | 'dm' | 'stow' | 'scores';
@@ -67,12 +76,37 @@ function searchToVideo(item: SearchItem): BilibiliVideo {
   };
 }
 
+/**
+ * 生成分页器页码窗口：当前页 ±2 + 首末页，相邻断档处填 'gap'。
+ * 总页数 ≤ 7 时全部展开，避免出现单条 "1 … 2" 的尴尬窗口。
+ */
+function buildPageWindow(current: number, total: number): Array<number | 'gap'> {
+  if (total <= 0) return [];
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const candidate = new Set<number>([
+    1,
+    total,
+    current,
+    current - 1,
+    current + 1,
+    current - 2,
+    current + 2,
+  ]);
+  const sorted = [...candidate].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  const out: Array<number | 'gap'> = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) out.push('gap');
+    out.push(sorted[i]);
+  }
+  return out;
+}
+
 export function DiscoveryPage() {
   const [keyword, setKeyword] = useState('');
   const [order, setOrder] = useState<SearchOrder>('totalrank');
   const [results, setResults] = useState<BilibiliVideo[]>([]);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [totalResults, setTotalResults] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -80,20 +114,22 @@ export function DiscoveryPage() {
   const openAddToFav = useUIShell((s) => s.openAddToFav);
   const openAddToFavBatch = useUIShell((s) => s.openAddToFavBatch);
 
-  // 批量选择模式
+  // 批量选择
   const [selectMode, setSelectMode] = useState(false);
   const [selectedBvids, setSelectedBvids] = useState<Set<string>>(new Set());
 
-  const parentRef = useRef<HTMLDivElement>(null);
-  const isLoadingMoreRef = useRef(false);
+  // 总页数：以 numResults / PAGE_SIZE 上取整，再夹到 PAGES_HARD_LIMIT (26)
+  const totalPages = useMemo(() => {
+    if (totalResults <= 0) return 0;
+    return Math.min(Math.ceil(totalResults / PAGE_SIZE), PAGES_HARD_LIMIT);
+  }, [totalResults]);
 
   const doSearch = useCallback(
     // orderOverride 用于排序切换的同帧调用，避免 setState 异步导致首次重搜索仍走旧值
-    async (resetPage: boolean, orderOverride?: SearchOrder) => {
+    async (targetPage: number, orderOverride?: SearchOrder) => {
       const trimmed = keyword.trim();
       if (!trimmed) return;
 
-      const pn = resetPage ? 1 : page + 1;
       const orderToUse = orderOverride ?? order;
       setIsSearching(true);
       try {
@@ -102,24 +138,17 @@ export function DiscoveryPage() {
             search_type: 'video',
             keyword: trimmed,
             order: orderToUse,
-            page: pn,
+            page: targetPage,
             pagesize: PAGE_SIZE,
           },
         });
         const videos = (data.result ?? []).map((it) => searchToVideo(it as SearchItem));
-
-        const merged = resetPage ? videos : [...results, ...videos];
-        // 硬上限保护（避免 B 站搜索 API 返回超大列表卡顿）
-        const trimmedList = merged.slice(0, VIDEO_SEARCH_RESULT_HARD_LIMIT);
-
-        setResults(trimmedList);
-        setPage(pn);
-        setHasMore(
-          videos.length >= PAGE_SIZE && trimmedList.length < VIDEO_SEARCH_RESULT_HARD_LIMIT,
-        );
+        setResults(videos);
+        setPage(targetPage);
+        setTotalResults(data.numResults ?? 0);
         setHasSearched(true);
-        // 重新搜索（resetPage）时清空选中，但保留批量模式
-        if (resetPage) setSelectedBvids(new Set());
+        // 翻页 / 重新搜索 / 排序切换 一律清空已选，避免跨页混淆；selectMode 由用户主动控制
+        setSelectedBvids(new Set());
       } catch {
         sendNotice({
           type: NoticeType.ERROR,
@@ -128,29 +157,35 @@ export function DiscoveryPage() {
         });
       } finally {
         setIsSearching(false);
-        isLoadingMoreRef.current = false;
       }
     },
-    [keyword, page, results, sendNotice, order],
+    [keyword, order, sendNotice],
   );
 
   const handleOrderChange = useCallback(
     (value: string) => {
       const next = value as SearchOrder;
       setOrder(next);
-      // 仅当已有搜索结果时切换排序立即重新搜索；否则只记录选择，等用户点搜索
       if (hasSearched && keyword.trim()) {
-        void doSearch(true, next);
+        void doSearch(1, next);
       }
     },
     [doSearch, hasSearched, keyword],
+  );
+
+  const handlePageChange = useCallback(
+    (target: number) => {
+      if (target < 1 || target > totalPages || target === page || isSearching) return;
+      void doSearch(target);
+    },
+    [doSearch, isSearching, page, totalPages],
   );
 
   const handleClear = () => {
     setKeyword('');
     setResults([]);
     setPage(1);
-    setHasMore(false);
+    setTotalResults(0);
     setHasSearched(false);
     setSelectMode(false);
     setSelectedBvids(new Set());
@@ -187,33 +222,8 @@ export function DiscoveryPage() {
     if (selectedBvids.size === 0) return;
     const bvids = Array.from(selectedBvids);
     openAddToFavBatch(bvids, { fromSearch: true });
-    // 立即退出批量模式（dialog 自身管理后续流程）
     exitSelectMode();
   }, [selectedBvids, openAddToFavBatch, exitSelectMode]);
-
-  // 虚拟列表
-  const virtualizer = useVirtualizer({
-    count: results.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 5,
-  });
-
-  // 滚动接近底部时加载下一页
-  useEffect(() => {
-    const items = virtualizer.getVirtualItems();
-    if (items.length === 0) return;
-    const lastItem = items[items.length - 1];
-    if (
-      hasMore &&
-      !isSearching &&
-      !isLoadingMoreRef.current &&
-      lastItem.index >= results.length - 5
-    ) {
-      isLoadingMoreRef.current = true;
-      void doSearch(false);
-    }
-  }, [virtualizer, hasMore, isSearching, results.length, doSearch]);
 
   const handleAddToFav = useCallback(
     (video: BilibiliVideo) => {
@@ -222,10 +232,8 @@ export function DiscoveryPage() {
     [openAddToFav],
   );
 
-  const reachedHardLimit = useMemo(
-    () => results.length >= VIDEO_SEARCH_RESULT_HARD_LIMIT,
-    [results.length],
-  );
+  const pageWindow = useMemo(() => buildPageWindow(page, totalPages), [page, totalPages]);
+  const exceedHardLimit = totalResults > VIDEO_SEARCH_RESULT_HARD_LIMIT;
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -240,7 +248,7 @@ export function DiscoveryPage() {
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                void doSearch(true);
+                void doSearch(1);
               }
             }}
             className="pl-9"
@@ -256,7 +264,7 @@ export function DiscoveryPage() {
             </Button>
           )}
         </div>
-        <Button onClick={() => void doSearch(true)} disabled={!keyword.trim() || isSearching}>
+        <Button onClick={() => void doSearch(1)} disabled={!keyword.trim() || isSearching}>
           {isSearching ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -287,11 +295,15 @@ export function DiscoveryPage() {
       </div>
 
       {/* 状态栏 / 批量工具栏 */}
-      {hasSearched && !selectMode && (
+      {hasSearched && !selectMode && totalResults > 0 && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>找到 {results.length} 条结果</span>
-          {reachedHardLimit && (
-            <span className="text-amber-600">已达 {VIDEO_SEARCH_RESULT_HARD_LIMIT} 条上限</span>
+          <span>
+            共 {totalResults} 条结果 · 第 {page} / {totalPages} 页
+          </span>
+          {exceedHardLimit && (
+            <span className="text-muted-foreground/80">
+              （最多展示 {VIDEO_SEARCH_RESULT_HARD_LIMIT} 条）
+            </span>
           )}
         </div>
       )}
@@ -330,56 +342,74 @@ export function DiscoveryPage() {
           没有找到关键词为"{keyword}"的视频
         </div>
       ) : (
-        <div
-          ref={parentRef}
-          className="flex-1 overflow-auto rounded-md border"
-          style={{ contain: 'strict' }}
-        >
-          <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              position: 'relative',
-              width: '100%',
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const video = results[virtualRow.index];
-              return (
-                <div
-                  key={virtualRow.key}
-                  data-index={virtualRow.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  <div className="px-2 py-1">
-                    <VideoItem
-                      video={video}
-                      showAuthor
-                      htmlTitle
-                      fromSearch
-                      onAddToFav={handleAddToFav}
-                      selectMode={selectMode}
-                      selected={selectedBvids.has(video.bvid)}
-                      onToggleSelect={toggleSelect}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {isSearching && results.length > 0 && (
+        <div className="flex-1 overflow-auto rounded-md border">
+          {results.map((video) => (
+            <div key={video.bvid} className="px-2 py-1">
+              <VideoItem
+                video={video}
+                showAuthor
+                htmlTitle
+                fromSearch
+                onAddToFav={handleAddToFav}
+                selectMode={selectMode}
+                selected={selectedBvids.has(video.bvid)}
+                onToggleSelect={toggleSelect}
+              />
+            </div>
+          ))}
+          {isSearching && (
             <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              加载更多…
+              加载中…
             </div>
           )}
         </div>
+      )}
+
+      {/* 分页器 */}
+      {hasSearched && totalPages > 1 && (
+        <nav
+          aria-label="搜索结果分页"
+          className="flex items-center justify-center gap-1 pt-1 text-sm"
+        >
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="上一页"
+            disabled={page <= 1 || isSearching}
+            onClick={() => handlePageChange(page - 1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          {pageWindow.map((node, idx) =>
+            node === 'gap' ? (
+              <span key={`gap-${idx}`} className="px-1 text-muted-foreground" aria-hidden="true">
+                …
+              </span>
+            ) : (
+              <Button
+                key={node}
+                variant={node === page ? 'default' : 'outline'}
+                size="icon"
+                aria-label={`第 ${node} 页`}
+                aria-current={node === page ? 'page' : undefined}
+                disabled={isSearching}
+                onClick={() => handlePageChange(node)}
+              >
+                {node}
+              </Button>
+            ),
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="下一页"
+            disabled={page >= totalPages || isSearching}
+            onClick={() => handlePageChange(page + 1)}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </nav>
       )}
     </div>
   );
