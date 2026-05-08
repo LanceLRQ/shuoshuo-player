@@ -13,11 +13,13 @@ import {
 } from 'lucide-react';
 import {
   useBilibiliUserVideosStore,
+  useBilibiliVideosStore,
   useFavListStore,
   usePlayingListStore,
   useUIStore,
   formatNumber10K,
   urlPrefixFixed,
+  bilibiliThumbUrl,
   timeStampNow,
   FavListType,
   NoticeType,
@@ -41,6 +43,19 @@ interface FavCardProps {
   favId: string;
   fav: FavListItem;
   className?: string;
+}
+
+/**
+ * 把任意字符串映射到稳定的 [0, 360) 色相。
+ * 用于自定义歌单兜底头像（首字 + hash 渐变）：相同 fav.id 永远得到相同的颜色，
+ * UI 不会在 hydrate / 持久化往返之间漂移。
+ */
+function stringToHue(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) % 360;
+  }
+  return h;
 }
 
 /**
@@ -156,6 +171,14 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
     });
   }, [openConfirm, isCustom, removeFavList, favId, sendNotice, navigate]);
 
+  // 自定义歌单首张视频的封面（B 站 thumb URL，已限定 200×200）
+  const customCoverPic = useBilibiliVideosStore((s) => {
+    if (!isCustom) return null;
+    const firstBv = effectiveBvIds[0];
+    if (!firstBv) return null;
+    return s.entities[firstBv]?.pic ?? null;
+  });
+
   const avatar = useMemo(() => {
     if (space?.face) {
       return (
@@ -173,6 +196,31 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
         </Avatar>
       );
     }
+    // 自定义歌单：优先取首张视频封面；为空 / 加载失败时退化为"首字 + hash 渐变"
+    if (isCustom) {
+      // [...str][0] 安全处理 emoji / 中文字符（避免 surrogate pair 截半）
+      const initial = fav.name ? [...fav.name][0] : '?';
+      if (customCoverPic) {
+        return (
+          <Avatar className="h-20 w-20 rounded-md border-2 border-background shadow">
+            <AvatarImage src={bilibiliThumbUrl(customCoverPic, 200, 200)} alt={fav.name} />
+            <AvatarFallback className="rounded-md">{initial}</AvatarFallback>
+          </Avatar>
+        );
+      }
+      const hue = stringToHue(fav.id || fav.name || 'fav');
+      return (
+        <div
+          className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-background text-3xl font-semibold text-white shadow"
+          style={{
+            backgroundImage: `linear-gradient(135deg, hsl(${hue} 70% 60%), hsl(${(hue + 60) % 360} 70% 48%))`,
+          }}
+          aria-label={fav.name}
+        >
+          {initial}
+        </div>
+      );
+    }
     return (
       <Avatar className="h-20 w-20 border-2 border-background shadow">
         <AvatarFallback>
@@ -180,7 +228,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
         </AvatarFallback>
       </Avatar>
     );
-  }, [space, folderInfo, fav.name]);
+  }, [space, folderInfo, fav.name, fav.id, isCustom, customCoverPic]);
 
   const bgStyle = space?.top_photo
     ? {
