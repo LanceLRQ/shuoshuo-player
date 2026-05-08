@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -19,6 +19,12 @@ import {
   PERSIST_DATA_KEY,
   getPlatformBridge,
   objectToDownload,
+  parseImportData,
+  buildMerged,
+  CURRENT_EXPORT_VERSION,
+  type ImportSummary,
+  type ImportPayload,
+  type MergeMode,
 } from '@shuoshuo-player/shared';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -34,6 +40,7 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useUIShell } from '@/stores/ui-shell';
+import { ImportDataDialog } from '@/components/dialogs/import-data-dialog';
 import logoUrl from '@/assets/logo.png';
 
 interface TopBarProps {
@@ -73,7 +80,8 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
     try {
       const raw = await getPlatformBridge().storage.getItem(PERSIST_DATA_KEY);
       const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-      const filtered: Record<string, unknown> = {};
+      // 顶层注入 version 字段，供导入侧识别 v1（无 version）/ v2（'2'）
+      const filtered: Record<string, unknown> = { version: CURRENT_EXPORT_VERSION };
       for (const key of EXPORT_KEYS) {
         if (key in all) filtered[key] = all[key];
       }
@@ -91,6 +99,10 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
     }
   }, [sendNotice]);
 
+  // 导入流程：选文件 → parseImportData 出摘要 → 弹 ImportDataDialog 让用户选模式/勾选 → buildMerged 写回
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const [importPayload, setImportPayload] = useState<ImportPayload | null>(null);
+
   const handleImport = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -99,16 +111,23 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = async (loadEvent) => {
-        if (!window.confirm('确定要导入数据吗？导入后当前数据将被覆盖')) return;
+      reader.onload = (loadEvent) => {
         try {
-          const data = JSON.parse(loadEvent.target?.result as string);
-          const { storage } = getPlatformBridge();
-          const raw = await storage.getItem(PERSIST_DATA_KEY);
-          const merged = { ...(raw ? JSON.parse(raw) : {}), ...data };
-          await storage.setItem(PERSIST_DATA_KEY, JSON.stringify(merged));
-          sendNotice({ type: NoticeType.SUCCESS, message: '导入成功，即将刷新', duration: 1500 });
-          setTimeout(() => window.location.reload(), 1500);
+          const parsed = parseImportData(JSON.parse(loadEvent.target?.result as string));
+          if (!parsed) {
+            sendNotice({
+              type: NoticeType.ERROR,
+              message: '文件不是有效的导出数据',
+              duration: 3000,
+            });
+            return;
+          }
+          setImportSummary({
+            version: parsed.version,
+            favList: parsed.favList,
+            lyricCount: parsed.lyricCount,
+          });
+          setImportPayload(parsed.payload);
         } catch {
           sendNotice({
             type: NoticeType.ERROR,
@@ -121,6 +140,47 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
     };
     input.click();
   }, [sendNotice]);
+
+  const handleCancelImport = useCallback(() => {
+    setImportSummary(null);
+    setImportPayload(null);
+  }, []);
+
+  const handleConfirmImport = useCallback(
+    async (mode: MergeMode, selectedFavIds: Set<string>) => {
+      if (!importPayload) return;
+      try {
+        const { storage } = getPlatformBridge();
+        const raw = await storage.getItem(PERSIST_DATA_KEY);
+        const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+        const merged = buildMerged(
+          {
+            fav_list: all.fav_list as never,
+            lyrics: all.lyrics as never,
+          },
+          importPayload,
+          mode,
+          selectedFavIds,
+        );
+        // 仅写回 fav_list / lyrics；其他持久化项（cloud_service / music_url_cache /
+        // playing_list / ui_profile / bili_*）保持原样
+        const next = { ...all, fav_list: merged.fav_list, lyrics: merged.lyrics };
+        await storage.setItem(PERSIST_DATA_KEY, JSON.stringify(next));
+        setImportSummary(null);
+        setImportPayload(null);
+        sendNotice({ type: NoticeType.SUCCESS, message: '导入成功，即将刷新', duration: 1500 });
+        setTimeout(() => window.location.reload(), 1500);
+      } catch (e) {
+        console.debug(e);
+        sendNotice({
+          type: NoticeType.ERROR,
+          message: '导入失败，请重试',
+          duration: 3000,
+        });
+      }
+    },
+    [importPayload, sendNotice],
+  );
 
   return (
     <header className="z-50 flex h-14 items-center border-b bg-background">
@@ -240,6 +300,13 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
           </DropdownMenu>
         </div>
       </div>
+
+      <ImportDataDialog
+        open={importSummary !== null}
+        summary={importSummary}
+        onCancel={handleCancelImport}
+        onConfirm={handleConfirmImport}
+      />
     </header>
   );
 }

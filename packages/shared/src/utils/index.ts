@@ -2,6 +2,7 @@ export * from './bilibili';
 export * from './format';
 export * from './lyric';
 export * from './file-io';
+export * from './import-export';
 export * from './permission';
 export * from './music-url';
 export * from './platform';

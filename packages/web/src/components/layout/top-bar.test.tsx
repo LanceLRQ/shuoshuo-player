@@ -217,6 +217,8 @@ describe('TopBar', () => {
 
     await waitFor(() => expect(saveText).toHaveBeenCalledTimes(1));
     expect(saveText.mock.calls[0]?.[0]?.defaultFilename).toMatch(/^导出数据_.*\.json$/);
+    // 导出 JSON 顶层注入 version: "2" 标识
+    expect(saveText.mock.calls[0]?.[0]?.text).toMatch(/"version":\s*"2"/);
     await waitFor(() =>
       expect(useUIStore.getState().notices.some((n) => n.message === '导出成功')).toBe(true),
     );
