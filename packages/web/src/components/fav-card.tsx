@@ -171,9 +171,9 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
     });
   }, [openConfirm, isCustom, removeFavList, favId, sendNotice, navigate]);
 
-  // 自定义歌单首张视频的封面（B 站 thumb URL，已限定 200×200）
-  const customCoverPic = useBilibiliVideosStore((s) => {
-    if (!isCustom) return null;
+  // 首张视频封面（用于 CUSTOM / BILI_FAV 的兜底头像；UPLOADER 走 space.face，无需）
+  const firstVideoCover = useBilibiliVideosStore((s) => {
+    if (isUploader) return null;
     const firstBv = effectiveBvIds[0];
     if (!firstBv) return null;
     return s.entities[firstBv]?.pic ?? null;
@@ -196,14 +196,15 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
         </Avatar>
       );
     }
-    // 自定义歌单：优先取首张视频封面；为空 / 加载失败时退化为"首字 + hash 渐变"
-    if (isCustom) {
+    // CUSTOM / BILI_FAV：优先取首张视频封面（v1 导入或刷新前 BILI_FAV 也无 folderInfo.cover）
+    // 都为空时退化为"首字 + hash 渐变"，确保不同歌单视觉可区分
+    if (isCustom || isBiliFav) {
       // [...str][0] 安全处理 emoji / 中文字符（避免 surrogate pair 截半）
       const initial = fav.name ? [...fav.name][0] : '?';
-      if (customCoverPic) {
+      if (firstVideoCover) {
         return (
           <Avatar className="h-20 w-20 rounded-md border-2 border-background shadow">
-            <AvatarImage src={bilibiliThumbUrl(customCoverPic, 200, 200)} alt={fav.name} />
+            <AvatarImage src={bilibiliThumbUrl(firstVideoCover, 200, 200)} alt={fav.name} />
             <AvatarFallback className="rounded-md">{initial}</AvatarFallback>
           </Avatar>
         );
@@ -228,7 +229,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
         </AvatarFallback>
       </Avatar>
     );
-  }, [space, folderInfo, fav.name, fav.id, isCustom, customCoverPic]);
+  }, [space, folderInfo, fav.name, fav.id, isCustom, isBiliFav, firstVideoCover]);
 
   const bgStyle = space?.top_photo
     ? {
