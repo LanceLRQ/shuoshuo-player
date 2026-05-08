@@ -14,6 +14,19 @@ import userEvent from '@testing-library/user-event';
 import { VideoApi, VIDEO_SEARCH_RESULT_HARD_LIMIT } from '@shuoshuo-player/shared';
 import { DiscoveryPage } from './discovery';
 
+// Radix Select 在 jsdom 下依赖这些 API，需 stub 后才能键盘交互
+beforeAll(() => {
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = vi.fn();
+  }
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = vi.fn();
+  }
+});
+
 function makeSearchItem(i: number) {
   return {
     bvid: `BV1${String(i).padStart(9, '0')}`,
@@ -52,16 +65,12 @@ describe('H3: DiscoveryPage 搜索结果上限保护', () => {
     await user.keyboard('{Enter}');
 
     await waitFor(() => {
-      expect(
-        screen.getByText(`找到 ${VIDEO_SEARCH_RESULT_HARD_LIMIT} 条结果`),
-      ).toBeInTheDocument();
+      expect(screen.getByText(`找到 ${VIDEO_SEARCH_RESULT_HARD_LIMIT} 条结果`)).toBeInTheDocument();
     });
 
     expect(VIDEO_SEARCH_RESULT_HARD_LIMIT).toBe(520);
 
-    expect(
-      screen.getByText(`已达 ${VIDEO_SEARCH_RESULT_HARD_LIMIT} 条上限`),
-    ).toBeInTheDocument();
+    expect(screen.getByText(`已达 ${VIDEO_SEARCH_RESULT_HARD_LIMIT} 条上限`)).toBeInTheDocument();
   });
 
   it('返回数量低于上限时不显示上限提示', async () => {
@@ -119,5 +128,59 @@ describe('H3: DiscoveryPage 搜索结果上限保护', () => {
     await user.keyboard('{Enter}');
 
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('默认排序为 totalrank 并随首次搜索一起发出', async () => {
+    const spy = vi.spyOn(VideoApi, 'searchVideo').mockResolvedValue({
+      result: [],
+      numResults: 0,
+      page: 1,
+      pagesize: 20,
+    });
+
+    const user = userEvent.setup();
+    render(<DiscoveryPage />);
+
+    await user.type(screen.getByPlaceholderText('搜索 B 站视频…'), '洛天依');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(spy.mock.calls[0]?.[0]?.params).toMatchObject({
+      search_type: 'video',
+      keyword: '洛天依',
+      order: 'totalrank',
+      page: 1,
+    });
+  });
+
+  it('切换排序到"最新发布"时立即用 order=pubdate 重新搜索', async () => {
+    const spy = vi.spyOn(VideoApi, 'searchVideo').mockResolvedValue({
+      result: [],
+      numResults: 0,
+      page: 1,
+      pagesize: 20,
+    });
+
+    const user = userEvent.setup();
+    render(<DiscoveryPage />);
+
+    // 先做一次默认搜索建立 hasSearched=true
+    await user.type(screen.getByPlaceholderText('搜索 B 站视频…'), 'foo');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+
+    // 通过键盘交互切换 Radix Select：focus trigger → 打开 → 选中"最新发布"
+    const trigger = screen.getByLabelText('排序方式');
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    const option = await screen.findByRole('option', { name: '最新发布' });
+    await user.click(option);
+
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    expect(spy.mock.calls[1]?.[0]?.params).toMatchObject({
+      keyword: 'foo',
+      order: 'pubdate',
+      page: 1,
+    });
   });
 });

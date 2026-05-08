@@ -9,6 +9,7 @@ import {
   MoreVertical,
   ExternalLink,
   Trash2,
+  User,
 } from 'lucide-react';
 import {
   usePlayingListStore,
@@ -172,7 +173,8 @@ function VideoItemImpl({
         )}
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           {showAuthor && video.author && (
-            <Badge variant="outline" className="font-normal">
+            <Badge variant="outline" className="gap-1 font-normal">
+              <User className="h-3 w-3" />
               {video.author}
             </Badge>
           )}

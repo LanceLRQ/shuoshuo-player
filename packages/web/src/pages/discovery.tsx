@@ -12,9 +12,28 @@ import { useUIShell } from '@/stores/ui-shell';
 import { VideoItem } from '@/components/video-item';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const PAGE_SIZE = 20;
 const ROW_HEIGHT = 108;
+
+// B 站 search/type 接口 order 参数枚举（视频搜索）
+type SearchOrder = 'totalrank' | 'click' | 'pubdate' | 'dm' | 'stow' | 'scores';
+
+const SEARCH_ORDER_OPTIONS: ReadonlyArray<{ value: SearchOrder; label: string }> = [
+  { value: 'totalrank', label: '综合排序' },
+  { value: 'click', label: '最多点击' },
+  { value: 'pubdate', label: '最新发布' },
+  { value: 'dm', label: '最多弹幕' },
+  { value: 'stow', label: '最多收藏' },
+  { value: 'scores', label: '最多评论' },
+];
 
 interface SearchItem {
   bvid: string;
@@ -50,6 +69,7 @@ function searchToVideo(item: SearchItem): BilibiliVideo {
 
 export function DiscoveryPage() {
   const [keyword, setKeyword] = useState('');
+  const [order, setOrder] = useState<SearchOrder>('totalrank');
   const [results, setResults] = useState<BilibiliVideo[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -68,15 +88,23 @@ export function DiscoveryPage() {
   const isLoadingMoreRef = useRef(false);
 
   const doSearch = useCallback(
-    async (resetPage: boolean) => {
+    // orderOverride 用于排序切换的同帧调用，避免 setState 异步导致首次重搜索仍走旧值
+    async (resetPage: boolean, orderOverride?: SearchOrder) => {
       const trimmed = keyword.trim();
       if (!trimmed) return;
 
       const pn = resetPage ? 1 : page + 1;
+      const orderToUse = orderOverride ?? order;
       setIsSearching(true);
       try {
         const data = await VideoApi.searchVideo({
-          params: { search_type: 'video', keyword: trimmed, page: pn, pagesize: PAGE_SIZE },
+          params: {
+            search_type: 'video',
+            keyword: trimmed,
+            order: orderToUse,
+            page: pn,
+            pagesize: PAGE_SIZE,
+          },
         });
         const videos = (data.result ?? []).map((it) => searchToVideo(it as SearchItem));
 
@@ -103,7 +131,19 @@ export function DiscoveryPage() {
         isLoadingMoreRef.current = false;
       }
     },
-    [keyword, page, results, sendNotice],
+    [keyword, page, results, sendNotice, order],
+  );
+
+  const handleOrderChange = useCallback(
+    (value: string) => {
+      const next = value as SearchOrder;
+      setOrder(next);
+      // 仅当已有搜索结果时切换排序立即重新搜索；否则只记录选择，等用户点搜索
+      if (hasSearched && keyword.trim()) {
+        void doSearch(true, next);
+      }
+    },
+    [doSearch, hasSearched, keyword],
   );
 
   const handleClear = () => {
@@ -223,6 +263,18 @@ export function DiscoveryPage() {
             <Search className="h-4 w-4" />
           )}
         </Button>
+        <Select value={order} onValueChange={handleOrderChange} disabled={isSearching}>
+          <SelectTrigger className="w-32" aria-label="排序方式">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SEARCH_ORDER_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button
           variant={selectMode ? 'default' : 'outline'}
           size="icon"
