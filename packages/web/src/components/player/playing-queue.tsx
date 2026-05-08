@@ -76,23 +76,27 @@ export function PlayingQueue({ open, onOpenChange }: PlayingQueueProps) {
           <SheetDescription>当前播放队列</SheetDescription>
         </SheetHeader>
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <div>
-              <h3 className="text-base font-semibold">播放队列</h3>
-              <p className="text-xs text-muted-foreground">共 {bvIds.length} 首</p>
+          {/* pr-12 给 SheetContent 右上角内置关闭按钮（absolute right-4 top-4）预留空间 */}
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-3 pr-12">
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-base font-semibold">播放队列</h3>
+              <p className="truncate text-xs text-muted-foreground">共 {bvIds.length} 首</p>
             </div>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={clearPlaylist}
               disabled={bvIds.length === 0}
-              className="text-destructive hover:text-destructive"
+              className="h-7 shrink-0 gap-1 border-destructive/40 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-offset-0"
             >
-              <Trash2 className="mr-1 h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
               清空
             </Button>
           </div>
-          <ScrollArea className="flex-1">
+          {/* Radix ScrollArea.Viewport 内部用 display:table; min-width:100% 包裹 children
+              会让内容按最长元素撑开宽度（用于支持横向滚动），导致子项 truncate 失效。
+              这里把 viewport 内的 table-div 强制改回 block，让宽度从父级 flex 流下来 */}
+          <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
             <div ref={listRef} className="flex flex-col p-2">
               {list.length === 0 && (
                 <p className="px-3 py-8 text-center text-sm text-muted-foreground">队列为空</p>
