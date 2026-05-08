@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, act } from '@testing-library/react';
+import { fireEvent, render, screen, act, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {
   useBilibiliUserStore,
   useCloudServiceStore,
@@ -6,6 +7,7 @@ import {
   useUIStore,
   setPlatformBridge,
   resetPlatformBridge,
+  type FileSaverAdapter,
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { TopBar } from './top-bar';
@@ -43,6 +45,16 @@ function reset() {
 
 beforeAll(() => {
   vi.stubGlobal('ResizeObserver', MockResizeObserver);
+  // Radix DropdownMenu 在 jsdom 下需要这些指针 API 才能正常打开
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = vi.fn();
+  }
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = vi.fn();
+  }
 });
 afterAll(() => {
   vi.unstubAllGlobals();
@@ -164,5 +176,80 @@ describe('TopBar', () => {
     usePlayerProfileStore.setState({ theme: 'auto' });
     render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
     expect(usePlayerProfileStore.getState().theme).toBe('auto');
+  });
+
+  it('账户下拉菜单不再渲染主题模式区块（亮色/暗色/跟随系统）', async () => {
+    const user = userEvent.setup();
+    render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: '账户菜单' }));
+    // 导入/导出仍在
+    expect(await screen.findByText('导出数据')).toBeInTheDocument();
+    expect(screen.getByText('导入数据')).toBeInTheDocument();
+    // 主题模式三个选项已被移除
+    expect(screen.queryByText('主题模式')).not.toBeInTheDocument();
+    expect(screen.queryByText('亮色')).not.toBeInTheDocument();
+    expect(screen.queryByText('暗色')).not.toBeInTheDocument();
+    expect(screen.queryByText('跟随系统')).not.toBeInTheDocument();
+  });
+
+  it('点击导出数据：调用 fileSaver.saveText（Tauri 路径）并提示导出成功', async () => {
+    const saveText = vi.fn<FileSaverAdapter['saveText']>(async () => 'saved' as const);
+    setPlatformBridge({
+      type: 'tauri',
+      storage: {
+        getItem: vi.fn(async () => '{"player_data_root_keys":["fav_list"],"fav_list":[]}'),
+        setItem: vi.fn(async () => {}),
+        removeItem: vi.fn(async () => {}),
+      },
+      auth: {
+        login: vi.fn(async () => {}),
+        logout: vi.fn(async () => {}),
+        onLoginSuccess: vi.fn(),
+      },
+      shell: { openExternal: vi.fn(async () => {}) },
+      fileSaver: { saveText },
+    });
+
+    const user = userEvent.setup();
+    render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: '账户菜单' }));
+    await user.click(await screen.findByText('导出数据'));
+
+    await waitFor(() => expect(saveText).toHaveBeenCalledTimes(1));
+    expect(saveText.mock.calls[0]?.[0]?.defaultFilename).toMatch(/^导出数据_.*\.json$/);
+    await waitFor(() =>
+      expect(useUIStore.getState().notices.some((n) => n.message === '导出成功')).toBe(true),
+    );
+  });
+
+  it('用户在保存对话框点取消时不发"导出成功"提示', async () => {
+    const saveText = vi.fn<FileSaverAdapter['saveText']>(async () => 'cancelled' as const);
+    setPlatformBridge({
+      type: 'tauri',
+      storage: {
+        getItem: vi.fn(async () => '{}'),
+        setItem: vi.fn(async () => {}),
+        removeItem: vi.fn(async () => {}),
+      },
+      auth: {
+        login: vi.fn(async () => {}),
+        logout: vi.fn(async () => {}),
+        onLoginSuccess: vi.fn(),
+      },
+      shell: { openExternal: vi.fn(async () => {}) },
+      fileSaver: { saveText },
+    });
+
+    const user = userEvent.setup();
+    render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: '账户菜单' }));
+    await user.click(await screen.findByText('导出数据'));
+
+    await waitFor(() => expect(saveText).toHaveBeenCalledTimes(1));
+    // 给 React 一帧让任何潜在的 toast 有机会派发
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(useUIStore.getState().notices.some((n) => n.message === '导出成功')).toBe(false);
   });
 });

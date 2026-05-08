@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select';
 
 const PAGE_SIZE = 20;
-// 由硬上限派生：520 / 20 = 26 页（B 站搜索结果硬上限折算）
+// 由硬上限派生：1000 / 20 = 50 页（对齐 B 站官方搜索结果上限）
 const PAGES_HARD_LIMIT = Math.floor(VIDEO_SEARCH_RESULT_HARD_LIMIT / PAGE_SIZE);
 
 // B 站 search/type 接口 order 参数枚举（视频搜索）
@@ -118,7 +118,7 @@ export function DiscoveryPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedBvids, setSelectedBvids] = useState<Set<string>>(new Set());
 
-  // 总页数：以 numResults / PAGE_SIZE 上取整，再夹到 PAGES_HARD_LIMIT (26)
+  // 总页数：以 numResults / PAGE_SIZE 上取整，再夹到 PAGES_HARD_LIMIT (50)
   const totalPages = useMemo(() => {
     if (totalResults <= 0) return 0;
     return Math.min(Math.ceil(totalResults / PAGE_SIZE), PAGES_HARD_LIMIT);

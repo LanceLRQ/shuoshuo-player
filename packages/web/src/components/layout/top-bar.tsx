@@ -18,6 +18,7 @@ import {
   NoticeType,
   PERSIST_DATA_KEY,
   getPlatformBridge,
+  objectToDownload,
 } from '@shuoshuo-player/shared';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -76,15 +77,13 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
       for (const key of EXPORT_KEYS) {
         if (key in all) filtered[key] = all[key];
       }
-      const text = JSON.stringify(filtered, null, 2);
       const stamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
-      const blob = new Blob([text], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `导出数据_${stamp}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // objectToDownload 自动按平台路由：
+      // - Tauri：弹原生保存对话框（plugin-dialog.save），用户可选路径或取消
+      // - Web/扩展：浏览器原生 a[download]，落到默认下载目录
+      const result = await objectToDownload(filtered, `导出数据_${stamp}.json`);
+      // 用户在保存对话框中点了取消属于合法行为，静默不打扰
+      if (result === 'cancelled') return;
       sendNotice({ type: NoticeType.SUCCESS, message: '导出成功', duration: 2000 });
     } catch (e) {
       console.debug(e);
@@ -237,42 +236,10 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
                 <Download className="mr-2 h-4 w-4" />
                 导出数据
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground">
-                主题模式
-              </DropdownMenuLabel>
-              <ThemeRadio current={theme} onChange={setTheme} />
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
     </header>
-  );
-}
-
-function ThemeRadio({
-  current,
-  onChange,
-}: {
-  current: 'light' | 'dark' | 'auto';
-  onChange: (t: 'light' | 'dark' | 'auto') => void;
-}) {
-  const items: Array<{ value: 'light' | 'dark' | 'auto'; label: string }> = [
-    { value: 'light', label: '亮色' },
-    { value: 'dark', label: '暗色' },
-    { value: 'auto', label: '跟随系统' },
-  ];
-  return (
-    <>
-      {items.map((item) => (
-        <DropdownMenuItem
-          key={item.value}
-          onSelect={() => onChange(item.value)}
-          className={current === item.value ? 'bg-accent' : ''}
-        >
-          <span className="ml-6">{item.label}</span>
-        </DropdownMenuItem>
-      ))}
-    </>
   );
 }
