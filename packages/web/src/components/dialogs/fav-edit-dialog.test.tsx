@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
-import { useFavListStore, useUIStore, FavListType } from '@shuoshuo-player/shared';
+import { useFavListStore, useUIStore, FavListType, UserApi } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { FavEditDialog } from './fav-edit-dialog';
 
@@ -32,6 +32,10 @@ describe('FavEditDialog', () => {
     reset();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('未打开时不渲染', () => {
     render(<FavEditDialog />);
     expect(screen.queryByText('创建歌单')).not.toBeInTheDocument();
@@ -57,13 +61,13 @@ describe('FavEditDialog', () => {
     });
   });
 
-  it('选 bili_fav 类型 → 显示收藏夹 ID 输入', async () => {
+  it('选 bili_fav 类型 → 显示收藏夹列表区域', async () => {
     render(<FavEditDialog />);
     act(() => useUIShell.getState().openFavEdit());
 
     fireEvent.click(screen.getByLabelText('B 站收藏夹'));
     await waitFor(() => {
-      expect(screen.getByLabelText('收藏夹 ID')).toBeInTheDocument();
+      expect(screen.getByText('选择 B 站收藏夹')).toBeInTheDocument();
     });
   });
 
@@ -108,8 +112,7 @@ describe('FavEditDialog', () => {
     act(() => useUIShell.getState().openFavEdit());
     fireEvent.click(screen.getByLabelText('UP 主投稿'));
 
-    fireEvent.change(screen.getByLabelText('歌单名称'), { target: { value: 'X' } });
-    // midInput 留空
+    // UPLOADER 模式不显示名称字段，midInput 留空直接提交
     fireEvent.click(screen.getByRole('button', { name: '创建' }));
 
     await waitFor(() => {
@@ -118,27 +121,34 @@ describe('FavEditDialog', () => {
     expect(addFavList).not.toHaveBeenCalled();
   });
 
-  it('UPLOADER 类型 UID 合法（数字）→ addFavList 收到正确 mid', async () => {
+  it('UPLOADER 类型 UID 合法 → 用 UP 主昵称作为歌单名', async () => {
     const addFavList = vi.fn(() => ({ id: 'u1' }) as never);
     useFavListStore.setState({ addFavList });
+    vi.spyOn(UserApi, 'getUserSpaceInfo').mockResolvedValue({
+      name: 'Alice',
+      mid: 123456,
+    } as never);
 
     render(<FavEditDialog />);
     act(() => useUIShell.getState().openFavEdit());
     fireEvent.click(screen.getByLabelText('UP 主投稿'));
 
-    fireEvent.change(screen.getByLabelText('歌单名称'), { target: { value: 'UP1' } });
     await waitFor(() => screen.getByLabelText(/UP 主 UID/));
     fireEvent.change(screen.getByLabelText(/UP 主 UID/), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: '创建' }));
 
     await waitFor(() => {
       expect(addFavList).toHaveBeenCalledWith(
-        expect.objectContaining({ type: FavListType.UPLOADER, mid: '123456' }),
+        expect.objectContaining({
+          type: FavListType.UPLOADER,
+          mid: '123456',
+          name: 'Alice',
+        }),
       );
     });
   });
 
-  it('BILI_FAV 类型必须填数字 folder ID', async () => {
+  it('BILI_FAV 类型未选择收藏夹时不调用 addFavList', async () => {
     const addFavList = vi.fn();
     useFavListStore.setState({ addFavList });
 
@@ -146,12 +156,11 @@ describe('FavEditDialog', () => {
     act(() => useUIShell.getState().openFavEdit());
     fireEvent.click(screen.getByLabelText('B 站收藏夹'));
 
-    fireEvent.change(screen.getByLabelText('歌单名称'), { target: { value: 'BFav' } });
-    fireEvent.change(screen.getByLabelText('收藏夹 ID'), { target: { value: 'abc' } });
+    // BILI_FAV 模式不显示名称输入；列表为空时直接提交，应触发"未选择收藏夹"校验
     fireEvent.click(screen.getByRole('button', { name: '创建' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/请输入收藏夹 ID/)).toBeInTheDocument();
+      expect(screen.getByText(/请从下方列表选择一个收藏夹/)).toBeInTheDocument();
     });
     expect(addFavList).not.toHaveBeenCalled();
   });
@@ -215,7 +224,7 @@ describe('FavEditDialog', () => {
     });
   });
 
-  it('prefill 模式：openFavEdit(null, prefill) 预填字段', () => {
+  it('prefill 模式：UPLOADER 预填 UID 且不显示名称字段', () => {
     render(<FavEditDialog />);
     act(() =>
       useUIShell.getState().openFavEdit(null, {
@@ -225,7 +234,10 @@ describe('FavEditDialog', () => {
       }),
     );
 
-    const nameInput = screen.getByLabelText('歌单名称') as HTMLInputElement;
-    expect(nameInput.value).toBe('预填名');
+    // UPLOADER 模式不展示名称输入框（自动用 UP 主昵称）
+    expect(screen.queryByLabelText('歌单名称')).not.toBeInTheDocument();
+    // UID 输入框应被预填
+    const midInput = screen.getByLabelText(/UP 主 UID/) as HTMLInputElement;
+    expect(midInput.value).toBe('283886865');
   });
 });
