@@ -27,6 +27,7 @@ function makeSummary(version: '1' | '2' = '2'): ImportSummary {
   return {
     version,
     lyricCount: 12,
+    videoCount: 42,
     favList: [
       {
         id: 'fav-1',
@@ -72,7 +73,7 @@ describe('ImportDataDialog', () => {
     expect(screen.getByText('v2')).toBeInTheDocument();
     // 自定义类型显示视频条数；非自定义显示提示
     expect(screen.getByText('3 首')).toBeInTheDocument();
-    expect(screen.getAllByText('-- 首（导入后请刷新）')).toHaveLength(2);
+    expect(screen.getAllByText('请手动更新内容')).toHaveLength(2);
     // 摘要区紧凑标签 + 数字（label 与 value 是相邻 span）
     expect(screen.getByText('歌词').nextSibling?.textContent).toBe('12');
     expect(screen.getByText('歌单').nextSibling?.textContent).toBe('3');

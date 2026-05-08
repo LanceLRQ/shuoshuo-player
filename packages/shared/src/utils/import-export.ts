@@ -12,8 +12,12 @@
  * - selectedFavIds 仅作用于 fav_list；lyrics 始终全量按 mode 合并（无 UI 勾选）
  */
 import { EXPORT_KEYS } from '../constants';
-import { FavListType, type FavListItem, type LyricEntry } from '../types';
-import type { PersistedFavListShape, PersistedLyricsShape } from '../store/persisted-types';
+import { FavListType, type BilibiliVideo, type FavListItem, type LyricEntry } from '../types';
+import type {
+  PersistedBilibiliVideosShape,
+  PersistedFavListShape,
+  PersistedLyricsShape,
+} from '../store/persisted-types';
 
 export const CURRENT_EXPORT_VERSION = '2';
 
@@ -24,6 +28,8 @@ export type MergeMode = 'skip' | 'replace';
 export interface ImportPayload {
   fav_list: PersistedFavListShape;
   lyrics: PersistedLyricsShape;
+  /** 视频元数据缓存：自定义歌单(type=0)的曲目展示依赖该字段从 bvid 反查标题/封面 */
+  bili_videos: PersistedBilibiliVideosShape;
 }
 
 export interface ImportSummary {
@@ -32,6 +38,8 @@ export interface ImportSummary {
   favList: FavListItem[];
   /** lyrics.lyricMaps 的 key 数（歌词条目总数） */
   lyricCount: number;
+  /** bili_videos.entities 的 key 数（视频元数据条数） */
+  videoCount: number;
 }
 
 export interface ParsedImport extends ImportSummary {
@@ -121,19 +129,33 @@ export function parseImportData(input: unknown): ParsedImport | null {
   }
   const lyricCount = Object.keys(lyricMaps).length;
 
+  // 提取 bili_videos.entities / ids（自定义歌单的曲目元数据来源）
+  const videosRaw = isPlainObject(input.bili_videos) ? input.bili_videos : {};
+  const entitiesRaw = isPlainObject(videosRaw.entities) ? videosRaw.entities : {};
+  const entities: Record<string, BilibiliVideo> = {};
+  for (const [bvid, v] of Object.entries(entitiesRaw)) {
+    if (isPlainObject(v)) entities[bvid] = v as unknown as BilibiliVideo;
+  }
+  const ids = Array.isArray(videosRaw.ids)
+    ? (videosRaw.ids as unknown[]).filter((x): x is string => typeof x === 'string')
+    : Object.keys(entities);
+  const videoCount = Object.keys(entities).length;
+
   return {
     version,
     favList,
     lyricCount,
+    videoCount,
     payload: {
       fav_list: { list: favList },
       lyrics: { lyricMaps },
+      bili_videos: { entities, ids },
     },
   };
 }
 
 /**
- * 按合并模式构造写回 storage 的 fav_list / lyrics
+ * 按合并模式构造写回 storage 的 fav_list / lyrics / bili_videos
  *
  * - mode='skip'：勾选项中已存在同 id 的歌单 → 跳过（保护现有）；新 id → 追加
  * - mode='replace'：勾选项中 type=0 的同 id → 用导入版本覆盖；新 id → 追加
@@ -145,18 +167,31 @@ export function parseImportData(input: unknown): ParsedImport | null {
  *
  * selectedFavIds：仅作用于 fav_list；undefined 时视为全选。
  * lyrics：始终全量按 mode 合并（无 UI 勾选；replace 用导入覆盖同 bvid，skip 仅追加新 bvid）。
+ * bili_videos：永远走"取并集，已有不动"语义（视频元数据缓存，不区分模式）；
+ *   自定义歌单(type=0)依赖该字段从 bvid 反查标题/封面，不导入会导致 UI 显示空列表。
  *
- * 注意：本函数仅返回 fav_list / lyrics 两个 key 的新值；调用方负责将其他 EXPORT_KEYS
- * 与 cloud_service / music_url_cache / playing_list / ui_profile 等"不导入项"原样保留。
+ * 注意：本函数仅返回 fav_list / lyrics / bili_videos 三个 key 的新值；调用方负责将其他
+ * EXPORT_KEYS（playing_list / ui_profile / bili_user_videos）与 cloud_service / music_url_cache
+ * 等"不导入项"原样保留。
  */
 export function buildMerged(
-  current: { fav_list?: PersistedFavListShape; lyrics?: PersistedLyricsShape },
+  current: {
+    fav_list?: PersistedFavListShape;
+    lyrics?: PersistedLyricsShape;
+    bili_videos?: PersistedBilibiliVideosShape;
+  },
   imported: ImportPayload,
   mode: MergeMode,
   selectedFavIds?: ReadonlySet<string>,
-): { fav_list: PersistedFavListShape; lyrics: PersistedLyricsShape } {
+): {
+  fav_list: PersistedFavListShape;
+  lyrics: PersistedLyricsShape;
+  bili_videos: PersistedBilibiliVideosShape;
+} {
   const currentFavList = current.fav_list?.list ?? [];
   const currentLyricMaps = current.lyrics?.lyricMaps ?? {};
+  const currentVideoEntities = current.bili_videos?.entities ?? {};
+  const currentVideoIds = current.bili_videos?.ids ?? [];
 
   const importedFavList = (imported.fav_list.list ?? []).filter(
     (it) => !selectedFavIds || selectedFavIds.has(it.id),
@@ -191,8 +226,27 @@ export function buildMerged(
     }
   }
 
+  // bili_videos 合并：永远走 union（已有不动），不区分 mode
+  // - 该字段是 B 站视频元数据缓存（title/pic/duration 等），current 中已有的版本可能比导入文件新
+  // - 自定义歌单(type=0)需要这部分数据才能在 UI 上渲染歌曲条目
+  const importedEntities = imported.bili_videos.entities ?? {};
+  const importedIds = imported.bili_videos.ids ?? [];
+  const mergedEntities: Record<string, BilibiliVideo> = { ...currentVideoEntities };
+  for (const [bvid, v] of Object.entries(importedEntities)) {
+    if (!(bvid in mergedEntities)) mergedEntities[bvid] = v;
+  }
+  const idSet = new Set(currentVideoIds);
+  const mergedIds = [...currentVideoIds];
+  for (const id of importedIds) {
+    if (!idSet.has(id)) {
+      idSet.add(id);
+      mergedIds.push(id);
+    }
+  }
+
   return {
     fav_list: { list: mergedFavList },
     lyrics: { lyricMaps: mergedLyricMaps },
+    bili_videos: { entities: mergedEntities, ids: mergedIds },
   };
 }

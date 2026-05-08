@@ -130,6 +130,32 @@ describe('parseImportData', () => {
     expect(out!.lyricCount).toBe(2);
   });
 
+  it('提取 bili_videos.entities 与 ids，并计入 videoCount', () => {
+    const out = parseImportData({
+      version: '2',
+      fav_list: { list: [] },
+      bili_videos: {
+        entities: {
+          BVa: { bvid: 'BVa', title: 'a' },
+          BVb: { bvid: 'BVb', title: 'b' },
+        },
+        ids: ['BVa', 'BVb'],
+      },
+    });
+    expect(out!.videoCount).toBe(2);
+    expect(Object.keys(out!.payload.bili_videos.entities ?? {}).sort()).toEqual(['BVa', 'BVb']);
+    expect(out!.payload.bili_videos.ids).toEqual(['BVa', 'BVb']);
+  });
+
+  it('bili_videos.ids 缺失时 fallback 为 entities 的 keys', () => {
+    const out = parseImportData({
+      version: '2',
+      fav_list: { list: [] },
+      bili_videos: { entities: { BVx: { bvid: 'BVx' } } },
+    });
+    expect(out!.payload.bili_videos.ids).toEqual(['BVx']);
+  });
+
   it('丢弃脏数据：id 为空 / type 非 0/1/2 的歌单项被过滤', () => {
     const out = parseImportData({
       version: '2',
@@ -149,6 +175,7 @@ describe('buildMerged', () => {
   const importedPayload = {
     fav_list: { list: [v2Item('A', 'imported-A'), v2Item('B', 'imported-B')] },
     lyrics: { lyricMaps: { BV1: { bvid: 'BV1' }, BV2: { bvid: 'BV2' } } as never },
+    bili_videos: { entities: {}, ids: [] },
   };
 
   it('skip：仅添加 current 不存在的项；A 保持现有内容', () => {
@@ -191,6 +218,7 @@ describe('buildMerged', () => {
         ],
       },
       lyrics: { lyricMaps: {} },
+      bili_videos: { entities: {}, ids: [] },
     };
     const out = buildMerged(
       {
@@ -231,6 +259,7 @@ describe('buildMerged', () => {
         ],
       },
       lyrics: { lyricMaps: {} },
+      bili_videos: { entities: {}, ids: [] },
     };
     const out = buildMerged(
       {
@@ -325,5 +354,38 @@ describe('buildMerged', () => {
     const out = buildMerged({}, importedPayload, 'skip');
     expect(out.fav_list.list?.map((it) => it.id)).toEqual(['A', 'B']);
     expect(Object.keys(out.lyrics.lyricMaps ?? {}).sort()).toEqual(['BV1', 'BV2']);
+  });
+
+  it('bili_videos 总是 union 合并：current 已有的 bvid 不被覆盖（两种模式都成立）', () => {
+    const payload = {
+      fav_list: { list: [] },
+      lyrics: { lyricMaps: {} },
+      bili_videos: {
+        entities: {
+          BV1: { bvid: 'BV1', title: 'imported-1' },
+          BV2: { bvid: 'BV2' },
+        } as never,
+        ids: ['BV1', 'BV2'],
+      },
+    };
+    const currentVideos = {
+      bili_videos: {
+        entities: { BV1: { bvid: 'BV1', title: 'current-1' } } as never,
+        ids: ['BV1'],
+      },
+    };
+
+    const skipOut = buildMerged(currentVideos, payload, 'skip');
+    expect(
+      (skipOut.bili_videos.entities as never as Record<string, { title?: string }>).BV1.title,
+    ).toBe('current-1');
+    expect(skipOut.bili_videos.entities?.BV2).toBeDefined();
+    expect(skipOut.bili_videos.ids).toEqual(['BV1', 'BV2']);
+
+    // replace 模式不应覆盖 bili_videos（永远不区分模式）
+    const replaceOut = buildMerged(currentVideos, payload, 'replace');
+    expect(
+      (replaceOut.bili_videos.entities as never as Record<string, { title?: string }>).BV1.title,
+    ).toBe('current-1');
   });
 });

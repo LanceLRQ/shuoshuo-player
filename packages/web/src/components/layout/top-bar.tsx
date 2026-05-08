@@ -126,6 +126,7 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
             version: parsed.version,
             favList: parsed.favList,
             lyricCount: parsed.lyricCount,
+            videoCount: parsed.videoCount,
           });
           setImportPayload(parsed.payload);
         } catch {
@@ -157,14 +158,20 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
           {
             fav_list: all.fav_list as never,
             lyrics: all.lyrics as never,
+            bili_videos: all.bili_videos as never,
           },
           importPayload,
           mode,
           selectedFavIds,
         );
-        // 仅写回 fav_list / lyrics；其他持久化项（cloud_service / music_url_cache /
-        // playing_list / ui_profile / bili_*）保持原样
-        const next = { ...all, fav_list: merged.fav_list, lyrics: merged.lyrics };
+        // 仅写回 fav_list / lyrics / bili_videos；其他持久化项（cloud_service /
+        // music_url_cache / playing_list / ui_profile / bili_user_videos）保持原样
+        const next = {
+          ...all,
+          fav_list: merged.fav_list,
+          lyrics: merged.lyrics,
+          bili_videos: merged.bili_videos,
+        };
         await storage.setItem(PERSIST_DATA_KEY, JSON.stringify(next));
         setImportSummary(null);
         setImportPayload(null);

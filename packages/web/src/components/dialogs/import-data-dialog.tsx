@@ -105,7 +105,7 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
         <DialogHeader className="space-y-1">
           <DialogTitle>导入数据预览</DialogTitle>
           <DialogDescription className="text-xs">
-            playing_list / ui_profile / 视频缓存不会被导入。
+            仅导入歌单、歌词与视频元数据；当前的播放队列、播放器设置等不会被改动。
           </DialogDescription>
         </DialogHeader>
 
@@ -127,6 +127,10 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
           <span className="flex items-center gap-1.5">
             <span className="text-muted-foreground">歌词</span>
             <span className="font-medium">{summary.lyricCount}</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">视频</span>
+            <span className="font-medium">{summary.videoCount}</span>
           </span>
           <span className="ml-auto text-muted-foreground">v{__APP_VERSION__}</span>
         </div>
@@ -191,7 +195,7 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
                       </Badge>
                       <span className="min-w-0 flex-1 truncate">{fav.name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {isCustom ? `${fav.bv_ids.length} 首` : '-- 首（导入后请刷新）'}
+                        {isCustom ? `${fav.bv_ids.length} 首` : '请手动更新内容'}
                       </span>
                     </li>
                   );
@@ -202,7 +206,7 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
         </div>
 
         <p className="text-[11px] leading-tight text-muted-foreground">
-          B 站收藏夹 / UP 主类歌单的视频列表导入后需在侧边栏进入对应歌单触发"刷新"才能看到内容。
+          导入后，B 站收藏夹 / UP 主类歌单需要进入对应歌单手动更新一次内容。
         </p>
 
         <DialogFooter>
