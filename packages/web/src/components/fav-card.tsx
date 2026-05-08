@@ -52,9 +52,13 @@ interface FavCardProps {
 function FavCardImpl({ favId, fav, className }: FavCardProps) {
   const navigate = useNavigate();
   const space = useBilibiliUserVideosStore((s) => (fav.mid ? s.space[String(fav.mid)] : undefined));
+  const userVideoEntry = useBilibiliUserVideosStore((s) =>
+    fav.mid ? s.infos[String(fav.mid)] : undefined,
+  );
   const favFolder = useBilibiliUserVideosStore((s) =>
     fav.biliFavFolderId ? s.favFolders[String(fav.biliFavFolderId)] : undefined,
   );
+  // 仅 dropdown 按钮 disabled UI 用；防重入由 store action 入口保证，无需在组件层做闭包检查
   const isLoading = useBilibiliUserVideosStore((s) => s.isLoading);
   const readUserVideos = useBilibiliUserVideosStore((s) => s.readUserVideos);
   const readUserSpaceInfo = useBilibiliUserVideosStore((s) => s.readUserSpaceInfo);
@@ -74,9 +78,29 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
 
   const folderInfo = (favFolder?.info ?? {}) as { cover?: string };
 
+  /**
+   * 按歌单类型解算真实可播放 bvId 列表（与 v1 PlayingListSlice.addFromFavList 行为对齐）：
+   * - UPLOADER: useBilibiliUserVideosStore.infos[mid].video_list
+   * - BILI_FAV: useBilibiliUserVideosStore.favFolders[folderId].video_list
+   * - CUSTOM:   fav.bv_ids
+   *
+   * fav.bv_ids 字段语义上仅 CUSTOM 使用（见 types/playlist.ts），UPLOADER /
+   * BILI_FAV 一直是空数组——这是导致"主歌单顶部播放按钮永远 disabled"的根因
+   */
+  const effectiveBvIds = useMemo<string[]>(() => {
+    if (isUploader) {
+      return userVideoEntry?.video_list.map((it) => it.bvid) ?? [];
+    }
+    if (isBiliFav) {
+      return favFolder?.video_list.map((it) => it.bvid) ?? [];
+    }
+    return fav.bv_ids;
+  }, [isUploader, isBiliFav, userVideoEntry, favFolder, fav.bv_ids]);
+
+  // 防重入由 store action 入口保证（见 bilibili-user-videos.ts），useCallback 不再依赖 isLoading
+  // 让引用稳定，下方 useEffect 才能放心把 updateList 列入 deps
   const updateList = useCallback(
     (mode: 'default' | 'fully' = 'default') => {
-      if (isLoading) return;
       if (isUploader && fav.mid) {
         readUserVideos(fav.mid, mode);
         readUserSpaceInfo(fav.mid);
@@ -85,7 +109,6 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       }
     },
     [
-      isLoading,
       isUploader,
       isBiliFav,
       fav.mid,
@@ -96,23 +119,26 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
     ],
   );
 
-  // 24h 自动更新检测：仅 UPLOADER / BILI_FAV
+  // 24h 自动更新检测：仅 UPLOADER / BILI_FAV，且 store 已有 video 数据时（避免新建即拉取）
+  // lastUpdate 取 store 实时值而非 props.fav.update_time —— 后者对 MAIN_FAV_ITEM 写死 0 会永久过期
+  const hasVideos = effectiveBvIds.length > 0;
+  const lastUpdate = isUploader
+    ? (userVideoEntry?.update_time ?? 0)
+    : (favFolder?.update_time ?? 0);
   useEffect(() => {
     if (!isUploader && !isBiliFav) return;
-    if (fav.bv_ids.length === 0) return;
-    const lastUpdate = fav.update_time ?? 0;
-    if (lastUpdate + VIDEO_LIST_REFRESH_THRESHOLD < timeStampNow()) {
-      updateList('default');
-    }
-  }, [isUploader, isBiliFav, fav.bv_ids.length, fav.update_time, updateList]);
+    if (!hasVideos) return;
+    if (lastUpdate + VIDEO_LIST_REFRESH_THRESHOLD >= timeStampNow()) return;
+    updateList('default');
+  }, [isUploader, isBiliFav, hasVideos, lastUpdate, updateList]);
 
   const handlePlay = useCallback(() => {
-    if (fav.bv_ids.length === 0) {
+    if (effectiveBvIds.length === 0) {
       sendNotice({ type: NoticeType.WARN, message: '歌单为空', duration: 2000 });
       return;
     }
-    setPlaylist(favId, fav.bv_ids, fav.bv_ids[0], true);
-  }, [fav.bv_ids, favId, setPlaylist, sendNotice]);
+    setPlaylist(favId, effectiveBvIds, effectiveBvIds[0], true);
+  }, [effectiveBvIds, favId, setPlaylist, sendNotice]);
 
   const handleDelete = useCallback(() => {
     openConfirm({
@@ -177,7 +203,9 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
           {avatar}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className={cn('truncate text-xl font-semibold', space?.top_photo && 'text-white')}>
+              <h3
+                className={cn('truncate text-xl font-semibold', space?.top_photo && 'text-white')}
+              >
                 {space?.name ?? fav.name}
               </h3>
               <Badge variant="secondary">{getTypeLabel(fav.type)}</Badge>
@@ -207,7 +235,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            <Button onClick={handlePlay} disabled={fav.bv_ids.length === 0}>
+            <Button variant="outline" onClick={handlePlay} disabled={effectiveBvIds.length === 0}>
               <PlayCircle className="mr-2 h-4 w-4" />
               播放
             </Button>
@@ -226,17 +254,11 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
                 )}
                 {(isUploader || isBiliFav) && (
                   <>
-                    <DropdownMenuItem
-                      onSelect={() => updateList('default')}
-                      disabled={isLoading}
-                    >
+                    <DropdownMenuItem onSelect={() => updateList('default')} disabled={isLoading}>
                       <RefreshCw className="mr-2 h-4 w-4" />
                       更新前 30
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => updateList('fully')}
-                      disabled={isLoading}
-                    >
+                    <DropdownMenuItem onSelect={() => updateList('fully')} disabled={isLoading}>
                       <Star className="mr-2 h-4 w-4" />
                       更新整个列表
                     </DropdownMenuItem>
