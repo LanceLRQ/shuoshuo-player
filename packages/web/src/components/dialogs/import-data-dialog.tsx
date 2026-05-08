@@ -25,16 +25,15 @@ interface ImportDataDialogProps {
 }
 
 const MODE_OPTIONS: ReadonlyArray<{ value: MergeMode; label: string; hint: string }> = [
-  { value: 'append', label: '仅追加新增项', hint: '保留当前数据，仅添加导入文件中新出现的歌单' },
   {
-    value: 'replaceAndAppend',
-    label: '替换已有 + 追加新增',
-    hint: '同 ID 歌单用导入版本覆盖，未出现在导入中的当前歌单保留',
+    value: 'skip',
+    label: '跳过同名',
+    hint: '已存在同 ID 的歌单不动，仅追加新增',
   },
   {
-    value: 'overwrite',
-    label: '完全覆盖',
-    hint: '清空当前所有"我的歌单"，再写入导入文件中的全部歌单',
+    value: 'replace',
+    label: '覆盖同名',
+    hint: '同 ID 自定义歌单用导入版本替换；B 站收藏夹/UP 主类不动',
   },
 ];
 
@@ -57,29 +56,26 @@ function FavTypeIcon({ type }: { type: FavListType }) {
 }
 
 export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportDataDialogProps) {
-  const [mode, setMode] = useState<MergeMode>('append');
+  const [mode, setMode] = useState<MergeMode>('skip');
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // 弹窗每次打开（summary 变化）重置默认状态：mode=append + 全选
+  // 弹窗每次打开（summary 变化）重置默认状态：mode=skip + 全选
   useEffect(() => {
     if (open && summary) {
-      setMode('append');
+      setMode('skip');
       setSelected(new Set(summary.favList.map((it) => it.id)));
     }
   }, [open, summary]);
 
-  const isOverwrite = mode === 'overwrite';
   const totalFav = summary?.favList.length ?? 0;
-  // overwrite 模式下逻辑上"全部强制选中"
-  const effectiveSelectedCount = isOverwrite ? totalFav : selected.size;
 
   const allSelected = useMemo(() => {
     if (totalFav === 0) return false;
-    return effectiveSelectedCount === totalFav;
-  }, [effectiveSelectedCount, totalFav]);
+    return selected.size === totalFav;
+  }, [selected.size, totalFav]);
 
   const handleToggleAll = () => {
-    if (isOverwrite || !summary) return;
+    if (!summary) return;
     if (allSelected) {
       setSelected(new Set());
     } else {
@@ -88,7 +84,6 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
   };
 
   const handleToggle = (id: string) => {
-    if (isOverwrite) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -99,57 +94,55 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
 
   const handleConfirm = () => {
     if (!summary) return;
-    // overwrite 模式传全部 id（buildMerged 内部会忽略，但语义清晰）
-    const finalSelected = isOverwrite ? new Set(summary.favList.map((it) => it.id)) : selected;
-    onConfirm(mode, finalSelected);
+    onConfirm(mode, selected);
   };
 
   if (!summary) return null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onCancel())}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-3 overflow-hidden">
+        <DialogHeader className="space-y-1">
           <DialogTitle>导入数据预览</DialogTitle>
-          <DialogDescription>
-            选择要导入的歌单与合并模式。playing_list / ui_profile / 视频缓存不会被导入。
+          <DialogDescription className="text-xs">
+            playing_list / ui_profile / 视频缓存不会被导入。
           </DialogDescription>
         </DialogHeader>
 
-        {/* 摘要区 */}
-        <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">文件版本</span>
-            <Badge variant={summary.version === '1' ? 'secondary' : 'default'}>
+        {/* 摘要区：4 列单行 */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/30 px-3 py-2 text-xs">
+          <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">版本</span>
+            <Badge
+              variant={summary.version === '1' ? 'secondary' : 'default'}
+              className="text-[10px]"
+            >
               {summary.version === '1' ? 'v1（旧版）' : 'v2'}
             </Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">歌单总数</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">歌单</span>
             <span className="font-medium">{totalFav}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">歌词条目</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">歌词</span>
             <span className="font-medium">{summary.lyricCount}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">播放器版本</span>
-            <span className="font-medium">v{__APP_VERSION__}</span>
-          </div>
+          </span>
+          <span className="ml-auto text-muted-foreground">v{__APP_VERSION__}</span>
         </div>
 
-        {/* 合并模式 */}
-        <div className="space-y-2">
+        {/* 合并模式：紧凑单行布局，hint 走 title 悬浮 */}
+        <div className="space-y-1.5">
           <p className="text-sm font-medium">合并模式</p>
-          <RadioGroup value={mode} onValueChange={(v) => setMode(v as MergeMode)} className="gap-2">
+          <RadioGroup value={mode} onValueChange={(v) => setMode(v as MergeMode)} className="gap-1">
             {MODE_OPTIONS.map((opt) => (
-              <div key={opt.value} className="flex items-start gap-2">
-                <RadioGroupItem
-                  value={opt.value}
-                  id={`merge-mode-${opt.value}`}
-                  className="mt-0.5"
-                />
-                <Label htmlFor={`merge-mode-${opt.value}`} className="flex flex-col gap-0.5">
+              <div key={opt.value} className="flex items-center gap-2">
+                <RadioGroupItem value={opt.value} id={`merge-mode-${opt.value}`} />
+                <Label
+                  htmlFor={`merge-mode-${opt.value}`}
+                  className="flex items-baseline gap-2"
+                  title={opt.hint}
+                >
                   <span className="text-sm">{opt.label}</span>
                   <span className="text-xs text-muted-foreground">{opt.hint}</span>
                 </Label>
@@ -161,41 +154,35 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
         <Separator />
 
         {/* 歌单列表 */}
-        <div className="space-y-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">我的歌单</p>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>
-                已选 <span className="font-medium text-foreground">{effectiveSelectedCount}</span> /{' '}
+                已选 <span className="font-medium text-foreground">{selected.size}</span> /{' '}
                 {totalFav}
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleAll}
-                disabled={isOverwrite || totalFav === 0}
-              >
+              <Button variant="ghost" size="sm" onClick={handleToggleAll} disabled={totalFav === 0}>
                 {allSelected ? '取消全选' : '全选'}
               </Button>
             </div>
           </div>
 
           {totalFav === 0 ? (
-            <p className="rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
+            <p className="rounded-md border border-dashed py-4 text-center text-xs text-muted-foreground">
               文件中不含任何歌单
             </p>
           ) : (
-            <ScrollArea className="h-64 rounded-md border">
+            <ScrollArea className="max-h-48 min-h-0 flex-1 rounded-md border">
               <ul className="divide-y">
                 {summary.favList.map((fav) => {
                   const isCustom = fav.type === FavListType.CUSTOM;
-                  const checked = isOverwrite || selected.has(fav.id);
+                  const checked = selected.has(fav.id);
                   return (
-                    <li key={fav.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                    <li key={fav.id} className="flex items-center gap-2 px-3 py-1.5 text-sm">
                       <Checkbox
                         checked={checked}
                         onCheckedChange={() => handleToggle(fav.id)}
-                        disabled={isOverwrite}
                         aria-label={`选择歌单 ${fav.name}`}
                       />
                       <Badge variant="outline" className="gap-1 px-1.5 py-0 text-[11px]">
@@ -214,7 +201,7 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[11px] leading-tight text-muted-foreground">
           B 站收藏夹 / UP 主类歌单的视频列表导入后需在侧边栏进入对应歌单触发"刷新"才能看到内容。
         </p>
 
@@ -222,10 +209,7 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
           <Button variant="outline" onClick={onCancel}>
             取消
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!isOverwrite && effectiveSelectedCount === 0 && totalFav > 0}
-          >
+          <Button onClick={handleConfirm} disabled={selected.size === 0 && totalFav > 0}>
             确定导入
           </Button>
         </DialogFooter>

@@ -73,9 +73,9 @@ describe('ImportDataDialog', () => {
     // 自定义类型显示视频条数；非自定义显示提示
     expect(screen.getByText('3 首')).toBeInTheDocument();
     expect(screen.getAllByText('-- 首（导入后请刷新）')).toHaveLength(2);
-    // 摘要区数字（用 textContent 包含的方式断言；3 单独出现在多处，断言"歌词条目 12"更精确）
-    expect(screen.getByText('歌词条目').nextSibling?.textContent).toBe('12');
-    expect(screen.getByText('歌单总数').nextSibling?.textContent).toBe('3');
+    // 摘要区紧凑标签 + 数字（label 与 value 是相邻 span）
+    expect(screen.getByText('歌词').nextSibling?.textContent).toBe('12');
+    expect(screen.getByText('歌单').nextSibling?.textContent).toBe('3');
   });
 
   it('v1 版本显示 v1 旧版徽章', () => {
@@ -90,7 +90,7 @@ describe('ImportDataDialog', () => {
     expect(screen.getByText('v1（旧版）')).toBeInTheDocument();
   });
 
-  it('默认 mode=append 时所有歌单可勾选且全选', () => {
+  it('默认 mode=skip 时所有歌单可勾选且全选', () => {
     render(
       <ImportDataDialog
         open={true}
@@ -107,7 +107,7 @@ describe('ImportDataDialog', () => {
     }
   });
 
-  it('切到 overwrite 模式：所有勾选 disabled 且强制 checked', async () => {
+  it('切到 replace 模式：勾选仍可用（不再有锁定语义）', async () => {
     const user = userEvent.setup();
     render(
       <ImportDataDialog
@@ -117,12 +117,25 @@ describe('ImportDataDialog', () => {
         onConfirm={vi.fn()}
       />,
     );
-    await user.click(screen.getByRole('radio', { name: /完全覆盖/ }));
+    await user.click(screen.getByRole('radio', { name: /覆盖同名/ }));
     const checkboxes = screen.getAllByRole('checkbox', { name: /选择歌单/ });
     for (const cb of checkboxes) {
-      expect(cb).toBeDisabled();
-      expect(cb.getAttribute('data-state')).toBe('checked');
+      expect(cb).not.toBeDisabled();
     }
+  });
+
+  it('原 overwrite/完全覆盖 选项已被移除', () => {
+    render(
+      <ImportDataDialog
+        open={true}
+        summary={makeSummary()}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('radio', { name: /完全覆盖/ })).not.toBeInTheDocument();
+    // 仅 2 个 RadioGroupItem
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
   });
 
   it('点击取消触发 onCancel', async () => {
@@ -140,7 +153,7 @@ describe('ImportDataDialog', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('点击确定触发 onConfirm(mode, selectedSet)，默认 append + 全选 3 项', async () => {
+  it('点击确定触发 onConfirm(mode, selectedSet)，默认 skip + 全选 3 项', async () => {
     const onConfirm = vi.fn();
     const user = userEvent.setup();
     render(
@@ -154,7 +167,7 @@ describe('ImportDataDialog', () => {
     await user.click(screen.getByRole('button', { name: '确定导入' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
     const [mode, selected] = onConfirm.mock.calls[0];
-    expect(mode).toBe('append');
+    expect(mode).toBe('skip');
     expect([...selected].sort()).toEqual(['fav-1', 'fav-2', 'fav-3']);
   });
 

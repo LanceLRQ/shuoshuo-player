@@ -151,83 +151,178 @@ describe('buildMerged', () => {
     lyrics: { lyricMaps: { BV1: { bvid: 'BV1' }, BV2: { bvid: 'BV2' } } as never },
   };
 
-  it('append：仅添加 current 不存在的项；A 保持现有内容', () => {
+  it('skip：仅添加 current 不存在的项；A 保持现有内容', () => {
     const out = buildMerged(
       { fav_list: { list: [v2Item('A', 'current-A'), v2Item('C', 'current-C')] } },
       importedPayload,
-      'append',
+      'skip',
     );
     expect(out.fav_list.list?.map((it) => it.id)).toEqual(['A', 'C', 'B']);
     // A 保持现有内容（current-A），不被 imported 覆盖
     expect(out.fav_list.list?.find((it) => it.id === 'A')?.name).toBe('current-A');
   });
 
-  it('replaceAndAppend：A 被覆盖，B 新增，C 保留', () => {
+  it('replace：type=0 的同 id 被覆盖，新 id 追加，未出现的 current 项保留', () => {
     const out = buildMerged(
       { fav_list: { list: [v2Item('A', 'current-A'), v2Item('C', 'current-C')] } },
       importedPayload,
-      'replaceAndAppend',
+      'replace',
     );
     const ids = out.fav_list.list?.map((it) => it.id) ?? [];
     expect(new Set(ids)).toEqual(new Set(['A', 'B', 'C']));
-    // A 被替换为导入版本
+    // A 被替换为导入版本（type=0）
     expect(out.fav_list.list?.find((it) => it.id === 'A')?.name).toBe('imported-A');
-    // C 保留
+    // C 在导入文件中没有，保留
     expect(out.fav_list.list?.find((it) => it.id === 'C')?.name).toBe('current-C');
   });
 
-  it('overwrite：current 被清空，仅剩导入项', () => {
+  it('replace 硬约束：type=1（UPLOADER）即使同 id 也不被覆盖', () => {
+    const importUploader = {
+      fav_list: {
+        list: [
+          {
+            id: 'UP1',
+            name: 'imported-up',
+            type: FavListType.UPLOADER,
+            bv_ids: ['BV-imported'],
+            create_time: 0,
+            update_time: 0,
+          },
+        ],
+      },
+      lyrics: { lyricMaps: {} },
+    };
     const out = buildMerged(
-      { fav_list: { list: [v2Item('A', 'current-A'), v2Item('C', 'current-C')] } },
-      importedPayload,
-      'overwrite',
+      {
+        fav_list: {
+          list: [
+            {
+              id: 'UP1',
+              name: 'current-up',
+              type: FavListType.UPLOADER,
+              bv_ids: ['BV-current-1', 'BV-current-2'],
+              create_time: 100,
+              update_time: 100,
+            },
+          ],
+        },
+      },
+      importUploader,
+      'replace',
     );
-    expect(out.fav_list.list?.map((it) => it.id)).toEqual(['A', 'B']);
-    expect(out.fav_list.list?.find((it) => it.id === 'A')?.name).toBe('imported-A');
+    // UP 主同 id 项必须保持 current（含 bv_ids），导入版本被丢弃
+    const up = out.fav_list.list?.find((it) => it.id === 'UP1');
+    expect(up?.name).toBe('current-up');
+    expect(up?.bv_ids).toEqual(['BV-current-1', 'BV-current-2']);
   });
 
-  it('selectedFavIds：仅勾选项参与 append', () => {
+  it('replace 硬约束：type=2（BILI_FAV）即使同 id 也不被覆盖', () => {
+    const importBiliFav = {
+      fav_list: {
+        list: [
+          {
+            id: 'F1',
+            name: 'imported-fav',
+            type: FavListType.BILI_FAV,
+            bv_ids: [],
+            create_time: 0,
+            update_time: 0,
+          },
+        ],
+      },
+      lyrics: { lyricMaps: {} },
+    };
+    const out = buildMerged(
+      {
+        fav_list: {
+          list: [
+            {
+              id: 'F1',
+              name: 'current-fav',
+              type: FavListType.BILI_FAV,
+              bv_ids: ['BV-current'],
+              create_time: 100,
+              update_time: 100,
+            },
+          ],
+        },
+      },
+      importBiliFav,
+      'replace',
+    );
+    const f = out.fav_list.list?.find((it) => it.id === 'F1');
+    expect(f?.name).toBe('current-fav');
+    expect(f?.bv_ids).toEqual(['BV-current']);
+  });
+
+  it('selectedFavIds：仅勾选项参与 skip 模式', () => {
     const out = buildMerged(
       { fav_list: { list: [v2Item('A', 'current-A')] } },
       importedPayload,
-      'append',
+      'skip',
       new Set(['B']),
     );
     expect(out.fav_list.list?.map((it) => it.id)).toEqual(['A', 'B']);
   });
 
-  it('overwrite 模式下 selectedFavIds 被忽略（强制全部）', () => {
+  it('selectedFavIds：仅勾选项参与 replace 模式', () => {
     const out = buildMerged(
-      { fav_list: { list: [v2Item('Z')] } },
+      { fav_list: { list: [v2Item('A', 'current-A'), v2Item('C', 'current-C')] } },
       importedPayload,
-      'overwrite',
+      'replace',
       new Set(['B']),
     );
-    expect(out.fav_list.list?.map((it) => it.id)).toEqual(['A', 'B']);
+    // 仅勾选 B（不在 current 里）→ 追加；A 未勾选 → 不参与替换 → 保持 current-A
+    const ids = out.fav_list.list?.map((it) => it.id) ?? [];
+    expect(new Set(ids)).toEqual(new Set(['A', 'B', 'C']));
+    expect(out.fav_list.list?.find((it) => it.id === 'A')?.name).toBe('current-A');
   });
 
-  it('lyrics 始终全量按 mode 合并（不受 selectedFavIds 影响）', () => {
-    const current = { lyrics: { lyricMaps: { BVx: { bvid: 'BVx' } } as never } };
-    const append = buildMerged(current, importedPayload, 'append', new Set(['A']));
-    expect(Object.keys(append.lyrics.lyricMaps ?? {}).sort()).toEqual(['BV1', 'BV2', 'BVx']);
+  it('永远不删除 current 中导入没出现的项（C 在两种模式下都保留）', () => {
+    const skipOut = buildMerged(
+      { fav_list: { list: [v2Item('A', 'current-A'), v2Item('C', 'current-C')] } },
+      importedPayload,
+      'skip',
+    );
+    expect(skipOut.fav_list.list?.find((it) => it.id === 'C')?.name).toBe('current-C');
 
-    const overwrite = buildMerged(current, importedPayload, 'overwrite');
-    expect(Object.keys(overwrite.lyrics.lyricMaps ?? {}).sort()).toEqual(['BV1', 'BV2']);
+    const replaceOut = buildMerged(
+      { fav_list: { list: [v2Item('A', 'current-A'), v2Item('C', 'current-C')] } },
+      importedPayload,
+      'replace',
+    );
+    expect(replaceOut.fav_list.list?.find((it) => it.id === 'C')?.name).toBe('current-C');
   });
 
-  it('lyrics append：current 已有的 bvid 不被覆盖', () => {
+  it('lyrics replace：导入版本覆盖同 bvid', () => {
+    const out = buildMerged(
+      {
+        lyrics: {
+          lyricMaps: { BV1: { bvid: 'BV1', name: 'current-1' } } as never,
+        },
+      },
+      importedPayload,
+      'replace',
+    );
+    // BV1 被导入版本覆盖（imported 中没 name，所以应是 undefined）
+    const bv1 = (out.lyrics.lyricMaps as never as Record<string, { name?: string }>).BV1;
+    expect(bv1.name).toBeUndefined();
+    expect(Object.keys(out.lyrics.lyricMaps ?? {}).sort()).toEqual(['BV1', 'BV2']);
+  });
+
+  it('lyrics skip：current 已有的 bvid 不被覆盖', () => {
     const out = buildMerged(
       { lyrics: { lyricMaps: { BV1: { bvid: 'BV1', name: 'current-1' } } as never } },
       importedPayload,
-      'append',
+      'skip',
     );
     expect((out.lyrics.lyricMaps as never as Record<string, { name?: string }>).BV1.name).toBe(
       'current-1',
     );
   });
 
-  it('current 为空对象时 append 等同于全量导入', () => {
-    const out = buildMerged({}, importedPayload, 'append');
+  it('current 为空对象时 skip 等同于全量导入', () => {
+    const out = buildMerged({}, importedPayload, 'skip');
     expect(out.fav_list.list?.map((it) => it.id)).toEqual(['A', 'B']);
     expect(Object.keys(out.lyrics.lyricMaps ?? {}).sort()).toEqual(['BV1', 'BV2']);
   });

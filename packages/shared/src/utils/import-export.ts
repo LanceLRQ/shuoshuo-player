@@ -1,12 +1,15 @@
 /**
- * 数据导入解析 + v1 兼容迁移 + 三态合并模式
+ * 数据导入解析 + v1 兼容迁移 + 二态合并模式
  *
  * 设计要点：
  * - v2 导出 JSON 顶层注入 `version: "2"`；缺失则视为 v1
  * - 仅 fav_list / lyrics 参与导入（playing_list / ui_profile / bili_* 缓存等保持现有）
  * - v1 → v2 迁移仅作用于 fav_list.list[]：mid 数字→字符串、ms 时间戳→秒
- * - 合并模式：append / replaceAndAppend / overwrite，仅作用于 fav_list 与 lyrics
- *   selectedFavIds 仅作用于 fav_list；lyrics 始终全量按 mode 合并
+ * - 合并模式：'skip'（跳过同名）/ 'replace'（覆盖同名），仅作用于 fav_list 与 lyrics
+ * - **硬约束**：永远不删除 current 中"导入文件没出现"的项；
+ *   type=1/2（B 站收藏夹/UP 主）即使在 'replace' 模式下也始终 append-only，
+ *   因为 v1 / 旧导出文件中的 bv_ids 不可信，覆盖会洗掉用户在 v2 已手动刷新过的内容
+ * - selectedFavIds 仅作用于 fav_list；lyrics 始终全量按 mode 合并（无 UI 勾选）
  */
 import { EXPORT_KEYS } from '../constants';
 import { FavListType, type FavListItem, type LyricEntry } from '../types';
@@ -16,7 +19,7 @@ export const CURRENT_EXPORT_VERSION = '2';
 
 export type ImportVersion = '1' | '2';
 
-export type MergeMode = 'append' | 'replaceAndAppend' | 'overwrite';
+export type MergeMode = 'skip' | 'replace';
 
 export interface ImportPayload {
   fav_list: PersistedFavListShape;
@@ -132,12 +135,16 @@ export function parseImportData(input: unknown): ParsedImport | null {
 /**
  * 按合并模式构造写回 storage 的 fav_list / lyrics
  *
- * - mode='append'：仅添加 current 中不存在的项（按主键 id / bvid 去重）
- * - mode='replaceAndAppend'：覆盖同主键的项 + 加入新项；保留 current 中导入文件没有的项
- * - mode='overwrite'：用 selected 直接替换（current 在 EXPORT_KEYS 范围内被清掉）
+ * - mode='skip'：勾选项中已存在同 id 的歌单 → 跳过（保护现有）；新 id → 追加
+ * - mode='replace'：勾选项中 type=0 的同 id → 用导入版本覆盖；新 id → 追加
  *
- * selectedFavIds 仅作用于 fav_list；undefined 时全选。
- * lyrics 始终全量按 mode 合并（无 UI 勾选）。
+ * **硬约束**（两种模式共同遵守）：
+ * 1. 永远不删除 current 中"导入文件没出现"的项
+ * 2. fav_list 中 type=1/2（B 站收藏夹/UP 主）即使在 replace 模式下也始终 append-only，
+ *    因为 v1 / 旧导出的 bv_ids 不可信，覆盖会洗掉用户在 v2 已手动刷新过的内容
+ *
+ * selectedFavIds：仅作用于 fav_list；undefined 时视为全选。
+ * lyrics：始终全量按 mode 合并（无 UI 勾选；replace 用导入覆盖同 bvid，skip 仅追加新 bvid）。
  *
  * 注意：本函数仅返回 fav_list / lyrics 两个 key 的新值；调用方负责将其他 EXPORT_KEYS
  * 与 cloud_service / music_url_cache / playing_list / ui_profile 等"不导入项"原样保留。
@@ -151,40 +158,36 @@ export function buildMerged(
   const currentFavList = current.fav_list?.list ?? [];
   const currentLyricMaps = current.lyrics?.lyricMaps ?? {};
 
-  // overwrite 模式忽略 selectedFavIds（强制全量）
-  const effectiveSelected = mode === 'overwrite' ? undefined : selectedFavIds;
   const importedFavList = (imported.fav_list.list ?? []).filter(
-    (it) => !effectiveSelected || effectiveSelected.has(it.id),
+    (it) => !selectedFavIds || selectedFavIds.has(it.id),
   );
   const importedLyricMaps = imported.lyrics.lyricMaps ?? {};
 
-  let mergedFavList: FavListItem[];
-  let mergedLyricMaps: Record<string, LyricEntry>;
+  // fav_list 合并：
+  // - 计算"可被替换的 id 集合"= 导入项中 type=0 且 mode='replace' 的 id
+  //   （type=1/2 永远 append-only，硬约束）
+  // - current 中：在替换集合里的项剔除（让位给导入版本），其他保留
+  // - 导入项中：未撞 id 的全部追加；撞 id 但不在替换集合里的（type=1/2 或 mode=skip）跳过
+  const replaceableIds = new Set(
+    mode === 'replace'
+      ? importedFavList.filter((it) => it.type === FavListType.CUSTOM).map((it) => it.id)
+      : [],
+  );
+  const currentIds = new Set(currentFavList.map((it) => it.id));
+  const keptCurrent = currentFavList.filter((it) => !replaceableIds.has(it.id));
+  const newOrReplaced = importedFavList.filter((it) =>
+    replaceableIds.has(it.id) ? true : !currentIds.has(it.id),
+  );
+  const mergedFavList: FavListItem[] = [...keptCurrent, ...newOrReplaced];
 
-  switch (mode) {
-    case 'overwrite': {
-      mergedFavList = importedFavList;
-      mergedLyricMaps = { ...importedLyricMaps };
-      break;
-    }
-    case 'replaceAndAppend': {
-      const importedIds = new Set(importedFavList.map((it) => it.id));
-      // 保留 current 中"导入没覆盖的"，再追加导入项（导入项整体替换同 id）
-      const kept = currentFavList.filter((it) => !importedIds.has(it.id));
-      mergedFavList = [...kept, ...importedFavList];
-      mergedLyricMaps = { ...currentLyricMaps, ...importedLyricMaps };
-      break;
-    }
-    case 'append': {
-      const currentIds = new Set(currentFavList.map((it) => it.id));
-      const newOnly = importedFavList.filter((it) => !currentIds.has(it.id));
-      mergedFavList = [...currentFavList, ...newOnly];
-      // lyrics: 仅添加 current 没有的 bvid
-      mergedLyricMaps = { ...currentLyricMaps };
-      for (const [k, v] of Object.entries(importedLyricMaps)) {
-        if (!(k in mergedLyricMaps)) mergedLyricMaps[k] = v;
-      }
-      break;
+  // lyrics 合并（始终全量；replace 覆盖同 bvid，skip 仅追加新 bvid）
+  let mergedLyricMaps: Record<string, LyricEntry>;
+  if (mode === 'replace') {
+    mergedLyricMaps = { ...currentLyricMaps, ...importedLyricMaps };
+  } else {
+    mergedLyricMaps = { ...currentLyricMaps };
+    for (const [k, v] of Object.entries(importedLyricMaps)) {
+      if (!(k in mergedLyricMaps)) mergedLyricMaps[k] = v;
     }
   }
 
