@@ -192,6 +192,10 @@ pub async fn get_bilibili_cookies(
 /// 退出 B 站登录
 ///
 /// - 清空 CookieState（in-memory + 持久化）
+/// - 清空所有打开窗口的 WebView 浏览数据（cookies / localStorage / cache）
+///   ⚠️ 关键：CookieState 仅用于 axios/reqwest 应用层注入，WebView 自身有独立的
+///   cookie store（WKWebView 的 WKHTTPCookieStore / WebView2 的 CoreWebView2CookieManager），
+///   不清这一层登录窗口重新打开时 SESSDATA 仍在 → 自动登录
 /// - 关闭主窗口
 /// - emit bilibili:logout_success
 /// - 自动重新打开登录窗口（v1 行为）
@@ -203,6 +207,16 @@ pub async fn bilibili_logout<R: Runtime>(app: AppHandle<R>) -> Result<(), String
         cookies.clear();
     }
     persist_cookies(&app, &cookie_state).ok();
+
+    // 遍历所有 webview 窗口清浏览数据；macOS WKWebView 共享 dataStore（任一调用全局生效），
+    // Windows WebView2 每个窗口可能有独立 profile，逐个清更稳
+    for (label, win) in app.webview_windows() {
+        if let Err(e) = win.clear_all_browsing_data() {
+            eprintln!("[auth] clear_all_browsing_data window={} failed: {}", label, e);
+        } else {
+            eprintln!("[auth] clear_all_browsing_data window={} ok", label);
+        }
+    }
 
     if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         main_window.close().ok();

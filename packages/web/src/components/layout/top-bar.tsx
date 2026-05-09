@@ -60,6 +60,8 @@ function GithubIcon({ className }: { className?: string }) {
 
 export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
   const user = useBilibiliUserStore((s) => s.current);
+  const biliIsLogin = useBilibiliUserStore((s) => s.isLogin);
+  const resetBiliUser = useBilibiliUserStore((s) => s.reset);
   const theme = usePlayerProfileStore((s) => s.theme);
   const setTheme = usePlayerProfileStore((s) => s.setTheme);
   const getEffectiveTheme = usePlayerProfileStore((s) => s.getEffectiveTheme);
@@ -68,6 +70,7 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
   const clearCloudSession = useCloudServiceStore((s) => s.clearSession);
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openCloudLogin = useUIShell((s) => s.openCloudLogin);
+  const openConfirm = useUIShell((s) => s.openConfirm);
 
   const effectiveTheme = getEffectiveTheme();
   const ThemeIcon = effectiveTheme === 'dark' ? Sun : Moon;
@@ -189,6 +192,40 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
     [importPayload, sendNotice],
   );
 
+  // 退出 B 站登录：
+  // - Tauri 端：bridge.auth.logout() 调 Rust 清空 cookies + 重弹登录窗口
+  // - Chrome/Web 端：bridge.auth.logout() 是 no-op（cookie 由浏览器管理），
+  //   仅清前端 store；用户需自行在浏览器设置中清除 bilibili.com Cookie 才彻底退出
+  const handleLogoutBilibili = useCallback(() => {
+    const isTauri = getPlatformBridge().type === 'tauri';
+    openConfirm({
+      title: '退出 B 站登录',
+      description: isTauri
+        ? '退出后将清除桌面端缓存的 B 站 Cookie，并重新弹出登录窗口。'
+        : '退出后将清除播放器内的登录状态。如需彻底登出，请同时在浏览器设置中清除 bilibili.com 的 Cookie。',
+      confirmText: '退出登录',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await getPlatformBridge().auth.logout();
+          resetBiliUser();
+          sendNotice({
+            type: NoticeType.SUCCESS,
+            message: '已退出 B 站登录',
+            duration: 2000,
+          });
+        } catch (e) {
+          console.debug(e);
+          sendNotice({
+            type: NoticeType.ERROR,
+            message: '退出登录失败，请重试',
+            duration: 3000,
+          });
+        }
+      },
+    });
+  }, [openConfirm, resetBiliUser, sendNotice]);
+
   return (
     <header className="z-50 flex h-14 items-center border-b bg-background">
       {/* 左段：与 NavMenu 同宽切换；border-r 与 NavMenu 边线视觉延续 */}
@@ -303,6 +340,18 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
                 <Download className="mr-2 h-4 w-4" />
                 导出数据
               </DropdownMenuItem>
+              {biliIsLogin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={handleLogoutBilibili}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    退出 B 站登录
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
