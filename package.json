@@ -9,7 +9,7 @@
     "dev:extension": "pnpm --filter @shuoshuo-player/web dev:extension",
     "dev:desktop": "pnpm --filter @shuoshuo-player/desktop tauri dev",
     "build:web": "pnpm --filter @shuoshuo-player/web build",
-    "build:desktop": "pnpm --filter @shuoshuo-player/desktop tauri build",
+    "build:desktop": "pnpm --filter @shuoshuo-player/desktop tauri:build",
     "build:extension": "pnpm --filter @shuoshuo-player/web build:extension",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
