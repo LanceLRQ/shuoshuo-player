@@ -7,7 +7,6 @@ import { SPlayer } from '@/components/player/s-player';
 import { LyricViewer } from '@/components/player/lyric-viewer';
 import { ToasterProvider } from '@/components/toaster-provider';
 import { BilibiliLoginRequired } from '@/components/bilibili-login-required';
-import { CloudLoginDialog } from '@/components/dialogs/cloud-login-dialog';
 import { FavEditDialog } from '@/components/dialogs/fav-edit-dialog';
 import { AddSongDialog } from '@/components/dialogs/add-song-dialog';
 import { AddToFavDialog } from '@/components/dialogs/add-to-fav-dialog';
@@ -41,6 +40,9 @@ const LiveSlicerMenPage = lazy(() =>
     default: m.LiveSlicerMenPage,
   })),
 );
+const CloudServicesIndexPage = lazy(() =>
+  import('@/pages/cloud-services').then((m) => ({ default: m.CloudServicesIndexPage })),
+);
 
 function RouteFallback() {
   return (
@@ -65,7 +67,6 @@ function RootLayout() {
       footer={<SPlayer />}
       overlays={
         <>
-          <CloudLoginDialog />
           <FavEditDialog />
           <AddSongDialog />
           <AddToFavDialog />
@@ -101,11 +102,11 @@ const router = createHashRouter([
         path: 'cloud-services',
         element: <CloudServicesLayout />,
         children: [
-          { index: true, element: <Navigate to="lyrics" replace /> },
+          { index: true, element: <CloudServicesIndexPage /> },
           { path: 'lyrics', element: <LyricListPage /> },
           { path: 'live-slicer-men', element: <LiveSlicerMenPage /> },
-          // 已废弃的 accounts 子页：兜底重定向到 lyrics，避免 v1/书签外链 404
-          { path: 'accounts', element: <Navigate to="/cloud-services/lyrics" replace /> },
+          // 已废弃的 accounts 子页：兜底重定向到水晶蟹小屋首页，避免 v1/书签外链 404
+          { path: 'accounts', element: <Navigate to="/cloud-services" replace /> },
           // 旧云服务设置子页 → 重定向到统一设置页（cloud tab）
           { path: 'settings', element: <Navigate to="/settings?tab=cloud" replace /> },
         ],

@@ -14,10 +14,6 @@ interface UIShellState {
   toggleMenu: () => void;
   setMenuOpen: (open: boolean) => void;
 
-  cloudLoginOpen: boolean;
-  openCloudLogin: () => void;
-  closeCloudLogin: () => void;
-
   favEditOpen: boolean;
   /** 编辑现有歌单时携带 id，新建时为 null */
   favEditTargetId: string | null;
@@ -70,10 +66,6 @@ export const useUIShell = create<UIShellState>((set) => ({
   menuOpen: true,
   toggleMenu: () => set((s) => ({ menuOpen: !s.menuOpen })),
   setMenuOpen: (open) => set({ menuOpen: open }),
-
-  cloudLoginOpen: false,
-  openCloudLogin: () => set({ cloudLoginOpen: true }),
-  closeCloudLogin: () => set({ cloudLoginOpen: false }),
 
   favEditOpen: false,
   favEditTargetId: null,

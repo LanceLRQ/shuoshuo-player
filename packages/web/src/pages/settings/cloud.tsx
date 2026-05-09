@@ -38,7 +38,7 @@ export function CloudSettings() {
     setApiBaseUrl(draft);
     sendNotice({
       type: NoticeType.SUCCESS,
-      message: draft.trim() ? '云服务地址已更新' : '已恢复默认地址',
+      message: draft.trim() ? '水晶蟹小屋地址已更新' : '已恢复默认地址',
       duration: 2000,
     });
   };
@@ -48,7 +48,7 @@ export function CloudSettings() {
     setDraft('');
     sendNotice({
       type: NoticeType.SUCCESS,
-      message: '已恢复默认云服务地址',
+      message: '已恢复默认水晶蟹小屋地址',
       duration: 2000,
     });
   };
@@ -56,9 +56,9 @@ export function CloudSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>云服务 API 地址</CardTitle>
+        <CardTitle>水晶蟹小屋 API 地址</CardTitle>
         <CardDescription>
-          自定义云服务（shuoshuo.sikong.ren）后端地址。修改后立即生效，重启保留。
+          自定义水晶蟹小屋（shuoshuo.sikong.ren）后端地址。修改后立即生效，重启保留。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -85,7 +85,7 @@ export function CloudSettings() {
           <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              桌面端云服务地址固定，请修改时通过版本配置更新。如需切换后端，请联系开发者。
+              桌面端水晶蟹小屋地址固定，请修改时通过版本配置更新。如需切换后端，请联系开发者。
             </span>
           </div>
         )}

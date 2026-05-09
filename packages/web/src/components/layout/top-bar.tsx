@@ -1,18 +1,8 @@
 import { useCallback, useState } from 'react';
-import {
-  PanelLeftClose,
-  PanelLeftOpen,
-  Sun,
-  Moon,
-  Cloud,
-  LogOut,
-  Download,
-  Upload,
-} from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, Download, Upload } from 'lucide-react';
 import {
   useBilibiliUserStore,
   usePlayerProfileStore,
-  useCloudServiceStore,
   useUIStore,
   EXPORT_KEYS,
   NoticeType,
@@ -65,11 +55,7 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
   const theme = usePlayerProfileStore((s) => s.theme);
   const setTheme = usePlayerProfileStore((s) => s.setTheme);
   const getEffectiveTheme = usePlayerProfileStore((s) => s.getEffectiveTheme);
-  const cloudIsLogin = useCloudServiceStore((s) => s.isLogin());
-  const cloudRoleName = useCloudServiceStore((s) => s.roleName());
-  const clearCloudSession = useCloudServiceStore((s) => s.clearSession);
   const sendNotice = useUIStore((s) => s.sendNotice);
-  const openCloudLogin = useUIShell((s) => s.openCloudLogin);
   const openConfirm = useUIShell((s) => s.openConfirm);
 
   const effectiveTheme = getEffectiveTheme();
@@ -315,22 +301,6 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
                   </Badge>
                 )}
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={openCloudLogin}>
-                <Cloud className="mr-2 h-4 w-4" />
-                <span className="flex-1">云服务</span>
-                {cloudIsLogin && (
-                  <Badge variant="default" className="ml-2">
-                    {cloudRoleName}
-                  </Badge>
-                )}
-              </DropdownMenuItem>
-              {cloudIsLogin && (
-                <DropdownMenuItem onSelect={() => clearCloudSession()}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  退出云服务
-                </DropdownMenuItem>
-              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={handleImport}>
                 <Upload className="mr-2 h-4 w-4" />

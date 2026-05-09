@@ -1,13 +1,10 @@
 import { render, screen, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { useCloudServiceStore, useUIStore } from '@shuoshuo-player/shared';
-import { useUIShell } from '@/stores/ui-shell';
+import { useCloudServiceStore } from '@shuoshuo-player/shared';
 import { CloudServicesLayout } from './layout';
 
 function reset() {
   useCloudServiceStore.getState().clearSession();
-  useUIStore.setState({ notices: [] });
-  useUIShell.setState({ cloudLoginOpen: false });
 }
 
 const ADMIN_SESSION = {
@@ -36,9 +33,8 @@ function renderAt(path: string) {
         <Route path="/cloud-services/*" element={<CloudServicesLayout />}>
           <Route index element={<div data-testid="child-index" />} />
           <Route path="lyrics" element={<div data-testid="child-lyrics" />} />
+          <Route path="live-slicer-men" element={<div data-testid="child-slicer" />} />
         </Route>
-        <Route path="/index" element={<div data-testid="home" />} />
-        <Route path="/settings" element={<div data-testid="global-settings" />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -49,22 +45,25 @@ describe('CloudServicesLayout', () => {
     reset();
   });
 
-  it('未登录 → Navigate /index + 弹登录框 + 警告通知', async () => {
-    renderAt('/cloud-services/lyrics');
-    expect(screen.getByTestId('home')).toBeInTheDocument();
-    expect(useUIShell.getState().cloudLoginOpen).toBe(true);
-    expect(useUIStore.getState().notices.length).toBeGreaterThan(0);
+  it('未登录 → 不渲染 Tabs，直接渲染着陆页 outlet', () => {
+    renderAt('/cloud-services');
+    expect(screen.getByTestId('child-index')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '首页' })).not.toBeInTheDocument();
   });
 
-  it('登录管理员 → 渲染 2 个 Tab + 子路由（无标题副标题，账户管理 / 服务设置 均已下线）', () => {
+  it('未登录访问子页面 → 仍渲染 layout 但 Tabs 隐藏（拦截下沉到子页面 RequireCloudAdmin）', () => {
+    renderAt('/cloud-services/lyrics');
+    expect(screen.getByTestId('child-lyrics')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '歌词管理' })).not.toBeInTheDocument();
+  });
+
+  it('管理员登录 → 渲染 3 个 Tab（首页 / 歌词管理 / 切片 UP 主），账户管理 / 服务设置 已下线', () => {
     act(() => {
       useCloudServiceStore.getState().updateSession(ADMIN_SESSION);
     });
     renderAt('/cloud-services/lyrics');
 
-    // 已删除"云服务管理 / 管理员视图"标题（节省纵向空间，让列表占满）
-    expect(screen.queryByText('云服务管理')).not.toBeInTheDocument();
-    expect(screen.queryByText('管理员视图')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '首页' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '歌词管理' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '切片 UP 主' })).toBeInTheDocument();
     // 账户管理已下线（不再走 v1 后端 /accounts/*）
@@ -74,12 +73,12 @@ describe('CloudServicesLayout', () => {
     expect(screen.getByTestId('child-lyrics')).toBeInTheDocument();
   });
 
-  it('登录普通用户 → 重定向到全局 /settings?tab=cloud', () => {
+  it('普通用户登录 → 不渲染 Tabs（仅管理员可见），但 Outlet 继续渲染', () => {
     act(() => {
       useCloudServiceStore.getState().updateSession(USER_SESSION);
     });
     renderAt('/cloud-services/lyrics');
-
-    expect(screen.getByTestId('global-settings')).toBeInTheDocument();
+    expect(screen.getByTestId('child-lyrics')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '歌词管理' })).not.toBeInTheDocument();
   });
 });

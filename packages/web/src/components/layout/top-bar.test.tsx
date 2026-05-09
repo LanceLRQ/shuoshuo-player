@@ -9,7 +9,6 @@ import {
   resetPlatformBridge,
   type FileSaverAdapter,
 } from '@shuoshuo-player/shared';
-import { useUIShell } from '@/stores/ui-shell';
 import { TopBar } from './top-bar';
 
 class MockResizeObserver {
@@ -22,7 +21,6 @@ function reset() {
   useBilibiliUserStore.setState({ current: null });
   useCloudServiceStore.getState().clearSession();
   usePlayerProfileStore.setState({ theme: 'light' });
-  useUIShell.setState({ cloudLoginOpen: false });
   useUIStore.setState({ notices: [] });
   // 注入一个最小 PlatformBridge 让 GitHub 按钮的 shell.openExternal 不抛错
   setPlatformBridge({
@@ -152,24 +150,6 @@ describe('TopBar', () => {
     });
     render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
     expect(screen.getByText('说')).toBeInTheDocument();
-  });
-
-  it('云服务已登录时显示角色 Badge', () => {
-    useCloudServiceStore.getState().updateSession({
-      id: 1,
-      token: 'tk',
-      token_type: 'Bearer',
-      expire_at: Date.now() / 1000 + 9999,
-      account: {
-        id: 1,
-        user_name: 'admin',
-        nick_name: 'A',
-        avatar: '',
-        role: 512,
-      },
-    } as never);
-    render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
-    expect(useCloudServiceStore.getState().isLogin()).toBe(true);
   });
 
   it('theme=auto 状态可识别（用于 DropdownMenuLabel Badge）', () => {

@@ -61,7 +61,7 @@ export function SettingsPage() {
             {availableTabs.includes('cloud') && (
               <TabsTrigger value="cloud">
                 <Cloud className="mr-1.5 h-4 w-4" />
-                云服务
+                水晶蟹小屋
               </TabsTrigger>
             )}
             {availableTabs.includes('cache') && (

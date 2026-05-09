@@ -47,7 +47,7 @@ describe('CloudSettings', () => {
     render(<CloudSettings />);
     const input = screen.getByLabelText('自定义地址') as HTMLInputElement;
     expect(input).toBeDisabled();
-    expect(screen.getByText(/桌面端云服务地址固定/)).toBeInTheDocument();
+    expect(screen.getByText(/桌面端水晶蟹小屋地址固定/)).toBeInTheDocument();
   });
 
   it('恢复默认按钮 → 清空 store + draft', async () => {

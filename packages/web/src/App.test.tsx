@@ -60,9 +60,6 @@ vi.mock('@/components/layout/player-layout', () => ({
 vi.mock('@/components/toaster-provider', () => ({
   ToasterProvider: () => <div data-testid="toaster" />,
 }));
-vi.mock('@/components/dialogs/cloud-login-dialog', () => ({
-  CloudLoginDialog: () => null,
-}));
 vi.mock('@/components/dialogs/fav-edit-dialog', () => ({
   FavEditDialog: () => null,
 }));

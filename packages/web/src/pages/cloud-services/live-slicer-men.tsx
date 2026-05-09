@@ -44,6 +44,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { RequireCloudAdmin } from './_require-admin';
 
 const PAGE_SIZE = 20;
 
@@ -58,6 +59,14 @@ interface SlicerFormState {
 const EMPTY_FORM: SlicerFormState = { id: null, midInput: '', name: '', face: '' };
 
 export function LiveSlicerMenPage() {
+  return (
+    <RequireCloudAdmin>
+      <LiveSlicerMenPageInner />
+    </RequireCloudAdmin>
+  );
+}
+
+function LiveSlicerMenPageInner() {
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openConfirm = useUIShell((s) => s.openConfirm);
 

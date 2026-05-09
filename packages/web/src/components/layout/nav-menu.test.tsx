@@ -50,15 +50,15 @@ describe('NavMenu', () => {
     expect(screen.getByRole('link', { name: /直播切片/ })).toBeInTheDocument();
   });
 
-  it('未登录时不显示"云服务"入口', () => {
+  it('未登录态也显示"水晶蟹小屋"入口（开放式着陆页设计）', () => {
     renderNav(true);
-    expect(screen.queryByRole('link', { name: /云服务/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /水晶蟹小屋/ })).toBeInTheDocument();
   });
 
-  it('Cloud Admin 登录后显示"云服务"入口', () => {
+  it('Cloud Admin 登录后同样显示"水晶蟹小屋"入口', () => {
     useCloudServiceStore.getState().updateSession(ADMIN_SESSION);
     renderNav(true);
-    expect(screen.getByRole('link', { name: /云服务/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /水晶蟹小屋/ })).toBeInTheDocument();
   });
 
   it('展示主歌单链接（说说Crystal）', () => {

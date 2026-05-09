@@ -15,7 +15,6 @@ import {
 import {
   useFavListStore,
   useBilibiliUserVideosStore,
-  useCloudServiceStore,
   FavListType,
   MASTER_UP_INFO,
   type FavListItem,
@@ -41,29 +40,18 @@ interface FixedItem {
 export function NavMenu({ menuOpen }: NavMenuProps) {
   const favList = useFavListStore((s) => s.list);
   const spaceInfos = useBilibiliUserVideosStore((s) => s.space);
-  const isCloudAdmin = useCloudServiceStore((s) => s.isAdmin());
   const openFavEdit = useUIShell((s) => s.openFavEdit);
 
-  const fixedItems = useMemo<FixedItem[]>(() => {
-    const base: FixedItem[] = [
+  const fixedItems = useMemo<FixedItem[]>(
+    () => [
       { to: '/index', label: '首页', icon: <Home className="h-4 w-4" /> },
       { to: '/discovery', label: '搜索发现', icon: <Search className="h-4 w-4" /> },
       { to: '/live-slicers', label: '直播切片', icon: <Tv className="h-4 w-4" /> },
-    ];
-    if (isCloudAdmin) {
-      base.push({
-        to: '/cloud-services/lyrics',
-        label: '云服务',
-        icon: <Cloud className="h-4 w-4" />,
-      });
-    }
-    base.push({
-      to: '/settings',
-      label: '设置',
-      icon: <Settings className="h-4 w-4" />,
-    });
-    return base;
-  }, [isCloudAdmin]);
+      { to: '/cloud-services', label: '水晶蟹小屋', icon: <Cloud className="h-4 w-4" /> },
+      { to: '/settings', label: '设置', icon: <Settings className="h-4 w-4" /> },
+    ],
+    [],
+  );
 
   const renderFavIcon = (fav: FavListItem) => {
     if (fav.type === FavListType.UPLOADER && fav.mid) {

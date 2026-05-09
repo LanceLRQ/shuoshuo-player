@@ -43,10 +43,10 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('Web 平台：渲染外观 / 云服务两个 tab，无缓存 tab', () => {
+  it('Web 平台：渲染外观 / 水晶蟹小屋两个 tab，无缓存 tab', () => {
     renderAt('/settings');
     expect(screen.getByRole('tab', { name: /外观/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /云服务/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /水晶蟹小屋/ })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /缓存/ })).not.toBeInTheDocument();
   });
 
@@ -56,9 +56,9 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('tab', { name: /缓存/ })).toBeInTheDocument();
   });
 
-  it('?tab=cloud → 云服务 tab 激活', () => {
+  it('?tab=cloud → 水晶蟹小屋 tab 激活', () => {
     renderAt('/settings?tab=cloud');
-    const cloudTab = screen.getByRole('tab', { name: /云服务/ });
+    const cloudTab = screen.getByRole('tab', { name: /水晶蟹小屋/ });
     expect(cloudTab.getAttribute('data-state')).toBe('active');
   });
 

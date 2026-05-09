@@ -45,6 +45,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { RequireCloudAdmin } from './_require-admin';
 
 const PAGE_SIZE = 20;
 
@@ -67,6 +68,14 @@ function toVirtualVideo(lyric: CloudLyric): BilibiliVideo {
 }
 
 export function LyricListPage() {
+  return (
+    <RequireCloudAdmin>
+      <LyricListPageInner />
+    </RequireCloudAdmin>
+  );
+}
+
+function LyricListPageInner() {
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openConfirm = useUIShell((s) => s.openConfirm);
   const updateLyric = useLyricsStore((s) => s.updateLyric);

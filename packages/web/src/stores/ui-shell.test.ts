@@ -6,7 +6,6 @@ import { useUIShell } from './ui-shell';
 function reset() {
   useUIShell.setState({
     menuOpen: true,
-    cloudLoginOpen: false,
     favEditOpen: false,
     favEditTargetId: null,
     favEditPrefill: null,
@@ -35,15 +34,6 @@ describe('useUIShell', () => {
     it('setMenuOpen 显式设置', () => {
       useUIShell.getState().setMenuOpen(false);
       expect(useUIShell.getState().menuOpen).toBe(false);
-    });
-  });
-
-  describe('cloudLogin', () => {
-    it('open / close 互斥', () => {
-      useUIShell.getState().openCloudLogin();
-      expect(useUIShell.getState().cloudLoginOpen).toBe(true);
-      useUIShell.getState().closeCloudLogin();
-      expect(useUIShell.getState().cloudLoginOpen).toBe(false);
     });
   });
 
