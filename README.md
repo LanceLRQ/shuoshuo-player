@@ -35,7 +35,9 @@ Chrome 浏览器扩展可直接从应用商店一键安装：[说说播放器（
 > - **桌面端**：仅提供 **macOS（Apple Silicon）** 与 **Windows x64**，可在 [GitHub Releases](https://github.com/LanceLRQ/shuoshuo-player/releases) 下载；**Beta 阶段未签名**，首次启动需要：
 >     - macOS：右键 .app → 打开 → 弹窗中再次点击"打开"
 >     - Windows：SmartScreen 拦截 → 更多信息 → 仍要运行
-> - **国内访问 GitHub 慢**：可用镜像 `https://download.hutao.wiki/shuoshuo-player/releases/...`（与 GitHub Releases 字节一致，由 Cloudflare CDN 分发）
+> - **国内访问 GitHub 慢**：可用镜像下载安装包，与 GitHub Releases 字节一致（自带 `.sha256` 可校验），由 Cloudflare CDN 分发。地址结构：
+>     - 指定版本：`https://download.hutao.wiki/shuoshuo-player/releases/download/v<版本号>/<文件名>`
+>     - 最新版便利路径：`https://download.hutao.wiki/shuoshuo-player/releases/latest/download/<文件名>`
 
 ## 快速开始
 
