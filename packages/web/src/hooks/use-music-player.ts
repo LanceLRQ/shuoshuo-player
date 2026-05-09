@@ -8,6 +8,7 @@ import {
   useLyricsStore,
   useUIStore,
   fetchMusicUrl,
+  invalidateMusicUrlCache,
   urlPrefixFixed,
   LyricApi,
   NoticeType,
@@ -52,12 +53,57 @@ interface PlayerControls {
  * 接口故障 / 风控 / 单 BV 失效都视为停止信号，避免快速跑空整个队列；用户手动切歌即可。
  * 歌词加载完全独立于音频流，失败仅显示"暂无歌词"，不影响播放、不触发跳转。
  */
+/**
+ * 音质降级最大重试次数：
+ * 0=HIGH(192K) → 1=MEDIUM(132K) → 2=LOW(64K)，三次尝试覆盖全部 dash 标准音质档。
+ * 与 fetchMusicUrl 内 attempt 的语义一一对应；任何 attempt 升到 MAX 仍 onloaderror 即放弃。
+ */
+const AUDIO_FALLBACK_MAX_ATTEMPT = 2;
+
+/**
+ * 出错探测：fetch 一次目标 URL 的 0-1023 字节，把 status / 关键 header / body 前 256B
+ * 输出到 webview 控制台，方便定位 Tauri Rust 代理 (bili-stream://) 的真实失败原因。
+ *
+ * 仅 onloaderror 触发；正常播放路径无开销。WebView fetch 命中自定义协议时 Tauri 会走
+ * UriSchemeResponder，与 audio 标签同链路，能复现失败响应。
+ */
+async function probeAudioUrl(url: string, bvid: string): Promise<void> {
+  if (!__DEV_LOG__ || !url) return;
+  try {
+    const resp = await fetch(url, { headers: { Range: 'bytes=0-1023' } });
+    const headerEntries: Record<string, string> = {};
+    resp.headers.forEach((v, k) => {
+      headerEntries[k] = v;
+    });
+    let bodyPreview = '';
+    if (resp.status >= 400) {
+      try {
+        bodyPreview = (await resp.text()).slice(0, 256);
+      } catch {
+        bodyPreview = '<read body failed>';
+      }
+    }
+    console.debug('[BILI-API] proxy probe:', bvid, {
+      status: resp.status,
+      statusText: resp.statusText,
+      headers: headerEntries,
+      bodyPreview: bodyPreview || '<2xx, body omitted>',
+    });
+  } catch (e) {
+    console.debug('[BILI-API] proxy probe failed:', bvid, e);
+  }
+}
+
 export function useMusicPlayer(): PlayerState & PlayerControls {
   const howlRef = useRef<Howl | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastClearedBvRef = useRef<string>('');
   // mediaSession.setPositionState 用 ref 读最新进度，避免高频 setProgress 让 effect 反复重建定时器
   const progressRef = useRef(0);
+  // initHowl 自递归（onloaderror 重试时调用最新版本）通过 ref 解耦，避免 useCallback 循环依赖
+  const initHowlRef = useRef<((video: BilibiliVideo, attempt?: number) => Promise<void>) | null>(
+    null,
+  );
 
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -132,7 +178,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
 
   // 初始化 Howl 实例
   const initHowl = useCallback(
-    async (video: BilibiliVideo) => {
+    async (video: BilibiliVideo, attempt: number = 0) => {
       // 释放旧实例
       if (howlRef.current) {
         howlRef.current.stop();
@@ -145,7 +191,13 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       setIsLoading(true);
 
       // mediaSession 元数据：MediaMetadata 在某些 WebView / jsdom 环境下未提供，做能力探测
-      if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined' && video.title) {
+      // 仅 attempt=0 时刷新（重试不需要重置元数据）
+      if (
+        attempt === 0 &&
+        'mediaSession' in navigator &&
+        typeof MediaMetadata !== 'undefined' &&
+        video.title
+      ) {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: video.title,
           artist: video.author,
@@ -153,9 +205,16 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
         });
       }
 
-      const url = await fetchMusicUrl(video.bvid, biliMid);
+      const url = await fetchMusicUrl(video.bvid, biliMid, attempt);
       if (__DEV_LOG__) {
-        console.debug('[BILI-API] initHowl got url:', video.bvid, 'url=', url || '<EMPTY>');
+        console.debug(
+          '[BILI-API] initHowl got url:',
+          video.bvid,
+          'attempt=',
+          attempt,
+          'url=',
+          url || '<EMPTY>',
+        );
       }
       if (!url) {
         setIsLoading(false);
@@ -182,14 +241,74 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
           if (autoPlay) howl.play();
         },
         onloaderror: (id, err) => {
-          if (__DEV_LOG__) {
-            console.debug('[BILI-API] howl onloaderror:', video.bvid, 'id=', id, 'err=', err);
+          // 取 howl 内部 audio element 的 MediaError 详情：err 仅是 howler 抽象数字（4=src not supported），
+          // 真实失败原因由浏览器写在 audioEl.error.{code, message}
+          let mediaErrInfo: { code: number; message: string } | null = null;
+          let audioSrc = '';
+          try {
+            const sounds = (
+              howl as Howl & {
+                _sounds?: Array<{ _node?: HTMLAudioElement }>;
+              }
+            )._sounds;
+            const audioEl = sounds?.[0]?._node;
+            if (audioEl?.error) {
+              mediaErrInfo = {
+                code: audioEl.error.code,
+                message: audioEl.error.message || '<empty>',
+              };
+            }
+            audioSrc = audioEl?.currentSrc?.slice(0, 200) || '';
+          } catch {
+            /* ignore: 能力探测失败不影响主流程 */
           }
+          if (__DEV_LOG__) {
+            console.debug(
+              '[BILI-API] howl onloaderror:',
+              video.bvid,
+              'attempt=',
+              attempt,
+              'soundId=',
+              id,
+              'howlErr=',
+              err,
+              'mediaError=',
+              mediaErrInfo,
+              'audioSrc=',
+              audioSrc,
+            );
+          }
+          // 异步探测代理 URL 真实响应（不 await，避免阻塞重试链路）
+          void probeAudioUrl(url, video.bvid);
+
+          // 失效该 BV 的 URL 缓存，避免重启 / 再次播放仍命中失败的高码率 URL
+          invalidateMusicUrlCache(video.bvid);
+
+          // 音质降级重试：升一档继续尝试，封顶 LOW
+          if (attempt < AUDIO_FALLBACK_MAX_ATTEMPT) {
+            if (__DEV_LOG__) {
+              console.debug(
+                '[BILI-API] retry with lower quality:',
+                video.bvid,
+                'next attempt=',
+                attempt + 1,
+              );
+            }
+            sendNotice({
+              type: NoticeType.WARN,
+              message: `音频加载失败，降级重试 (${attempt + 1}/${AUDIO_FALLBACK_MAX_ATTEMPT})`,
+              duration: 2000,
+            });
+            // 通过 ref 调最新的 initHowl，避免捕获旧版本闭包
+            void initHowlRef.current?.(video, attempt + 1);
+            return;
+          }
+
+          // 三档全部失败：停在当前曲目，等用户手动切歌
           setIsLoading(false);
-          // 加载失败停在当前曲目，等用户手动切歌
           sendNotice({
             type: NoticeType.ERROR,
-            message: '音频加载失败，请检查网络或手动切到下一首',
+            message: `音频加载失败：${video.title || video.bvid}（已尝试 192K/132K/64K 全部音质），请检查网络或手动切歌`,
             duration: 5000,
           });
         },
@@ -229,6 +348,11 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     },
     [autoPlay, biliMid, clearPlayNext, goNext, handleEnd, sendNotice, startRaf, stopRaf, volume],
   );
+
+  // 把最新 initHowl 引用挂到 ref，给 onloaderror 内部递归重试用（避免 useCallback 循环依赖）
+  useEffect(() => {
+    initHowlRef.current = initHowl;
+  }, [initHowl]);
 
   // 监听 playNext 信号 + currentVideo 变化
   useEffect(() => {

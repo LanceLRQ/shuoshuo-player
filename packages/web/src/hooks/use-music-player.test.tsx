@@ -194,19 +194,34 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(howlerState.lastInstance!.play).toHaveBeenCalled();
   });
 
-  it('onloaderror 触发：isLoading=false', async () => {
+  it('onloaderror 触发：单次 onloaderror 进入音质降级重试，三档全失败后 isLoading=false', async () => {
     const { result } = renderHook(() => useMusicPlayer());
 
     await act(async () => {
       usePlayingListStore.setState({ playNext: true });
     });
-    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(1));
 
-    act(() => {
+    // attempt=0 失败：触发降级重试 → 构造第二个 Howl（attempt=1）
+    await act(async () => {
       howlerState.lastCb.onloaderror?.();
     });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(2));
+    // 重试期间仍处于 loading 态（重新进入 setIsLoading(true)）
+    expect(result.current.isLoading).toBe(true);
 
-    expect(result.current.isLoading).toBe(false);
+    // attempt=1 失败：触发降级重试 → 构造第三个 Howl（attempt=2）
+    await act(async () => {
+      howlerState.lastCb.onloaderror?.();
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(3));
+    expect(result.current.isLoading).toBe(true);
+
+    // attempt=2 失败：三档全部失败 → 停止重试，isLoading=false
+    await act(async () => {
+      howlerState.lastCb.onloaderror?.();
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
 
   it('fetchMusicUrl 返回空：弹错误通知，停在当前曲目（不自动跳下一首）', async () => {
@@ -228,7 +243,7 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(usePlayingListStore.getState().current).toBe(initialBvId);
   });
 
-  it('onloaderror：弹错误通知，停在当前曲目（不自动跳下一首）', async () => {
+  it('onloaderror：三档音质全部失败后弹"已尝试 192K/132K/64K"通知，停在当前曲目（不自动跳下一首）', async () => {
     useUIStore.setState({ notices: [] });
     const initialBvId = usePlayingListStore.getState().current;
     renderHook(() => useMusicPlayer());
@@ -236,14 +251,26 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     await act(async () => {
       usePlayingListStore.setState({ playNext: true });
     });
-    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(1));
 
-    act(() => {
+    // 连续三次 onloaderror（attempt=0/1/2 全失败）
+    await act(async () => {
+      howlerState.lastCb.onloaderror?.();
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      howlerState.lastCb.onloaderror?.();
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(3));
+    await act(async () => {
       howlerState.lastCb.onloaderror?.();
     });
 
+    // 仅最终全失败时弹的 ERROR 通知含"已尝试 192K/132K/64K"
     await waitFor(() =>
-      expect(useUIStore.getState().notices.some((n) => /音频加载失败/.test(n.message))).toBe(true),
+      expect(
+        useUIStore.getState().notices.some((n) => /已尝试 192K\/132K\/64K/.test(n.message)),
+      ).toBe(true),
     );
     expect(usePlayingListStore.getState().current).toBe(initialBvId);
   });

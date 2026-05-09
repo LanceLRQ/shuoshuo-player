@@ -66,35 +66,45 @@ function resolveCachedCid(bvid: string): number | undefined {
  * 1. URL 缓存升级为持久化 store（useMusicUrlCacheStore），TTL 内重启秒命中
  * 2. cid 已知（来自 URL 缓存或 view 模式入库）时跳过 view 接口调用
  * 3. 移除 v2 早期版本的 view→playurl jitter（反风控由 doClickStat 兜底已足够）
- * 4. 音质降级链：30280 (192K) → 30232 (132K) → 30216 (64K)
+ * 4. 音质降级链：30280 (192K) → 30232 (132K) → 30216 (64K) → audioList[0]
  * 5. 成功后 500ms 延迟发起一次 doClickStat（同一视频 600s 节流）
+ *
+ * @param attempt 重试轮次：0=优先 HIGH；1=跳过 HIGH 选 MEDIUM；2=跳过 HIGH/MEDIUM 选 LOW；
+ *                attempt > 0 时 bypass URL 缓存与 inflight 复用（已知上一档失败，需取新音质）。
+ *                用于 onloaderror 触发的音质降级重试，Tauri 代理对部分老视频高码率档命中失败时兜底。
  */
 export async function fetchMusicUrl(
   bvId: string,
   currentUserMid?: string | number,
+  attempt: number = 0,
 ): Promise<string> {
-  if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl enter:', bvId);
+  if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl enter:', bvId, 'attempt=', attempt);
 
-  // 命中已有 inflight 请求：所有并发调用共享同一个 Promise，避免 race
-  const existing = inflightRequests[bvId];
-  if (existing) {
-    if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl inflight hit:', bvId);
-    return existing;
-  }
+  // attempt > 0：bypass 缓存 / inflight；下一档音质需要全新一次 playInfo 请求 + 重新选 audio.id
+  const useSharedSlot = attempt === 0;
 
-  // 命中 TTL 内的持久化 URL 缓存：直接 return（重启后同样有效）
-  const urlCacheStore = useMusicUrlCacheStore.getState();
-  const cachedEntry = urlCacheStore.getValid(bvId);
-  if (cachedEntry?.playUrl) {
-    if (__DEV_LOG__) {
-      console.debug(
-        '[BILI-API] fetchMusicUrl cache hit:',
-        bvId,
-        'playUrl=',
-        cachedEntry.playUrl.slice(0, 80) + '...',
-      );
+  if (useSharedSlot) {
+    // 命中已有 inflight 请求：所有并发调用共享同一个 Promise，避免 race
+    const existing = inflightRequests[bvId];
+    if (existing) {
+      if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl inflight hit:', bvId);
+      return existing;
     }
-    return applyAudioUrlTransformer(cachedEntry.playUrl);
+
+    // 命中 TTL 内的持久化 URL 缓存：直接 return（重启后同样有效）
+    const urlCacheStore = useMusicUrlCacheStore.getState();
+    const cachedEntry = urlCacheStore.getValid(bvId);
+    if (cachedEntry?.playUrl) {
+      if (__DEV_LOG__) {
+        console.debug(
+          '[BILI-API] fetchMusicUrl cache hit:',
+          bvId,
+          'playUrl=',
+          cachedEntry.playUrl.slice(0, 80) + '...',
+        );
+      }
+      return applyAudioUrlTransformer(cachedEntry.playUrl);
+    }
   }
 
   const promise = (async () => {
@@ -160,18 +170,35 @@ export async function fetchMusicUrl(
       const flacAudio = dashExtra?.flac?.audio;
       const dolbyAudio = dashExtra?.dolby?.audio?.[0];
       const durl = (playInfo as { durl?: Array<{ url: string; backup_url?: string[] }> })?.durl;
-      const audio =
-        findById(AUDIO_QUALITY.HIGH) ||
-        findById(AUDIO_QUALITY.MEDIUM) ||
-        findById(AUDIO_QUALITY.LOW) ||
-        audioList[0] ||
-        flacAudio ||
-        dolbyAudio;
+
+      // 按 attempt 决定候选音质优先级：升一级即跳过更高一档（用于 onloaderror 后强制走低码率）
+      // attempt=0: HIGH → MEDIUM → LOW
+      // attempt=1: MEDIUM → LOW
+      // attempt=2: LOW
+      // 任何 attempt 在标准三档都失配时再回退到 audioList[0] / flacAudio / dolbyAudio（典型场景：
+      // 视频只有非标准码率 audio_id；attempt=0 的回退能给出与原行为一致的兜底 URL）
+      const orderedIds: number[] = [];
+      if (attempt <= 0) orderedIds.push(AUDIO_QUALITY.HIGH);
+      if (attempt <= 1) orderedIds.push(AUDIO_QUALITY.MEDIUM);
+      if (attempt <= 2) orderedIds.push(AUDIO_QUALITY.LOW);
+      let audio: DashAudioStream | undefined;
+      for (const id of orderedIds) {
+        const hit = findById(id);
+        if (hit) {
+          audio = hit;
+          break;
+        }
+      }
+      if (!audio) {
+        audio = audioList[0] || flacAudio || dolbyAudio;
+      }
 
       if (__DEV_LOG__) {
         console.debug(
           '[BILI-API] playInfo:',
           bvId,
+          'attempt=',
+          attempt,
           'audio_ids=',
           audioList.map((a) => a?.id),
           'has_flac=',
@@ -240,14 +267,16 @@ export async function fetchMusicUrl(
 
       return applyAudioUrlTransformer(playUrl);
     } catch (e) {
-      if (__DEV_LOG__) console.debug('[BILI-API] fetchMusicUrl 失败:', bvId, e);
+      if (__DEV_LOG__)
+        console.debug('[BILI-API] fetchMusicUrl 失败:', bvId, 'attempt=', attempt, e);
       return '';
     } finally {
-      delete inflightRequests[bvId];
+      // attempt > 0 没有写入 inflight slot，跳过 delete 避免误删 attempt=0 的并发请求
+      if (useSharedSlot) delete inflightRequests[bvId];
     }
   })();
 
-  inflightRequests[bvId] = promise;
+  if (useSharedSlot) inflightRequests[bvId] = promise;
   return promise;
 }
 

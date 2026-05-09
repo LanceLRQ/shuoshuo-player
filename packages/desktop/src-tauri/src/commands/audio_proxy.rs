@@ -91,10 +91,32 @@ pub fn is_allowed_host(target_url: &str) -> bool {
     false
 }
 
+/// 给响应 builder 注入 CORS 头：bili-stream:// 与 webview origin (http://localhost:1420 / tauri://localhost)
+/// 是不同源，WKWebView 对 audio 标签 / fetch 都会做 CORS 检查；缺 ACAO 时 audio onloaderror=4
+/// (MEDIA_ERR_SRC_NOT_SUPPORTED)。这里统一给所有响应路径补全。
+///
+/// Expose-Headers 暴露 Range 相关头给前端 JS（fetch 探测调试用），audio 标签本身不依赖。
+fn with_cors_headers(
+    builder: tauri::http::response::Builder,
+) -> tauri::http::response::Builder {
+    builder
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+        .header(
+            "Access-Control-Allow-Headers",
+            "Range, Content-Type, Accept",
+        )
+        .header(
+            "Access-Control-Expose-Headers",
+            "Content-Range, Content-Length, Accept-Ranges, X-Upstream-Status, X-Upstream-Host",
+        )
+}
+
 fn error_response(status: u16, message: &str) -> tauri::http::Response<Vec<u8>> {
-    tauri::http::Response::builder()
+    let builder = tauri::http::Response::builder()
         .status(status)
-        .header("content-type", "text/plain; charset=utf-8")
+        .header("content-type", "text/plain; charset=utf-8");
+    with_cors_headers(builder)
         .body(message.as_bytes().to_vec())
         .unwrap_or_else(|_| {
             // 极端兜底：构造最小响应避免 panic
@@ -127,6 +149,19 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
     request: tauri::http::Request<Vec<u8>>,
     responder: tauri::UriSchemeResponder,
 ) {
+    // CORS preflight：fetch / 部分 audio 实现遇到非 simple header 会先发 OPTIONS。
+    // 直接 204 + CORS 头放行，避免落到下方 GET 处理路径浪费一次 reqwest
+    if request.method() == tauri::http::Method::OPTIONS {
+        let builder = tauri::http::Response::builder()
+            .status(204)
+            .header("content-length", "0");
+        let resp = with_cors_headers(builder)
+            .body(Vec::new())
+            .unwrap_or_else(|_| error_response(500, "preflight build failed"));
+        responder.respond(resp);
+        return;
+    }
+
     let app = ctx.app_handle().clone();
     let req_uri = request.uri().to_string();
     let range_header = request
@@ -226,6 +261,23 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
             builder = builder.header("Cookie", cookie_str.clone());
         }
 
+        // 仅 chunk 0 / Range 起始打一行 cookie 注入摘要：cookie 名列表 + 总长度。
+        // 后续 chunk 复用同一份 cookie 不再重复打日志（避免连续 16MB chunk 刷屏）
+        if chunk_index == 0 {
+            let cookie_names: Vec<&str> =
+                cookies_snapshot.iter().map(|c| c.name.as_str()).collect();
+            let host = url::Url::parse(&real_url)
+                .ok()
+                .and_then(|u| u.host_str().map(|s| s.to_string()))
+                .unwrap_or_else(|| "<unknown>".into());
+            eprintln!(
+                "[audio_proxy] req host={} cookie_names={:?} cookie_total_len={}",
+                host,
+                cookie_names,
+                cookie_str.len()
+            );
+        }
+
         let dl_start = std::time::Instant::now();
         match builder.send().await {
             Ok(resp) => {
@@ -239,23 +291,68 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                     0
                 };
 
-                let upstream_content_type = upstream_headers
+                let upstream_content_type_raw = upstream_headers
                     .get("content-type")
                     .and_then(|v| v.to_str().ok())
                     .unwrap_or("audio/mp4")
                     .to_string();
+                // B 站对部分老视频上游返回 application/octet-stream（非 audio/*），
+                // WKWebView 在 custom URI scheme 路径下不做 MIME 嗅探，audio 标签按响应
+                // content-type 直接拒收 → onloaderror=4 (MEDIA_ERR_SRC_NOT_SUPPORTED)。
+                // bili-stream:// 只代理 dash audio m4s，统一规范为 audio/mp4 安全；
+                // 上游已经是 audio/* 时透传，避免覆盖罕见的 audio/aac / audio/mpeg。
+                let upstream_content_type =
+                    if upstream_content_type_raw.starts_with("audio/") {
+                        upstream_content_type_raw.clone()
+                    } else {
+                        "audio/mp4".to_string()
+                    };
                 let total_size_opt = upstream_headers
                     .get("content-range")
                     .and_then(|v| v.to_str().ok())
                     .and_then(parse_total_from_content_range);
+
+                if chunk_index == 0 {
+                    // chunk 0 打全量响应头摘要：诊断 audio 标签 onloaderror 用
+                    let upstream_cr = upstream_headers
+                        .get("content-range")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("<missing>");
+                    let upstream_ar = upstream_headers
+                        .get("accept-ranges")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("<missing>");
+                    eprintln!(
+                        "[audio_proxy] chunk=0 upstream ct_raw={:?} ct_final={:?} accept_ranges={:?} content_range={:?}",
+                        upstream_content_type_raw, upstream_content_type, upstream_ar, upstream_cr
+                    );
+                }
 
                 eprintln!(
                     "[audio_proxy] chunk={} status={} bytes={} elapsed={}ms speed={}KB/s",
                     chunk_index, status, chunk_body.len(), elapsed_ms, kb_per_s
                 );
 
-                // 上游错误：直接转发原响应（不写缓存）
+                // 上游错误：详细日志 + 直接转发原响应（不写缓存）
                 if status != 206 && status != 200 {
+                    // 提取 host / content-type 用于诊断（B 站对部分老视频高码率档可能 403/404）
+                    let host = url::Url::parse(&real_url)
+                        .ok()
+                        .and_then(|u| u.host_str().map(|s| s.to_string()))
+                        .unwrap_or_else(|| "<unknown>".into());
+                    let upstream_ct = upstream_headers
+                        .get("content-type")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("<missing>");
+                    let body_preview = String::from_utf8_lossy(
+                        &chunk_body[..chunk_body.len().min(512)],
+                    )
+                    .to_string();
+                    eprintln!(
+                        "[audio_proxy] UPSTREAM ERROR host={} status={} ct={} body_preview={}",
+                        host, status, upstream_ct, body_preview
+                    );
+
                     let mut rb = tauri::http::Response::builder().status(status);
                     for h in ["content-type", "content-length", "content-range"] {
                         if let Some(v) = upstream_headers.get(h) {
@@ -264,7 +361,11 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                             }
                         }
                     }
-                    let r = rb
+                    // 把上游 status / host 暴露到响应头：前端 fetch 探测能直接读到，无需查 Tauri 终端
+                    rb = rb
+                        .header("X-Upstream-Status", status.to_string())
+                        .header("X-Upstream-Host", host);
+                    let r = with_cors_headers(rb)
                         .body(chunk_body)
                         .unwrap_or_else(|_| error_response(500, "build resp failed"));
                     responder.respond(r);
@@ -288,7 +389,7 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                                 }
                             }
                         }
-                        let r = rb
+                        let r = with_cors_headers(rb)
                             .body(chunk_body)
                             .unwrap_or_else(|_| error_response(500, "build resp failed"));
                         responder.respond(r);
@@ -339,7 +440,14 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                 }
             }
             Err(e) => {
-                eprintln!("[audio_proxy] reqwest send failed: {}", e);
+                let host = url::Url::parse(&real_url)
+                    .ok()
+                    .and_then(|u| u.host_str().map(|s| s.to_string()))
+                    .unwrap_or_else(|| "<unknown>".into());
+                eprintln!(
+                    "[audio_proxy] reqwest send failed host={} chunk={} err={}",
+                    host, chunk_index, e
+                );
                 responder.respond(error_response(502, &e.to_string()));
             }
         }
@@ -462,12 +570,20 @@ fn build_slice_response(
     let len = (actual_end - audio_start + 1) as usize;
     let slice = chunk_bytes[offset_in_chunk..offset_in_chunk + len].to_vec();
     let content_range = format!("bytes {}-{}/{}", audio_start, actual_end, total_size);
-    tauri::http::Response::builder()
+    // 规范化 content-type：旧版本（修复前）写入缓存的 application/octet-stream 仍可能命中，
+    // 此处统一兜底为 audio/mp4，确保 audio 标签能识别（详见请求路径同名规范化逻辑注释）
+    let normalized_ct = if content_type.starts_with("audio/") {
+        content_type
+    } else {
+        "audio/mp4"
+    };
+    let builder = tauri::http::Response::builder()
         .status(206)
-        .header("content-type", content_type)
+        .header("content-type", normalized_ct)
         .header("content-length", slice.len().to_string())
         .header("accept-ranges", "bytes")
-        .header("content-range", content_range)
+        .header("content-range", content_range);
+    with_cors_headers(builder)
         .body(slice)
         .unwrap_or_else(|_| error_response(500, "build slice resp failed"))
 }
