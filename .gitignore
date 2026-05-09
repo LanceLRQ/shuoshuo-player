@@ -142,6 +142,9 @@ packages/desktop/src-tauri/target/
 packages/desktop/src-tauri/gen/
 *.tsbuildinfo
 
+# 发布产物（zip / sha256 / 安装包）
+release/
+
 # IDE 临时文件
 *.swp
 *.swo

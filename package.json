@@ -1,6 +1,6 @@
 {
   "name": "shuoshuo-player",
-  "version": "2.0.0",
+  "version": "1.9.0",
   "private": true,
   "type": "module",
   "description": "说说播放器 - 基于 Bilibili 的第三方音乐播放器",
@@ -19,6 +19,10 @@
     "test:coverage": "pnpm -r --aggregate-output run test:coverage",
     "test:shared": "pnpm --filter @shuoshuo-player/shared test",
     "test:web": "pnpm --filter @shuoshuo-player/web test",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:check": "node scripts/sync-version.mjs --check",
+    "pack:extension": "node scripts/pack-extension.mjs",
+    "release:extension": "pnpm build:extension && pnpm pack:extension",
     "prepare": "husky"
   },
   "lint-staged": {
