@@ -22,8 +22,15 @@ const BILIBILI_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Apple
 const BILIBILI_REFERER: &str = "https://www.bilibili.com/";
 const BILIBILI_ORIGIN: &str = "https://www.bilibili.com";
 
-// 与前端 transformBilibiliAudioUrl 的白名单同步；新增域必须双端同步
-const ALLOWED_HOST_SUFFIXES: &[&str] = &[".bilivideo.com", ".akamaized.net", ".hdslb.com"];
+// ⚠️ 双端同步：新增域必须同时更新前端 packages/desktop/src/lib/tauri-audio-url-transformer.ts
+// 中的 PROXY_HOST_SUFFIXES，否则 audio 标签的 src 不会被包装成 bili-stream:// 走代理
+const ALLOWED_HOST_SUFFIXES: &[&str] = &[
+    ".bilivideo.com",
+    ".akamaized.net",
+    ".hdslb.com",
+    // 第三方音频源（需注入 Referer + UA 模拟 B 站请求）；与 Chrome 扩展 rules.json #9 同步
+    ".mountaintoys.cn",
+];
 const ALLOWED_HOST_PREFIXES: &[&str] = &["upos-"];
 
 /// 单次代理上限（chunk 大小）。
@@ -658,6 +665,21 @@ mod tests {
     #[test]
     fn is_allowed_host_hdslb_suffix() {
         assert!(is_allowed_host("https://i0.hdslb.com/cover.jpg"));
+    }
+
+    #[test]
+    fn is_allowed_host_mountaintoys_suffix() {
+        assert!(is_allowed_host("https://cdn.mountaintoys.cn/audio/foo.m4a"));
+        assert!(is_allowed_host("https://audio.mountaintoys.cn/x"));
+    }
+
+    #[test]
+    fn is_allowed_host_with_non_default_port() {
+        // B 站 mcdn 第三方节点会带非标端口（如 :4483）；url crate host_str() 已剥离端口
+        assert!(is_allowed_host(
+            "https://809al93l.edge.mountaintoys.cn:4483/upgcxcode/x/y/foo.m4s"
+        ));
+        assert!(is_allowed_host("https://upos-test.bilivideo.com:8443/foo"));
     }
 
     #[test]

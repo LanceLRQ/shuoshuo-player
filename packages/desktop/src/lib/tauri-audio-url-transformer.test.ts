@@ -14,6 +14,11 @@ describe('shouldProxyHost', () => {
     expect(shouldProxyHost('i0.hdslb.com')).toBe(true);
   });
 
+  it('命中后缀 .mountaintoys.cn（第三方音频源）', () => {
+    expect(shouldProxyHost('cdn.mountaintoys.cn')).toBe(true);
+    expect(shouldProxyHost('audio.mountaintoys.cn')).toBe(true);
+  });
+
   it('命中前缀 upos-', () => {
     expect(shouldProxyHost('upos-hz-mirrorakam.akamaized.net')).toBe(true);
     expect(shouldProxyHost('upos-anything.example.com')).toBe(true);
@@ -67,5 +72,16 @@ describe('transformBilibiliAudioUrl', () => {
     const raw = 'https://upos-x.bilivideo.com/path?a=1&b=2';
     const out = transformBilibiliAudioUrl(raw);
     expect(decodeURIComponent(out.split('?url=')[1] ?? '')).toBe(raw);
+  });
+
+  it('带非标端口的 mcdn URL 仍能命中（hostname 匹配，不含端口）', () => {
+    // B 站第三方 mcdn 节点（如 mountaintoys.cn）会用 :4483 等非标 HTTPS 端口
+    // parsed.host 含端口（809al93l.edge.mountaintoys.cn:4483）会与 .mountaintoys.cn 后缀失配
+    // parsed.hostname 不含端口，能正确命中
+    const raw =
+      'https://809al93l.edge.mountaintoys.cn:4483/upgcxcode/09/91/38082249109/38082249109-1-30216.m4s?e=xxx';
+    const out = transformBilibiliAudioUrl(raw);
+    expect(out.startsWith('bili-stream://localhost/?url=')).toBe(true);
+    expect(out).toContain(encodeURIComponent(raw));
   });
 });

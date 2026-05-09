@@ -8,7 +8,15 @@
  * 仅对已知 B 站音频/视频域生效，其他 URL 透传，避免误代理。
  */
 
-const PROXY_HOST_SUFFIXES = ['.bilivideo.com', '.akamaized.net', '.hdslb.com'];
+// ⚠️ 双端同步：新增域名时必须同时更新 packages/desktop/src-tauri/src/commands/audio_proxy.rs
+// 中的 ALLOWED_HOST_SUFFIXES，否则 Tauri Rust 代理会以 403 (host not allowed) 拒收
+const PROXY_HOST_SUFFIXES = [
+  '.bilivideo.com',
+  '.akamaized.net',
+  '.hdslb.com',
+  // 第三方音频源（需注入 Referer + UA 模拟 B 站请求）；与 Chrome 扩展 rules.json #9 同步
+  '.mountaintoys.cn',
+];
 const PROXY_HOST_PREFIXES = ['upos-'];
 const PROXY_SCHEME_PREFIX = 'bili-stream://';
 
@@ -31,6 +39,8 @@ export function transformBilibiliAudioUrl(rawUrl: string): string {
   } catch {
     return rawUrl;
   }
-  if (!shouldProxyHost(parsed.host)) return rawUrl;
+  // 用 hostname（不含端口）做白名单匹配：B 站 mcdn 第三方源会带非标端口（如 :4483），
+  // 用 parsed.host 会把 '809al93l.edge.mountaintoys.cn:4483' 与 '.mountaintoys.cn' 比对失败
+  if (!shouldProxyHost(parsed.hostname)) return rawUrl;
   return `${PROXY_SCHEME_PREFIX}localhost/?url=${encodeURIComponent(rawUrl)}`;
 }
