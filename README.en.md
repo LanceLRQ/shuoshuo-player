@@ -17,8 +17,8 @@
 - ✅ Data import / export
 - ✅ Cross-platform desktop app (macOS / Windows / Linux) powered by Tauri
 - ✅ Brand-new UI + pink accent + light / dark / auto theme with brightness compensation
-- ✅ Custom playlists — mix uploads / favorites / live slices, with per-video deduplication
-- ✅ Lyric editor revamp — side-by-side diff, LRC source-code edit, history snapshots, undo stack of 999
+- ✅ Custom playlists — freely mix uploads, favorites and live slices into one list; duplicates skipped automatically
+- ✅ A better lyric editor — edit while viewing the original, restore from history any time
 - ☐ More to come
 
 ## Install
