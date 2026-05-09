@@ -1,0 +1,248 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify version consistency
+        run: pnpm version:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: TypeScript typecheck
+        run: pnpm typecheck
+
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+  extension:
+    name: Build & pack Chrome extension
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Chrome extension
+        run: pnpm build:extension
+
+      - name: Verify extension size
+        run: |
+          TOTAL_BYTES=$(find packages/web/dist-extension -type f -print0 | xargs -0 wc -c | tail -1 | awk '{print $1}')
+          TOTAL_KIB=$((TOTAL_BYTES / 1024))
+          echo "Extension total: ${TOTAL_BYTES} bytes (${TOTAL_KIB} KiB)"
+          if [ "$TOTAL_KIB" -gt 10240 ]; then
+            echo "::error::Extension size ${TOTAL_KIB} KiB exceeds 10240 KiB budget"
+            exit 1
+          fi
+          echo "::notice::Extension size ${TOTAL_KIB} KiB (under 10240 KiB budget)"
+
+      - name: Pack extension zip
+        run: pnpm pack:extension
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-release
+          path: |
+            release/*.zip
+            release/*.zip.sha256
+          retention-days: 14
+          if-no-files-found: error
+
+  desktop:
+    name: Build desktop bundle (${{ matrix.os }})
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: packages/desktop/src-tauri
+
+      # Tauri v2 在 Linux 需要 webkit2gtk 4.1 + GTK 系列开发头
+      # 与 packages/desktop/src-tauri/tauri.conf.json 的 deb depends 对齐
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-0 \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-0 \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-0 \
+            libsoup-3.0-dev
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # build:desktop = pnpm --filter @shuoshuo-player/desktop tauri:build
+      # tauri:build 内部链 = tauri build + node scripts/patch-macos-display-name.mjs
+      # 因此 macOS .app 的 CFBundleDisplayName 会被自动注入「说说播放器」
+      - name: Build desktop bundle
+        run: pnpm build:desktop
+
+      - name: Collect bundles
+        shell: bash
+        run: |
+          mkdir -p release/desktop
+          BUNDLE_DIR=packages/desktop/src-tauri/target/release/bundle
+          # 用 find -exec cp 避免 glob 在某平台无匹配时报错
+          find "$BUNDLE_DIR" -type f \( \
+            -name "*.dmg" -o \
+            -name "*.app.tar.gz" -o \
+            -name "*.msi" -o \
+            -name "*.exe" -o \
+            -name "*.deb" -o \
+            -name "*.AppImage" -o \
+            -name "*.rpm" \
+          \) -exec cp -v {} release/desktop/ \;
+          ls -la release/desktop/
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: release/desktop/
+          retention-days: 14
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release (draft)
+    needs: [extension, desktop]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-staging
+
+      - name: Flatten artifacts to release/all/
+        shell: bash
+        run: |
+          mkdir -p release/all
+          find release-staging -type f \( \
+            -name "*.zip" -o \
+            -name "*.sha256" -o \
+            -name "*.dmg" -o \
+            -name "*.app.tar.gz" -o \
+            -name "*.msi" -o \
+            -name "*.exe" -o \
+            -name "*.deb" -o \
+            -name "*.AppImage" -o \
+            -name "*.rpm" \
+          \) -exec cp -v {} release/all/ \;
+          echo "---"
+          ls -la release/all/
+
+      # 1.x → prerelease；2.x+ → 正式版
+      - name: Determine prerelease flag
+        id: meta
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" == v1.* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: 说说播放器 ${{ github.ref_name }}
+          draft: true
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          files: release/all/*
+          body: |
+            ## 说说播放器 ${{ github.ref_name }}
+
+            > 1.x 区间为 **Beta 版本**，2.0+ 为稳定版。当前版本可能存在已知缺陷，欢迎反馈。
+
+            ### Chrome 扩展安装
+
+            - **Chrome Web Store（推荐）**：审核通过后在商店搜索"说说播放器"安装
+            - **手动加载（开发者模式）**：下载 `shuoshuo-player-extension-${{ github.ref_name }}.zip`，解压后在 `chrome://extensions/` 开启"开发者模式" → "加载已解压的扩展程序"
+
+            ### 桌面端安装
+
+            **未签名说明**：Beta 阶段桌面端未做代码签名/公证，首次启动会触发系统警告：
+            - **macOS**：双击 `.dmg` 安装后，在 Launchpad 右键 .app → 打开 → 弹窗中再次点击"打开"
+            - **Windows**：双击 `.exe` 或 `.msi` → SmartScreen 拦截 → "更多信息" → "仍要运行"
+            - **Linux**：`.deb` 用 `dpkg -i` 安装；`.AppImage` 加可执行权限后双击；`.rpm` 用 `rpm -ivh` 安装
+
+            ### 完整性校验
+
+            每个 `.zip` 同目录附带 `.sha256` 校验文件：
+
+            ```bash
+            shasum -a 256 -c shuoshuo-player-extension-${{ github.ref_name }}.zip.sha256
+            ```
+
+            ### 变更摘要
+
+            <!-- TODO：手动补充本版本主要变更（feat / fix / break change） -->

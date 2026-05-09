@@ -29,6 +29,12 @@
 
 Chrome 浏览器扩展可直接从应用商店一键安装：[说说播放器（水晶蟹定制版）](https://chromewebstore.google.com/detail/%E8%AF%B4%E8%AF%B4%E6%92%AD%E6%94%BE%E5%99%A8-%E6%B0%B4%E6%99%B6%E8%9F%B9%E5%AE%9A%E5%88%B6%E7%89%88/odfgnejgeebbccohpgjdmbklaoicndpb)。
 
+> **当前版本属于 1.x Beta 通道**：2.0 正式版前的预发布阶段，可能存在已知缺陷。Chrome 扩展请优先走 Web Store；桌面端可在 [GitHub Releases](https://github.com/LanceLRQ/shuoshuo-player/releases) 下载 macOS / Windows / Linux 安装包，**Beta 阶段桌面端未签名**，首次启动需要：
+>
+> - macOS：右键 .app → 打开 → 弹窗中再次点击"打开"
+> - Windows：SmartScreen 拦截 → 更多信息 → 仍要运行
+> - Linux：`.deb` 直接安装 / `.AppImage` 加可执行权限后双击
+
 ## 快速开始
 
 ```bash

@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    tags: ['v*']
   pull_request:
     branches: [main, dev_v2]
 
@@ -26,6 +24,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify version consistency
+        run: pnpm version:check
 
       - name: Lint
         run: pnpm lint
