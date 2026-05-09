@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { AccountApi, useCloudServiceStore, useUIStore } from '@shuoshuo-player/shared';
+import {
+  AccountApi,
+  setPlatformBridge,
+  resetPlatformBridge,
+  useCloudServiceStore,
+  useUIStore,
+} from '@shuoshuo-player/shared';
 import { CloudServicesIndexPage } from './index';
 
 vi.mock('@shuoshuo-player/shared', async () => {
@@ -14,12 +20,34 @@ vi.mock('@shuoshuo-player/shared', async () => {
 });
 
 const mockedLogin = vi.mocked(AccountApi.login);
+const openExternalSpy = vi.fn(async () => {});
 
 function reset() {
   useCloudServiceStore.getState().clearSession();
   useUIStore.setState({ notices: [] });
   mockedLogin.mockReset();
+  openExternalSpy.mockClear();
 }
+
+beforeAll(() => {
+  // BrandHeader 点击 logo 时通过 PlatformBridge.shell.openExternal 跳转官网，
+  // 测试环境注入最小 bridge stub 避免触发"未初始化"错误
+  setPlatformBridge({
+    type: 'web',
+    storage: {
+      getItem: async () => null,
+      setItem: async () => {},
+      removeItem: async () => {},
+    },
+    auth: {
+      login: async () => {},
+      logout: async () => {},
+      onLoginSuccess: () => () => {},
+    },
+    shell: { openExternal: openExternalSpy },
+  });
+});
+afterAll(() => resetPlatformBridge());
 
 const ADMIN_SESSION = {
   id: 1,
@@ -119,15 +147,16 @@ describe('CloudServicesIndexPage', () => {
     expect(screen.getByLabelText('邮箱')).toBeInTheDocument();
   });
 
-  it('普通用户已登录 → 欢迎卡显示无管理员权限提示，无管理快捷入口', () => {
+  it('普通用户已登录 → 欢迎卡仅显示退出登录，无管理快捷入口与权限提示', () => {
     act(() => {
       useCloudServiceStore.getState().updateSession(USER_SESSION);
     });
     renderPage();
     expect(screen.getByText('欢迎回来')).toBeInTheDocument();
-    expect(screen.getByText(/无管理员权限/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /进入歌词管理/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /进入切片 UP 主管理/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/无管理员权限/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /退出登录/ })).toBeInTheDocument();
   });
 
   it('已登录点击退出 → 调用 clearSession + 切换回登录卡', async () => {
@@ -142,5 +171,11 @@ describe('CloudServicesIndexPage', () => {
       expect(useCloudServiceStore.getState().isLogin()).toBe(false);
     });
     expect(screen.getByLabelText('邮箱')).toBeInTheDocument();
+  });
+
+  it('点击品牌头（logo + 名称）→ bridge.shell.openExternal 跳转官网', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: '访问水晶蟹小屋官网' }));
+    expect(openExternalSpy).toHaveBeenCalledWith('https://shuoshuo.sikong.ren');
   });
 });

@@ -9,6 +9,7 @@ import {
   useCloudServiceStore,
   useUIStore,
   NoticeType,
+  getPlatformBridge,
   type CloudServiceSession,
 } from '@shuoshuo-player/shared';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -25,6 +26,9 @@ import {
 } from '@/components/ui/form';
 import crystalHouseLogo from '@/assets/crystal-house-logo.png';
 
+// 水晶蟹小屋官网（点击 logo 或名称跳转；通过 PlatformBridge 路由到系统浏览器/新窗口）
+const CRYSTAL_HOUSE_HOMEPAGE = 'https://shuoshuo.sikong.ren';
+
 // 与原 CloudLoginDialog 第 32-34 行保持一致：迁入着陆页内联表单后弹窗组件下线
 const loginSchema = z.object({
   email: z.string().min(1, '请输入邮箱').email('邮箱格式不正确'),
@@ -34,10 +38,21 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 function BrandHeader() {
+  const handleVisitHomepage = () => {
+    void getPlatformBridge().shell.openExternal(CRYSTAL_HOUSE_HOMEPAGE);
+  };
+
   return (
     <div className="flex flex-col items-center gap-3 text-center">
-      <img src={crystalHouseLogo} alt="水晶蟹小屋" className="h-24 w-24" />
-      <h1 className="text-3xl font-bold tracking-tight">水晶蟹小屋</h1>
+      <button
+        type="button"
+        onClick={handleVisitHomepage}
+        aria-label="访问水晶蟹小屋官网"
+        className="flex flex-col items-center gap-3 rounded-lg p-1 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <img src={crystalHouseLogo} alt="水晶蟹小屋" className="h-24 w-24" />
+        <h1 className="text-3xl font-bold tracking-tight">水晶蟹小屋</h1>
+      </button>
       <p className="text-sm text-muted-foreground">欢迎访问水晶蟹小屋</p>
     </div>
   );
@@ -140,42 +155,34 @@ function WelcomeCard() {
 
   return (
     <Card className="mx-auto w-full max-w-md">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+      <CardHeader className="items-center text-center">
+        <CardTitle className="flex items-center justify-center gap-2">
           <Sparkles className="h-5 w-5 text-cyan-500" />
           欢迎回来
         </CardTitle>
-        <CardDescription className="flex flex-wrap items-center gap-2 pt-1">
+        <CardDescription className="flex flex-wrap items-center justify-center gap-2 pt-1">
           <span className="font-medium text-foreground">{displayName}</span>
           <Badge variant="default">{roleName}</Badge>
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {isAdmin ? (
+      <CardContent className="flex flex-col items-center gap-3 pt-4">
+        {isAdmin && (
           <>
-            <Button asChild className="w-full justify-start" variant="outline">
+            <Button asChild className="w-full" variant="outline">
               <Link to="/cloud-services/lyrics">
                 <Music className="mr-2 h-4 w-4" />
                 进入歌词管理
               </Link>
             </Button>
-            <Button asChild className="w-full justify-start" variant="outline">
+            <Button asChild className="w-full" variant="outline">
               <Link to="/cloud-services/live-slicer-men">
                 <Tv className="mr-2 h-4 w-4" />
                 进入切片 UP 主管理
               </Link>
             </Button>
           </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            当前账号无管理员权限，仅能享受云端歌词与切片资源同步等基础功能。
-          </p>
         )}
-        <Button
-          variant="ghost"
-          className="w-full justify-start text-destructive"
-          onClick={handleLogout}
-        >
+        <Button variant="ghost" className="text-destructive" onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           退出登录
         </Button>
