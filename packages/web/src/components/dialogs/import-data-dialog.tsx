@@ -16,6 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
 
 interface ImportDataDialogProps {
   open: boolean;
@@ -132,7 +133,17 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
             <span className="text-muted-foreground">视频</span>
             <span className="font-medium">{summary.videoCount}</span>
           </span>
-          <span className="ml-auto text-muted-foreground">v{__APP_VERSION__}</span>
+          <span className="ml-auto flex items-center gap-1.5 text-muted-foreground">
+            v{APP_VERSION}
+            {IS_BETA_VERSION && (
+              <Badge
+                variant="secondary"
+                className="px-1.5 py-0 text-[10px] uppercase tracking-wide"
+              >
+                Beta
+              </Badge>
+            )}
+          </span>
         </div>
 
         {/* 合并模式：紧凑单行布局，hint 走 title 悬浮 */}

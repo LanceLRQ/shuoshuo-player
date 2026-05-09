@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
 import { useUIShell } from '@/stores/ui-shell';
 import { ImportDataDialog } from '@/components/dialogs/import-data-dialog';
 import logoUrl from '@/assets/logo.png';
@@ -249,7 +250,12 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
       {/* 右段：标题 + 版本号 + 现有操作 */}
       <div className="flex flex-1 items-center gap-2 px-4">
         <span className="font-semibold tracking-tight">说说播放器</span>
-        <span className="text-xs text-muted-foreground">v{__APP_VERSION__}</span>
+        <span className="text-xs text-muted-foreground">v{APP_VERSION}</span>
+        {IS_BETA_VERSION && (
+          <Badge variant="secondary" className="px-1.5 py-0 text-[10px] uppercase tracking-wide">
+            Beta
+          </Badge>
+        )}
 
         <div className="ml-auto flex items-center gap-1">
           <TooltipProvider delayDuration={200}>

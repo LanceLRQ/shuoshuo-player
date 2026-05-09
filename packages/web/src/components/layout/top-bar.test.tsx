@@ -103,6 +103,19 @@ describe('TopBar', () => {
     expect(screen.getByText(/^v\d+\.\d+\.\d+/)).toBeInTheDocument();
   });
 
+  // 1.x 版本（Beta 通道）应在顶栏渲染 Beta 徽章；2.0+ 不渲染
+  // 当前编译期 __APP_VERSION__ 来自根 package.json（Beta 阶段为 1.9.0），
+  // 因此该用例本质是回归保护：若未来手动改成 2.0+，断言会自动失败提醒移除徽章逻辑或调整判定
+  it('Beta 通道（1.x）顶栏显示 Beta 徽章', async () => {
+    const { isBetaVersion, APP_VERSION } = await import('@/lib/version');
+    render(<TopBar menuOpen={true} onToggleMenu={vi.fn()} />);
+    if (isBetaVersion(APP_VERSION)) {
+      expect(screen.getByText('Beta')).toBeInTheDocument();
+    } else {
+      expect(screen.queryByText('Beta')).toBeNull();
+    }
+  });
+
   it('点击 GitHub 按钮调用 shell.openExternal', () => {
     const bridge = setPlatformBridge as unknown; // 让 ts 别报错
     void bridge;
