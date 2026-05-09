@@ -92,7 +92,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        # 只构建 macOS（ARM64）+ Windows；Linux 桌面用户改用 Chrome 扩展
+        # macos-latest = Apple Silicon runner，输出 ARM64 .dmg / .app；Intel Mac 用户走扩展兜底
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -115,22 +117,6 @@ jobs:
         with:
           workspaces: packages/desktop/src-tauri
 
-      # Tauri v2 在 Linux 需要 webkit2gtk 4.1 + GTK 系列开发头
-      # 与 packages/desktop/src-tauri/tauri.conf.json 的 deb depends 对齐
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-0 \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-0 \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libsoup-3.0-0 \
-            libsoup-3.0-dev
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -146,14 +132,12 @@ jobs:
           mkdir -p release/desktop
           BUNDLE_DIR=packages/desktop/src-tauri/target/release/bundle
           # 用 find -exec cp 避免 glob 在某平台无匹配时报错
+          # 仅收集 macOS（dmg / app.tar.gz）与 Windows（msi / exe）产物
           find "$BUNDLE_DIR" -type f \( \
             -name "*.dmg" -o \
             -name "*.app.tar.gz" -o \
             -name "*.msi" -o \
-            -name "*.exe" -o \
-            -name "*.deb" -o \
-            -name "*.AppImage" -o \
-            -name "*.rpm" \
+            -name "*.exe" \
           \) -exec cp -v {} release/desktop/ \;
           ls -la release/desktop/
 
@@ -190,10 +174,7 @@ jobs:
             -name "*.dmg" -o \
             -name "*.app.tar.gz" -o \
             -name "*.msi" -o \
-            -name "*.exe" -o \
-            -name "*.deb" -o \
-            -name "*.AppImage" -o \
-            -name "*.rpm" \
+            -name "*.exe" \
           \) -exec cp -v {} release/all/ \;
           echo "---"
           ls -la release/all/
@@ -223,6 +204,14 @@ jobs:
 
             > 1.x 区间为 **Beta 版本**，2.0+ 为稳定版。当前版本可能存在已知缺陷，欢迎反馈。
 
+            ### 国内镜像下载
+
+            访问 GitHub 慢的用户可从镜像下载（与本页 asset 字节一致，由 Cloudflare CDN 分发）：
+
+            ```
+            https://download.hutao.wiki/shuoshuo-player/releases/download/${{ github.ref_name }}/<文件名>
+            ```
+
             ### Chrome 扩展安装
 
             - **Chrome Web Store（推荐）**：审核通过后在商店搜索"说说播放器"安装
@@ -230,10 +219,11 @@ jobs:
 
             ### 桌面端安装
 
+            本版本仅提供 **macOS（Apple Silicon）** 与 **Windows x64** 安装包；Intel Mac 与 Linux 用户请使用 Chrome 扩展。
+
             **未签名说明**：Beta 阶段桌面端未做代码签名/公证，首次启动会触发系统警告：
             - **macOS**：双击 `.dmg` 安装后，在 Launchpad 右键 .app → 打开 → 弹窗中再次点击"打开"
             - **Windows**：双击 `.exe` 或 `.msi` → SmartScreen 拦截 → "更多信息" → "仍要运行"
-            - **Linux**：`.deb` 用 `dpkg -i` 安装；`.AppImage` 加可执行权限后双击；`.rpm` 用 `rpm -ivh` 安装
 
             ### 完整性校验
 
