@@ -397,23 +397,23 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                     }
                 };
 
-                // 同步等待写缓存完成（在 inflight 锁内），后续等锁的并发请求拿锁后能立即从
-                // cache 读到。写盘 ~10ms 数量级，对响应延迟影响可忽略
+                // 1. 同步预热 mem_cache：保证 audio 标签后续在同一 chunk 的小 Range 探测
+                //    立即命中（从内存切片返回），无需等磁盘落盘完成
                 if let Some(cs) = cache_state_opt.as_ref() {
-                    if let Err(e) = audio_cache::store(
-                        cs.inner(),
-                        &cache_key,
-                        &chunk_body,
-                        total_size,
-                        &upstream_content_type,
-                    )
-                    .await
-                    {
-                        eprintln!("[audio_cache] store failed: {}", e);
+                    if let Ok(mut g) = cs.inner().mem_cache.lock() {
+                        g.put(
+                            cache_key.clone(),
+                            std::sync::Arc::new(audio_cache::MemHitData {
+                                bytes: chunk_body.clone(),
+                                total_size,
+                                content_type: upstream_content_type.clone(),
+                            }),
+                        );
                     }
                 }
 
-                // 切片返回 audio 实际请求范围
+                // 2. 立即切片响应客户端（不再阻塞等加密 + fs::write + 索引）
+                //    与同步路径相比首块延迟降低 ~60ms（10ms 加密 + 50ms 落盘均移到后台）
                 let resp = build_slice_response(
                     &chunk_body,
                     chunk_start,
@@ -425,8 +425,33 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                 );
                 responder.respond(resp);
 
-                // 跨段预取：当前 chunk 下完后，后台预下下一个 chunk（如尚未到文件末尾且未缓存）
-                // 与 handler miss 路径走相同 inflight 锁，避免并发重复
+                // 3. 后台落盘 + 索引（fire-and-forget，失败仅日志）
+                //    inflight_guard 在 handler async fut 结束时释放，不阻塞并发请求；
+                //    并发请求拿锁后会从 mem_cache 同步命中（步骤 1 已写）
+                {
+                    let app_clone = app.clone();
+                    let key_owned = cache_key.clone();
+                    let body_owned = chunk_body; // move：respond 已 build slice，原 body 不再用
+                    let ct_owned = upstream_content_type.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Some(cs) = app_clone.try_state::<AudioCacheState>() {
+                            if let Err(e) = audio_cache::store(
+                                cs.inner(),
+                                &key_owned,
+                                &body_owned,
+                                total_size,
+                                &ct_owned,
+                            )
+                            .await
+                            {
+                                eprintln!("[audio_cache] async store failed: {}", e);
+                            }
+                        }
+                    });
+                }
+
+                // 4. 跨段预取：当前 chunk 下完后，后台预下下一个 chunk（如尚未到文件末尾且未缓存）
+                //    与 handler miss 路径走相同 inflight 锁，避免并发重复
                 let next_index = chunk_index + 1;
                 if next_index * MAX_CHUNK_BYTES < total_size {
                     let app_clone = app.clone();

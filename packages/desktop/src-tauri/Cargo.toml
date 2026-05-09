@@ -32,20 +32,14 @@ once_cell = "1"
 lru = "0.12"
 sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
-chacha20 = "0.9"
 machine-uid = "0.5"
-rand = "0.8"
 
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
-# dev profile 单点优化：让流密码 / hash 等计算密集依赖始终以 release 优化编译，
-# 业务代码仍保持 debug 便于断点。即使 ChaCha20 软件实现已经够快，加这层保险
-# 让 dev 模式 chunk 解码与 release 几乎等价，避免 [audio_perf] 数据失真。
-[profile.dev.package.chacha20]
-opt-level = 3
+# dev profile 单点优化：让 hash 计算密集依赖始终以 release 优化编译，
+# 业务代码仍保持 debug 便于断点。XOR 混淆本身已是 inline 字节循环（~3GB/s），
+# 不再需要 chacha20/cipher 的 opt-level 提升。
 [profile.dev.package.sha2]
-opt-level = 3
-[profile.dev.package.cipher]
 opt-level = 3

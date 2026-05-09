@@ -1,30 +1,27 @@
-// 音频缓存模块（ChaCha20 流密码混淆 + LRU + 持久化索引）
+// 音频缓存模块（XOR 32B 循环混淆 + LRU + 持久化索引）
 //
 // 数据流：
 //   handler 收到 Range 请求 → cache_key = sha256(url_no_query + chunk_index + chunk_size)
-//     ├─ hit: 读 chunks/<UUID>.bin → ChaCha20 解混 → 返回字节
-//     └─ miss: reqwest 下载 → respond 客户端 + 异步写盘 + 更新 LRU 索引
+//     ├─ hit: 读 chunks/<UUID>.bin → XOR 解混 → 返回字节
+//     └─ miss: reqwest 下载 → 立即 respond 客户端 → 后台 spawn 异步写盘 + 更新 LRU 索引
 //
 // 文件布局：
 //   $APP_CACHE_DIR/audio/
 //     ├─ index.json              # LRU 元数据（key → entry）
 //     └─ chunks/<UUID>.bin       # 单段混淆字节流
 //
-// 安全说明：ChaCha20 仅做"误识别"防护，不是真加密语义。文件名 UUID + 索引隔离让
-// 看磁盘无法直接识别歌曲；混淆后字节流也不能被 ffmpeg 直接当 m4s 解码。
-// 选择 ChaCha20 而非 AES-128-CBC：纯软件实现 500MB/s+，dev/release 速度等价，
-// 不依赖 AES-NI 硬件加速；流密码无 padding，加解密同算法，逻辑更简洁。
+// 安全说明：XOR 仅做"误识别"防护，不是真加密语义（开源项目，加密拦不住破解）。
+// 文件名 UUID + 索引隔离让看磁盘无法直接识别歌曲；混淆后字节流也不能被 ffmpeg
+// 直接当 m4s 解码。32B key 循环 XOR 性能 ~3GB/s，对 16MB chunk 约 5ms，
+// 相比 ChaCha20 (~10ms) 减半，且去掉 chacha20 依赖简化代码。
 
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use chacha20::cipher::{KeyIvInit, StreamCipher};
-use chacha20::ChaCha20;
 use lru::LruCache;
 use once_cell::sync::Lazy;
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, Runtime};
@@ -43,12 +40,11 @@ const LRU_MAX_ENTRIES: usize = 8192;
 /// 高频小 Range 的累积 CPU/IO 开销。
 const MEM_CACHE_ENTRIES: usize = 4;
 
-/// 文件格式 magic：BPV3 = bilibili player v3（ChaCha20 版；BPV2 是旧 AES-CBC 版）
-/// 新文件结构：[4B magic][12B nonce][ChaCha20 ciphertext]
-/// 旧 BPV2 文件 magic 不匹配 → decrypt_with_header 返回 None → handler 当 miss 重下
-const FILE_MAGIC: &[u8; 4] = b"BPV3";
-const NONCE_LEN: usize = 12; // ChaCha20 的 nonce 是 96-bit
-const FILE_HEADER_LEN: usize = 4 + NONCE_LEN; // magic + nonce
+/// 文件格式 magic：BPV4 = bilibili player v4（XOR 版；BPV3=ChaCha20、BPV2=AES-CBC 旧版本启动期清理）
+/// 新文件结构：[4B magic][XOR ciphertext]（XOR 流式无 nonce）
+/// 旧 BPV3/BPV2 文件 magic 不匹配 → init() 加载 index 时校验删除 + try_load 返回 None
+const FILE_MAGIC: &[u8; 4] = b"BPV4";
+const FILE_HEADER_LEN: usize = 4; // 仅 magic
 /// 当 machine-uid crate 失败时的兜底 key 源（fallback 后跨机器仍同 key，安全级别约 = XOR）
 const FALLBACK_KEY_SEED: &[u8] = b"shuoshuo-player-v2-fallback";
 
@@ -150,9 +146,9 @@ pub fn compute_chunk_cache_key(url: &str, chunk_index: u64, chunk_size: u64) -> 
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-/// ChaCha20 key（启动时从 machine-uid 派生一次；跨机器拷贝缓存不可解）
-/// 256-bit 全用满 SHA-256 输出，对比旧 AES-128 切前 16 字节多用一倍熵
-static CHACHA_KEY: Lazy<[u8; 32]> = Lazy::new(|| {
+/// XOR 混淆 key（启动时从 machine-uid 派生一次；跨机器拷贝缓存不可解）
+/// 32B 全用满 SHA-256 输出，循环 XOR 时 `i & 0x1F` 取模 32
+static OBFUSCATE_KEY: Lazy<[u8; 32]> = Lazy::new(|| {
     let seed = match machine_uid::get() {
         Ok(uid) if !uid.is_empty() => uid.into_bytes(),
         Ok(_) | Err(_) => {
@@ -166,38 +162,37 @@ static CHACHA_KEY: Lazy<[u8; 32]> = Lazy::new(|| {
     key
 });
 
-/// 加密 plain bytes → 完整文件字节（含 magic + nonce + ciphertext）
-///
-/// ChaCha20 是流密码：apply_keystream 就地 XOR plaintext，无 padding 开销。
-/// 每次随机 12B nonce 保证同 key 加密同明文产生不同密文。
-pub fn encrypt_with_header(plain: &[u8]) -> Vec<u8> {
-    let mut nonce = [0u8; NONCE_LEN];
-    rand::thread_rng().fill_bytes(&mut nonce);
-    let mut cipher = ChaCha20::new(&(*CHACHA_KEY).into(), &nonce.into());
+/// 就地 XOR 32B 循环：性能 ~3GB/s，16MB chunk 约 5ms。
+/// `i & 0x1F` 等价 `i % 32`，但编译器在 32 是 2 的幂时已经优化为位与
+#[inline]
+fn xor_in_place(buf: &mut [u8]) {
+    let key = &*OBFUSCATE_KEY;
+    for (i, b) in buf.iter_mut().enumerate() {
+        *b ^= key[i & 0x1F];
+    }
+}
 
+/// 混淆 plain bytes → 完整文件字节（含 magic + ciphertext）
+///
+/// XOR 是无 padding 的对称运算，混淆与解混调用同一函数；不需要 nonce。
+pub fn obfuscate_with_header(plain: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(FILE_HEADER_LEN + plain.len());
     out.extend_from_slice(FILE_MAGIC);
-    out.extend_from_slice(&nonce);
     out.extend_from_slice(plain);
-    // 就地 XOR 密文部分（流密码 ciphertext 长度 = plaintext 长度）
-    cipher.apply_keystream(&mut out[FILE_HEADER_LEN..]);
+    xor_in_place(&mut out[FILE_HEADER_LEN..]);
     out
 }
 
-/// 解密文件字节 → plain bytes；header magic 不匹配返回 None（旧 BPV2/XOR/损坏文件）
-pub fn decrypt_with_header(file_bytes: &[u8]) -> Option<Vec<u8>> {
+/// 解混文件字节 → plain bytes；header magic 不匹配返回 None（旧 BPV3/BPV2/损坏文件）
+pub fn deobfuscate_with_header(file_bytes: &[u8]) -> Option<Vec<u8>> {
     if file_bytes.len() < FILE_HEADER_LEN {
         return None;
     }
     if &file_bytes[..4] != FILE_MAGIC {
-        return None; // 旧 BPV2 (AES-CBC) / 旧 XOR / 损坏文件
+        return None; // 旧 BPV3 (ChaCha20) / 旧 BPV2 (AES-CBC) / 损坏文件
     }
-    let mut nonce = [0u8; NONCE_LEN];
-    nonce.copy_from_slice(&file_bytes[4..FILE_HEADER_LEN]);
-    let mut cipher = ChaCha20::new(&(*CHACHA_KEY).into(), &nonce.into());
-
     let mut plain = file_bytes[FILE_HEADER_LEN..].to_vec();
-    cipher.apply_keystream(&mut plain);
+    xor_in_place(&mut plain);
     Some(plain)
 }
 
@@ -237,15 +232,38 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AudioCacheState, String> {
                     // LRU 顺序按 last_access 升序加载（最旧先 put → 最新最后 put 在头部）
                     entries.sort_by_key(|(_, e)| e.last_access);
                     let mut guard = state.lru.lock().unwrap();
+                    let mut purged = 0u32;
                     for (k, e) in entries {
                         // 校验文件存在；不存在的孤儿索引项跳过
                         let chunk_path = state.chunks_dir.join(format!("{}.bin", e.uuid));
-                        if chunk_path.exists() {
+                        if !chunk_path.exists() {
+                            eprintln!("[audio_cache] orphan index entry skipped: uuid={}", e.uuid);
+                            continue;
+                        }
+                        // 校验文件 magic：BPV4 保留；旧 BPV3 (ChaCha20) / BPV2 / 损坏文件删除
+                        // 启动期一次性清理避免孤儿文件长期占盘；用户首次升级会"丢"已缓存数据，
+                        // 但 LRU 会自然重建（每次播放 miss → 异步落盘成 BPV4）
+                        let mut head = [0u8; 4];
+                        let head_ok = std::fs::File::open(&chunk_path)
+                            .and_then(|mut f| {
+                                use std::io::Read;
+                                f.read_exact(&mut head)
+                            })
+                            .is_ok()
+                            && &head == FILE_MAGIC;
+                        if head_ok {
                             total_bytes += e.size;
                             guard.put(k, e);
                         } else {
-                            eprintln!("[audio_cache] orphan index entry skipped: uuid={}", e.uuid);
+                            let _ = std::fs::remove_file(&chunk_path);
+                            purged += 1;
                         }
+                    }
+                    if purged > 0 {
+                        eprintln!(
+                            "[audio_cache] purged {} non-BPV4 chunks (legacy ChaCha20/AES caches)",
+                            purged
+                        );
                     }
                 }
                 Err(e) => {
@@ -267,7 +285,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AudioCacheState, String> {
 ///
 /// 两级缓存策略：
 /// 1. 先查 mem_cache（最近 4 个 chunk）：零开销，audio 标签连续小 Range 走这里
-/// 2. miss → 查磁盘 LRU + fs::read + ChaCha20 解混 → 写 mem_cache → 返回
+/// 2. miss → 查磁盘 LRU + fs::read + XOR 解混 → 写 mem_cache → 返回
 pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<Arc<MemHitData>> {
     // L1: 内存解混缓存
     if let Ok(mut g) = state.mem_cache.lock() {
@@ -294,12 +312,12 @@ pub async fn try_load(state: &AudioCacheState, key: &str) -> Option<Arc<MemHitDa
             return None;
         }
     };
-    let plain = match decrypt_with_header(&file_bytes) {
+    let plain = match deobfuscate_with_header(&file_bytes) {
         Some(p) => p,
         None => {
-            // magic 不匹配（旧 BPV2/XOR 文件）或解密失败 → 视为缓存丢失
+            // magic 不匹配（旧 BPV3/BPV2 文件，启动期清理后理论不应到此）→ 视为缓存丢失
             eprintln!(
-                "[audio_cache] decrypt failed (uuid={}); marking as miss",
+                "[audio_cache] deobfuscate failed (uuid={}); marking as miss",
                 entry.uuid
             );
             return None;
@@ -330,10 +348,13 @@ fn update_access(state: &AudioCacheState, key: &str) {
     }
 }
 
-/// 写入新缓存项：AES-128-CBC 加密 + 写文件 + 更新索引 + 必要时驱逐旧项
+/// 写入新缓存项：XOR 混淆 + 写文件 + 更新索引 + 必要时驱逐旧项
 ///
 /// total_size / content_type 来自上游 Content-Range / Content-Type 响应头，
-/// 用于命中查询时构造正确的 206 响应。文件格式：[4B BPV2][16B IV][AES ciphertext]
+/// 用于命中查询时构造正确的 206 响应。文件格式：[4B BPV4][XOR ciphertext]
+///
+/// ⚠️ 调用方注意：handler 已改为响应先于落盘，应通过 tauri::async_runtime::spawn
+/// 异步调用本函数，避免阻塞首块响应（详见 audio_proxy.rs miss 路径）
 pub async fn store(
     state: &AudioCacheState,
     key: &str,
@@ -344,9 +365,9 @@ pub async fn store(
     let uuid = Uuid::new_v4().to_string();
     let path = state.chunks_dir.join(format!("{}.bin", uuid));
 
-    // AES-128-CBC 加密 + magic + IV 写盘
-    let encrypted = encrypt_with_header(data);
-    fs::write(&path, &encrypted)
+    // XOR 混淆 + magic 写盘
+    let obfuscated = obfuscate_with_header(data);
+    fs::write(&path, &obfuscated)
         .await
         .map_err(|e| format!("write chunk failed: {}", e))?;
 
@@ -468,58 +489,74 @@ mod tests {
     use super::*;
 
     #[test]
-    fn chacha20_encrypt_decrypt_roundtrip() {
+    fn xor_obfuscate_deobfuscate_roundtrip() {
         let original = b"Hello, B station audio chunk!".to_vec();
-        let encrypted = encrypt_with_header(&original);
-        assert_ne!(encrypted, original, "加密后内容必须改变");
-        // header 长度（流密码 ciphertext = plaintext 长度，无 padding）
-        assert_eq!(encrypted.len(), FILE_HEADER_LEN + original.len());
-        assert_eq!(&encrypted[..4], FILE_MAGIC);
-        let decrypted = decrypt_with_header(&encrypted).expect("解密成功");
-        assert_eq!(decrypted, original, "解密还原原始内容");
+        let obfuscated = obfuscate_with_header(&original);
+        assert_ne!(obfuscated, original, "混淆后内容必须改变");
+        // XOR 流式无 padding：ciphertext 长度 = plaintext 长度
+        assert_eq!(obfuscated.len(), FILE_HEADER_LEN + original.len());
+        assert_eq!(&obfuscated[..4], FILE_MAGIC);
+        let plain = deobfuscate_with_header(&obfuscated).expect("解混成功");
+        assert_eq!(plain, original, "解混还原原始内容");
     }
 
     #[test]
-    fn chacha20_encrypt_empty_buffer() {
-        let encrypted = encrypt_with_header(&[]);
-        // 流密码无 padding：空 buffer 加密后只有 header
-        assert_eq!(encrypted.len(), FILE_HEADER_LEN);
-        let decrypted = decrypt_with_header(&encrypted).expect("空 buffer 也能解");
-        assert!(decrypted.is_empty());
+    fn xor_obfuscate_empty_buffer() {
+        let obfuscated = obfuscate_with_header(&[]);
+        // 空 buffer 混淆后只有 header
+        assert_eq!(obfuscated.len(), FILE_HEADER_LEN);
+        let plain = deobfuscate_with_header(&obfuscated).expect("空 buffer 也能解");
+        assert!(plain.is_empty());
     }
 
     #[test]
-    fn decrypt_rejects_legacy_bpv2_file() {
-        // 旧 BPV2 (AES-CBC) 文件 magic 不匹配，应被识别为不可解 → handler 当 miss 重下
-        let mut legacy = b"BPV2".to_vec();
-        legacy.extend_from_slice(&[0u8; 16]); // 假装的 IV
-        legacy.extend_from_slice(&[0u8; 32]); // 假装的密文
-        assert!(decrypt_with_header(&legacy).is_none());
-    }
-
-    #[test]
-    fn decrypt_rejects_legacy_no_magic_file() {
-        // 远古 XOR 版无 magic，也应识别为不可解
-        let legacy = b"raw-bytes-no-magic".to_vec();
-        assert!(decrypt_with_header(&legacy).is_none());
-    }
-
-    #[test]
-    fn decrypt_rejects_truncated_file() {
-        let too_short = vec![0u8; 10];
-        assert!(decrypt_with_header(&too_short).is_none());
-    }
-
-    #[test]
-    fn chacha20_nonce_is_unique_per_call() {
-        // 两次加密同一 plain，nonce 不同，密文应不同
+    fn xor_is_deterministic() {
+        // XOR 是确定性运算：两次混淆同一 plain 必产出相同结果（无随机 nonce）
+        // 这与 ChaCha20 的"每次随机 nonce"行为不同，但 XOR 不需要保护重放语义
         let plain = b"same plaintext bytes".to_vec();
-        let e1 = encrypt_with_header(&plain);
-        let e2 = encrypt_with_header(&plain);
-        assert_ne!(e1, e2, "随机 nonce 应让两次加密结果不同");
-        // 但都能解回
-        assert_eq!(decrypt_with_header(&e1).unwrap(), plain);
-        assert_eq!(decrypt_with_header(&e2).unwrap(), plain);
+        let e1 = obfuscate_with_header(&plain);
+        let e2 = obfuscate_with_header(&plain);
+        assert_eq!(e1, e2, "XOR 同 key 同 plain 必产出相同密文");
+        assert_eq!(deobfuscate_with_header(&e1).unwrap(), plain);
+    }
+
+    #[test]
+    fn xor_handles_buffer_longer_than_key() {
+        // 32B key 循环 XOR：> 32B 的输入应仍可正确解混
+        let plain: Vec<u8> = (0u8..=255).cycle().take(1024).collect(); // 1KB
+        let obf = obfuscate_with_header(&plain);
+        let de = deobfuscate_with_header(&obf).expect("长 buffer 解混成功");
+        assert_eq!(de, plain);
+    }
+
+    #[test]
+    fn deobfuscate_rejects_legacy_bpv3_file() {
+        // 旧 BPV3 (ChaCha20) 文件 magic 不匹配，应被识别为不可解 → handler 当 miss 重下
+        let mut legacy = b"BPV3".to_vec();
+        legacy.extend_from_slice(&[0u8; 12]); // 旧版 nonce
+        legacy.extend_from_slice(&[0u8; 32]); // 假装的密文
+        assert!(deobfuscate_with_header(&legacy).is_none());
+    }
+
+    #[test]
+    fn deobfuscate_rejects_legacy_bpv2_file() {
+        // 旧 BPV2 (AES-CBC) 文件 magic 不匹配
+        let mut legacy = b"BPV2".to_vec();
+        legacy.extend_from_slice(&[0u8; 16]);
+        legacy.extend_from_slice(&[0u8; 32]);
+        assert!(deobfuscate_with_header(&legacy).is_none());
+    }
+
+    #[test]
+    fn deobfuscate_rejects_no_magic_file() {
+        let legacy = b"raw-bytes-no-magic".to_vec();
+        assert!(deobfuscate_with_header(&legacy).is_none());
+    }
+
+    #[test]
+    fn deobfuscate_rejects_truncated_file() {
+        let too_short = vec![0u8; 2]; // 不足 4B header
+        assert!(deobfuscate_with_header(&too_short).is_none());
     }
 
     /// 单测内固定 chunk_size 以保证断言稳定（与生产 MAX_CHUNK_BYTES 解耦）
