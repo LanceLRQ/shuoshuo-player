@@ -24,7 +24,7 @@
     "pack:extension": "node scripts/pack-extension.mjs",
     "release:extension": "pnpm build:extension && pnpm pack:extension",
     "build:version-json": "node scripts/build-version-json.mjs",
-    "deploy": "bash scripts/deploy.sh",
+    "release": "bash scripts/release.sh",
     "prepare": "husky"
   },
   "lint-staged": {

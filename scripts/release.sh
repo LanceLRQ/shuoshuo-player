@@ -13,8 +13,12 @@
 #   9. 输出"接下来要做的事"清单
 #
 # 用法：
-#   bash scripts/deploy.sh
-#   或赋予执行权限后：./scripts/deploy.sh
+#   pnpm release
+#   或：bash scripts/release.sh
+#   或赋予执行权限后：./scripts/release.sh
+#
+# 注：脚本名为 release.sh 而非 deploy.sh，因为 pnpm 内置 `pnpm deploy`
+# 子命令会拦截 npm script 同名，导致 `pnpm deploy` 报 ERR_PNPM_NOTHING_TO_DEPLOY
 
 set -euo pipefail
 
