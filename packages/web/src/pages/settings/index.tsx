@@ -1,14 +1,15 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Palette, Cloud, HardDrive } from 'lucide-react';
+import { Palette, Cloud, HardDrive, Info } from 'lucide-react';
 import { detectPlatformType } from '@shuoshuo-player/shared';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AppearanceSettings } from './appearance';
 import { CloudSettings } from './cloud';
 import { CacheSettings } from './cache';
+import { AboutSettings } from './about';
 
-type Tab = 'appearance' | 'cloud' | 'cache';
-const VALID_TABS: Tab[] = ['appearance', 'cloud', 'cache'];
+type Tab = 'appearance' | 'cloud' | 'cache' | 'about';
+const VALID_TABS: Tab[] = ['appearance', 'cloud', 'cache', 'about'];
 
 /**
  * 统一设置页：tab 通过 URL ?tab= 同步，便于左侧导航和外链直达。
@@ -22,7 +23,7 @@ export function SettingsPage() {
   const isTauri = platform === 'tauri';
 
   const availableTabs = useMemo<Tab[]>(
-    () => (isTauri ? ['appearance', 'cloud', 'cache'] : ['appearance', 'cloud']),
+    () => (isTauri ? ['appearance', 'cloud', 'cache', 'about'] : ['appearance', 'cloud', 'about']),
     [isTauri],
   );
 
@@ -70,6 +71,12 @@ export function SettingsPage() {
                 缓存
               </TabsTrigger>
             )}
+            {availableTabs.includes('about') && (
+              <TabsTrigger value="about">
+                <Info className="mr-1.5 h-4 w-4" />
+                关于
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
       </div>
@@ -88,6 +95,9 @@ export function SettingsPage() {
               <CacheSettings />
             </TabsContent>
           )}
+          <TabsContent value="about">
+            <AboutSettings />
+          </TabsContent>
         </div>
       </div>
     </Tabs>

@@ -6,6 +6,7 @@ import { PlayerLayout } from '@/components/layout/player-layout';
 import { SPlayer } from '@/components/player/s-player';
 import { LyricViewer } from '@/components/player/lyric-viewer';
 import { ToasterProvider } from '@/components/toaster-provider';
+import { UpdateNotifier } from '@/components/update-notifier';
 import { BilibiliLoginRequired } from '@/components/bilibili-login-required';
 import { FavEditDialog } from '@/components/dialogs/fav-edit-dialog';
 import { AddSongDialog } from '@/components/dialogs/add-song-dialog';
@@ -139,6 +140,7 @@ export default function App() {
       <>
         <BilibiliLoginRequired />
         <ToasterProvider />
+        <UpdateNotifier />
       </>
     );
   }
@@ -147,6 +149,7 @@ export default function App() {
     <>
       <RouterProvider router={router} />
       <ToasterProvider />
+      <UpdateNotifier />
     </>
   );
 }

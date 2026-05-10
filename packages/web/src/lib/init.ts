@@ -3,6 +3,7 @@ import {
   bootstrapPersistence,
   setPlatformBridge,
   triggerWbiRefresh,
+  useUpdateCheckerStore,
 } from '@shuoshuo-player/shared';
 import { createPlatformBridge } from './platform';
 
@@ -25,4 +26,10 @@ export async function initializeApp(): Promise<void> {
   void triggerWbiRefresh().catch((err) => {
     if (__DEV_LOG__) console.debug('[WBI-DEBUG] initial triggerWbiRefresh failed', err);
   });
+
+  // 启动 5 秒后跑一次更新检查（节流 6h），避免与 wbi 初始化抢资源
+  // store 内部已节流；这里 setTimeout 仅延后初次触发时机
+  setTimeout(() => {
+    void useUpdateCheckerStore.getState().check();
+  }, 5000);
 }
