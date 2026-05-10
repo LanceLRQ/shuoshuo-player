@@ -159,6 +159,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -178,6 +187,14 @@ jobs:
           \) -exec cp -v {} release/all/ \;
           echo "---"
           ls -la release/all/
+
+      # 生成 version.json（update-checker 客户端拉取的 manifest）
+      # 复用根 package.json + GITHUB_REF_NAME + GITHUB_SHA，CI 自动注入
+      - name: Generate version.json
+        run: |
+          node scripts/build-version-json.mjs
+          cp release/version.json release/all/version.json
+          ls -la release/all/version.json
 
       # 1.x → prerelease；2.x+ → 正式版
       - name: Determine prerelease flag

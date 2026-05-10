@@ -23,6 +23,7 @@
     "version:check": "node scripts/sync-version.mjs --check",
     "pack:extension": "node scripts/pack-extension.mjs",
     "release:extension": "pnpm build:extension && pnpm pack:extension",
+    "build:version-json": "node scripts/build-version-json.mjs",
     "prepare": "husky"
   },
   "lint-staged": {

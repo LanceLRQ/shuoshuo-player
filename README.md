@@ -38,6 +38,7 @@ Chrome 浏览器扩展可直接从应用商店一键安装：[说说播放器（
 > - **国内访问 GitHub 慢**：可用镜像下载安装包，与 GitHub Releases 字节一致（自带 `.sha256` 可校验），由 Cloudflare CDN 分发。地址结构：
 >     - 指定版本：`https://download.hutao.wiki/shuoshuo-player/releases/download/v<版本号>/<文件名>`
 >     - 最新版便利路径：`https://download.hutao.wiki/shuoshuo-player/releases/latest/download/<文件名>`
+> - **更新检查**：应用启动后会在 6 小时内自动检查一次新版本，发现后通过非阻断通知提示，可在「设置 → 关于」手动触发检查
 
 ## 快速开始
 
