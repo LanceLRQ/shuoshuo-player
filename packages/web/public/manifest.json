@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "说说播放器",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "基于 Bilibili 的第三方音乐播放器 - 水晶蟹定制版",
   "icons": {
     "16": "logo16.png",

@@ -28,6 +28,8 @@ use tauri::{AppHandle, Manager, Runtime};
 use tokio::fs;
 use uuid::Uuid;
 
+use crate::portable;
+
 const CACHE_DIR_NAME: &str = "audio";
 const CHUNKS_DIR_NAME: &str = "chunks";
 const INDEX_FILE_NAME: &str = "index.json";
@@ -205,16 +207,19 @@ fn unix_now() -> u64 {
 
 /// 启动期初始化：创建目录 + 加载 index.json → LRU + 加载用户配置的 max_bytes / cache_dir
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AudioCacheState, String> {
-    // 优先用用户配置的 cache_dir（plugin-store 持久化），否则用 app_cache_dir/audio
+    // 优先级：用户配置的 cache_dir > portable 模式 <exe_dir>/data/cache/audio > app_cache_dir/audio
     let root = match load_user_cache_dir(app) {
         Some(custom) => custom,
-        None => {
-            let app_cache_dir = app
-                .path()
-                .app_cache_dir()
-                .map_err(|e| format!("get app_cache_dir failed: {}", e))?;
-            app_cache_dir.join(CACHE_DIR_NAME)
-        }
+        None => match portable::try_data_root() {
+            Some(data_root) => data_root.join("cache").join(CACHE_DIR_NAME),
+            None => {
+                let app_cache_dir = app
+                    .path()
+                    .app_cache_dir()
+                    .map_err(|e| format!("get app_cache_dir failed: {}", e))?;
+                app_cache_dir.join(CACHE_DIR_NAME)
+            }
+        },
     };
     let max_bytes = load_user_max_bytes(app).unwrap_or(DEFAULT_MAX_BYTES);
     let state = AudioCacheState::new(root.clone(), max_bytes);
@@ -661,9 +666,21 @@ pub async fn get_cache_stats(
     })
 }
 
-const MAX_BYTES_STORE_FILE: &str = "audio_cache_settings.json";
+const MAX_BYTES_STORE_FILE_NAME: &str = "audio_cache_settings.json";
 const MAX_BYTES_STORE_KEY: &str = "audio_cache_max_bytes";
 const CACHE_DIR_STORE_KEY: &str = "audio_cache_dir";
+
+/// portable 模式：返回 <exe_dir>/data/audio_cache_settings.json 绝对路径；
+/// 非 portable 模式：返回相对名（plugin-store 走 app_data_dir）
+fn settings_store_path() -> String {
+    match portable::try_data_root() {
+        Some(root) => root
+            .join(MAX_BYTES_STORE_FILE_NAME)
+            .to_string_lossy()
+            .into_owned(),
+        None => MAX_BYTES_STORE_FILE_NAME.to_string(),
+    }
+}
 /// 容量配置硬下限（256MB）/ 上限（50GB），防止用户设极端值
 const USER_CAP_MIN: u64 = 256 * 1024 * 1024;
 const USER_CAP_MAX: u64 = 50 * 1024 * 1024 * 1024;
@@ -704,14 +721,14 @@ pub async fn clear_cache(state: tauri::State<'_, AudioCacheState>) -> Result<(),
 /// 从 plugin-store 加载用户配置的 max_bytes（启动时调）；不存在时返回 None
 pub fn load_user_max_bytes<R: Runtime>(app: &AppHandle<R>) -> Option<u64> {
     use tauri_plugin_store::StoreExt;
-    let store = app.store(MAX_BYTES_STORE_FILE).ok()?;
+    let store = app.store(settings_store_path()).ok()?;
     let val = store.get(MAX_BYTES_STORE_KEY)?;
     val.as_u64()
 }
 
 async fn persist_max_bytes<R: Runtime>(app: &AppHandle<R>, bytes: u64) -> Result<(), String> {
     use tauri_plugin_store::StoreExt;
-    let store = app.store(MAX_BYTES_STORE_FILE).map_err(|e| e.to_string())?;
+    let store = app.store(settings_store_path()).map_err(|e| e.to_string())?;
     store.set(MAX_BYTES_STORE_KEY.to_string(), serde_json::json!(bytes));
     store.save().map_err(|e| e.to_string())
 }
@@ -719,7 +736,7 @@ async fn persist_max_bytes<R: Runtime>(app: &AppHandle<R>, bytes: u64) -> Result
 /// 从 plugin-store 加载用户配置的 cache_dir；不存在 / 路径无效时返回 None
 pub fn load_user_cache_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     use tauri_plugin_store::StoreExt;
-    let store = app.store(MAX_BYTES_STORE_FILE).ok()?;
+    let store = app.store(settings_store_path()).ok()?;
     let val = store.get(CACHE_DIR_STORE_KEY)?;
     let s = val.as_str()?.trim().to_string();
     if s.is_empty() {
@@ -733,7 +750,7 @@ async fn persist_cache_dir<R: Runtime>(
     path: Option<&str>,
 ) -> Result<(), String> {
     use tauri_plugin_store::StoreExt;
-    let store = app.store(MAX_BYTES_STORE_FILE).map_err(|e| e.to_string())?;
+    let store = app.store(settings_store_path()).map_err(|e| e.to_string())?;
     match path {
         Some(p) if !p.trim().is_empty() => {
             store.set(CACHE_DIR_STORE_KEY.to_string(), serde_json::json!(p));

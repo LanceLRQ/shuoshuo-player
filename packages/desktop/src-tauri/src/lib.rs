@@ -1,4 +1,5 @@
 mod commands;
+mod portable;
 mod tray;
 
 use tauri::Manager;
@@ -18,6 +19,11 @@ pub fn run() {
             commands::audio_proxy::handle_audio_proxy,
         )
         .setup(|app| {
+            // portable 模式：创建 <exe_dir>/data/ 骨架；非 portable 模式 no-op
+            if let Err(e) = portable::ensure_data_skeleton() {
+                eprintln!("[startup] portable data skeleton init failed: {}", e);
+            }
+
             // 启动时回放 bilibili_cookies.json 到 CookieState（v1 main.js 行为）
             let handle = app.handle();
             let state = handle.state::<commands::auth::CookieState>();

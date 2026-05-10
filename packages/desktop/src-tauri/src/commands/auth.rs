@@ -15,8 +15,20 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuild
 use tauri_plugin_store::StoreExt;
 
 const BILIBILI_LOGIN_URL: &str = "https://passport.bilibili.com/pc/passport/login";
-const COOKIES_STORE_FILE: &str = "bilibili_cookies.json";
+const COOKIES_STORE_FILE_NAME: &str = "bilibili_cookies.json";
 const COOKIES_STORE_KEY: &str = "cookies";
+
+/// portable 模式：返回 <exe_dir>/data/bilibili_cookies.json 绝对路径；
+/// 非 portable 模式：返回相对名（plugin-store 走 app_data_dir）
+fn cookies_store_path() -> String {
+    match crate::portable::try_data_root() {
+        Some(root) => root
+            .join(COOKIES_STORE_FILE_NAME)
+            .to_string_lossy()
+            .into_owned(),
+        None => COOKIES_STORE_FILE_NAME.to_string(),
+    }
+}
 const LOGIN_WINDOW_LABEL: &str = "bilibili-login";
 const MAIN_WINDOW_LABEL: &str = "main";
 
@@ -59,7 +71,7 @@ pub fn persist_cookies<R: Runtime>(
     let mut cookies = state.0.lock().map_err(|e| e.to_string())?.clone();
     strip_sessions(&mut cookies);
 
-    let store = app.store(COOKIES_STORE_FILE).map_err(|e| e.to_string())?;
+    let store = app.store(cookies_store_path()).map_err(|e| e.to_string())?;
     store.set(
         COOKIES_STORE_KEY.to_string(),
         serde_json::to_value(&cookies).map_err(|e| e.to_string())?,
@@ -72,7 +84,7 @@ pub fn restore_cookies<R: Runtime>(
     app: &AppHandle<R>,
     state: &CookieState,
 ) -> Result<(), String> {
-    let store = app.store(COOKIES_STORE_FILE).map_err(|e| e.to_string())?;
+    let store = app.store(cookies_store_path()).map_err(|e| e.to_string())?;
     let raw = match store.get(COOKIES_STORE_KEY) {
         Some(v) => v,
         None => return Ok(()),

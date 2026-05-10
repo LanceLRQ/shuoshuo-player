@@ -126,6 +126,12 @@ jobs:
       - name: Build desktop bundle
         run: pnpm build:desktop
 
+      # Windows 专属：在安装包之外追加 portable zip 产物
+      # tauri build --bundles none 会复用上一步已编译的 release exe（增量编译）
+      - name: Build Windows portable bundle
+        if: matrix.os == 'windows-latest'
+        run: pnpm build:portable
+
       - name: Collect bundles
         shell: bash
         run: |
@@ -139,6 +145,11 @@ jobs:
             -name "*.msi" -o \
             -name "*.exe" \
           \) -exec cp -v {} release/desktop/ \;
+          # Windows portable zip + sha256（pack-portable.mjs 输出到 packages/desktop/release/）
+          find packages/desktop/release -maxdepth 1 -type f \( \
+            -name "*-portable-x64.zip" -o \
+            -name "*-portable-x64.zip.sha256" \
+          \) -exec cp -v {} release/desktop/ \; 2>/dev/null || true
           ls -la release/desktop/
 
       - name: Upload desktop artifact

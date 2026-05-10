@@ -1,6 +1,6 @@
 {
   "name": "@shuoshuo-player/desktop",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build": "tauri build && node scripts/patch-macos-display-name.mjs",
+    "build:portable": "tauri build --bundles none && node scripts/pack-portable.mjs",
     "patch:macos-display-name": "node scripts/patch-macos-display-name.mjs",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "test": "vitest run",

@@ -1,6 +1,6 @@
 {
   "name": "shuoshuo-player",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "private": true,
   "type": "module",
   "description": "说说播放器 - 基于 Bilibili 的第三方音乐播放器",
@@ -10,6 +10,7 @@
     "dev:desktop": "pnpm --filter @shuoshuo-player/desktop tauri dev",
     "build:web": "pnpm --filter @shuoshuo-player/web build",
     "build:desktop": "pnpm --filter @shuoshuo-player/desktop tauri:build",
+    "build:portable": "pnpm --filter @shuoshuo-player/desktop build:portable",
     "build:extension": "pnpm --filter @shuoshuo-player/web build:extension",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
