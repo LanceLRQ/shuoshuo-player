@@ -186,4 +186,32 @@ describe('AboutSettings', () => {
 
     expect(openSpy).toHaveBeenCalledWith('https://github.com/LanceLRQ/shuoshuo-player');
   });
+
+  // Chrome 扩展走 Web Store 自动更新，应用内不应展示自检 UI
+  it('chrome-extension 平台显示商店按钮，隐藏立即检查与上次检查信息', async () => {
+    const openSpy = vi.fn(async () => {});
+    setPlatformBridge(makeBridge(openSpy));
+    // stub window.chrome.runtime.id 让 detectPlatformType 返回 'chrome-extension'
+    vi.stubGlobal('chrome', { runtime: { id: 'fake-extension-id' } });
+
+    try {
+      render(<AboutSettings />);
+
+      // 商店按钮存在
+      const storeBtn = screen.getByRole('button', { name: /前往 Chrome 应用商店/ });
+      expect(storeBtn).toBeInTheDocument();
+
+      // "立即检查" / "上次检查" 应隐藏
+      expect(screen.queryByRole('button', { name: /立即检查更新/ })).toBeNull();
+      expect(screen.queryByText(/上次检查/)).toBeNull();
+
+      // 点击跳转商店 URL
+      await act(async () => {
+        fireEvent.click(storeBtn);
+      });
+      expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('chromewebstore.google.com'));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
