@@ -35,7 +35,9 @@
     "*://*.akamaized.net/*",
     "*://*.mountaintoys.cn/*",
     "*://*.y.qq.com/*",
-    "*://shuoshuo.sikong.ren/*"
+    "*://shuoshuo.sikong.ren/*",
+    "*://download.hutao.wiki/*",
+    "*://api.github.com/*"
   ],
   "declarative_net_request": {
     "rule_resources": [

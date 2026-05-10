@@ -16,6 +16,7 @@ import { usePlayerProfileStore } from '../player-profile';
 import { useLyricsStore } from '../lyrics';
 import { useCloudServiceStore } from '../cloud-service';
 import { useMusicUrlCacheStore } from '../music-url-cache';
+import { useUpdateCheckerStore } from '../update-checker';
 import type {
   PersistedBilibiliUserVideosShape,
   PersistedBilibiliVideosShape,
@@ -25,6 +26,7 @@ import type {
   PersistedMusicUrlCacheShape,
   PersistedPlayerProfileShape,
   PersistedPlayingListShape,
+  PersistedUpdateCheckerShape,
 } from '../persisted-types';
 
 /** 持久化数据的根 key */
@@ -242,6 +244,25 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     },
     subscribe(cb) {
       return useMusicUrlCacheStore.subscribe(cb);
+    },
+  },
+  {
+    key: 'update_checker',
+    hydrate(raw) {
+      const data = asRecord(raw) as PersistedUpdateCheckerShape | null;
+      if (!data) return;
+      useUpdateCheckerStore.setState({
+        lastCheckedAt: data.lastCheckedAt ?? null,
+        latestKnown: data.latestKnown ?? null,
+        ignoredVersions: data.ignoredVersions ?? [],
+        isChecking: false,
+      });
+    },
+    snapshot() {
+      return useUpdateCheckerStore.getState().persistSnapshot();
+    },
+    subscribe(cb) {
+      return useUpdateCheckerStore.subscribe(cb);
     },
   },
 ];

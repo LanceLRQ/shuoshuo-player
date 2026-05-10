@@ -12,6 +12,7 @@ export const PERSIST_KEYS = [
   'lyrics',
   'cloud_service',
   'music_url_cache',
+  'update_checker',
 ] as const;
 
 /** 可导出的 store key（cloud_service 出于安全不导出） */

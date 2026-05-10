@@ -10,6 +10,7 @@ export { useUIStore } from './ui';
 export { useRiskControlStore } from './risk-control';
 export { useMusicUrlCacheStore } from './music-url-cache';
 export type { MusicUrlCacheEntry } from './music-url-cache';
+export { useUpdateCheckerStore } from './update-checker';
 export type {
   NoticeItem,
   SendNoticePayload,
@@ -34,4 +35,5 @@ export type {
   PersistedLyricsShape,
   PersistedCloudServiceShape,
   PersistedMusicUrlCacheShape,
+  PersistedUpdateCheckerShape,
 } from './persisted-types';

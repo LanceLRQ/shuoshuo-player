@@ -2,6 +2,7 @@
 import {
   detectPlatformType,
   type AuthAdapter,
+  type HttpAdapter,
   type PlatformBridge,
   type ShellAdapter,
   type StorageAdapter,
@@ -48,6 +49,29 @@ class WebShellAdapter implements ShellAdapter {
 }
 
 /**
+ * 浏览器端 HTTP 客户端：原生 fetch
+ *
+ * - Web/扩展端共用：扩展受 manifest.host_permissions 约束，未列入的域名 fetch 会失败
+ * - 当前用于更新检查（download.hutao.wiki + api.github.com）
+ * - 4xx/5xx 视为失败抛错，调用方 try/catch 决定是否兜底
+ */
+class WebHttpAdapter implements HttpAdapter {
+  async getJson(url: string, signal?: AbortSignal): Promise<unknown> {
+    const res = await fetch(url, {
+      method: 'GET',
+      // 不带凭据：避免 CORS preflight 与 cookie 携带（公开 API 不需要）
+      credentials: 'omit',
+      signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ${res.statusText} for ${url}`);
+    }
+    return res.json();
+  }
+}
+
+/**
  * 创建跨平台桥接（按当前运行平台返回对应实现）
  *
  * - chrome-extension：ChromeStorageAdapter + ChromeAuthAdapter + WebShellAdapter
@@ -60,6 +84,7 @@ export function createPlatformBridge(): PlatformBridge {
   let storage: StorageAdapter;
   let auth: AuthAdapter;
   const shell: ShellAdapter = new WebShellAdapter();
+  const http: HttpAdapter = new WebHttpAdapter();
 
   switch (type) {
     case 'chrome-extension':
@@ -77,5 +102,5 @@ export function createPlatformBridge(): PlatformBridge {
       break;
   }
 
-  return { type, storage, auth, shell };
+  return { type, storage, auth, shell, http };
 }

@@ -141,7 +141,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     return entry;
   }
 
-  it('注册表覆盖 8 个 PERSIST_KEYS', () => {
+  it('注册表覆盖 9 个 PERSIST_KEYS', () => {
     const keys = STORE_PERSIST_REGISTRY.map((e) => e.key).sort();
     expect(keys).toEqual(
       [
@@ -153,6 +153,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
         'lyrics',
         'cloud_service',
         'music_url_cache',
+        'update_checker',
       ].sort(),
     );
   });

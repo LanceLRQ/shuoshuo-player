@@ -4,6 +4,7 @@ import { TauriAuthAdapter } from './tauri-auth-adapter';
 import { TauriSpiderAdapter } from './tauri-spider-adapter';
 import { TauriShellAdapter } from './tauri-shell-adapter';
 import { TauriFileSaverAdapter } from './tauri-file-saver';
+import { TauriHttpAdapter } from './tauri-http-adapter';
 import { transformBilibiliAudioUrl } from './tauri-audio-url-transformer';
 import {
   getCacheStats,
@@ -29,6 +30,7 @@ export function createTauriPlatformBridge(): PlatformBridge {
     storage: new TauriStorageAdapter(),
     auth: new TauriAuthAdapter(),
     shell: new TauriShellAdapter(),
+    http: new TauriHttpAdapter(),
     spider: new TauriSpiderAdapter(),
     // PC 端文件保存：plugin-dialog.save() 弹原生对话框，用户主动选路径
     // Web/扩展端 bridge 不注入此字段，textToDownload 自动回退浏览器原生下载

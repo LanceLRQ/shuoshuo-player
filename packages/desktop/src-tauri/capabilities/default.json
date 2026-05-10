@@ -22,7 +22,9 @@
         { "url": "https://shuoshuo.sikong.ren/**" },
         { "url": "https://u.y.qq.com/**" },
         { "url": "https://c.y.qq.com/**" },
-        { "url": "https://music.163.com/**" }
+        { "url": "https://music.163.com/**" },
+        { "url": "https://download.hutao.wiki/**" },
+        { "url": "https://api.github.com/**" }
       ]
     }
   ]

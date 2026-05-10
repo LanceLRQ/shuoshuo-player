@@ -19,6 +19,7 @@ import type {
   VideoListCacheEntry,
 } from '../types';
 import type { MusicUrlCacheEntry } from './music-url-cache';
+import type { UpdateInfo } from '../api/update';
 
 export interface PersistedBilibiliVideosShape {
   ids?: string[];
@@ -61,4 +62,13 @@ export interface PersistedCloudServiceShape {
 
 export interface PersistedMusicUrlCacheShape {
   entries?: Record<string, MusicUrlCacheEntry>;
+}
+
+export interface PersistedUpdateCheckerShape {
+  /** ISO 时间戳，节流判断用 */
+  lastCheckedAt?: string | null;
+  /** 最近一次成功拉到的版本信息 */
+  latestKnown?: UpdateInfo | null;
+  /** 用户主动忽略的版本号集合 */
+  ignoredVersions?: string[];
 }
