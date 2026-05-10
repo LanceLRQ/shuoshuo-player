@@ -5,6 +5,8 @@ export { LyricApi } from './cloud/lyric';
 export { AccountApi } from './cloud/account';
 export { LiveSlicerApi } from './cloud/live-slicer';
 export { triggerWbiRefresh } from './wbi-refresh';
+export { fetchLatestVersion } from './update';
+export type { UpdateInfo, UpdateChannel } from './update';
 
 export type { LyricListParams, LyricSavePayload } from './cloud/lyric';
 export type { LoginPayload, UpdateSelfPayload, CheckLoginResponse } from './cloud/account';

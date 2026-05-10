@@ -66,6 +66,28 @@ export interface AudioCacheAdapter {
 }
 
 /**
+ * HTTP GET 适配器
+ *
+ * 用于业务代码中需要跨平台发请求又不想耦合 axios（带 wbi 拦截器）的场景，
+ * 例如更新检查、CDN 镜像 manifest 拉取。
+ *
+ * - Web / Chrome 扩展：原生 fetch，受 host_permissions 限制
+ * - Tauri：@tauri-apps/plugin-http，受 capabilities 中 http:default scope 限制
+ *
+ * 仅声明 GET + JSON 响应（当前业务足够），未来如需 POST / 上传等再扩展。
+ */
+export interface HttpAdapter {
+  /**
+   * 发 GET 请求并解析为 JSON
+   *
+   * @param url 必须是绝对 URL（含 scheme + host）
+   * @param signal 可选 AbortSignal，用于 timeout / 取消
+   * @throws Error 网络错误 / HTTP 4xx/5xx / JSON 解析失败 等任意异常都抛出，调用方负责 try/catch
+   */
+  getJson(url: string, signal?: AbortSignal): Promise<unknown>;
+}
+
+/**
  * 文件保存适配器（仅 Tauri 端实现）
  *
  * Web/扩展端不实现：浏览器原生 a[download].click() 直接下载到浏览器默认目录，
@@ -97,6 +119,13 @@ export interface PlatformBridge {
   auth: AuthAdapter;
   shell: ShellAdapter;
   spider?: SpiderAdapter;
+  /**
+   * HTTP GET 客户端（可选）
+   *
+   * 当前用于：更新检查（packages/shared/src/api/update.ts）。
+   * 缺省时调用方应静默退出，不抛错——避免老版本 bridge 没注入时业务崩溃。
+   */
+  http?: HttpAdapter;
   /** 文件保存（弹原生对话框选路径），仅 Tauri 端实现；缺省时调用方走浏览器原生下载 */
   fileSaver?: FileSaverAdapter;
   /**
