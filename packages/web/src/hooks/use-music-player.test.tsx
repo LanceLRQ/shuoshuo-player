@@ -224,10 +224,21 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
 
-  it('fetchMusicUrl 返回空：弹错误通知，停在当前曲目（不自动跳下一首）', async () => {
+  it('fetchMusicUrl 返回空 + 触发 onFinalError(network)：弹"网络异常"toast，停在当前曲目', async () => {
     useUIStore.setState({ notices: [] });
     const initialBvId = usePlayingListStore.getState().current;
-    vi.mocked(fetchMusicUrl).mockResolvedValueOnce('');
+    // 模拟 fetchMusicUrl 真实失败行为：调用 onFinalError 后 resolve ''
+    // 与 hook 实际接入的 options.onFinalError 路径对齐
+    vi.mocked(fetchMusicUrl).mockImplementationOnce(async (bvid, _mid, _attempt, options) => {
+      options?.onFinalError?.({
+        kind: 'network',
+        message: 'simulated DNS failure',
+        bvid: bvid as string,
+        attempt: 0,
+        retryCount: 2,
+      });
+      return '';
+    });
 
     renderHook(() => useMusicPlayer());
     await act(async () => {
@@ -235,9 +246,7 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     });
 
     await waitFor(() =>
-      expect(useUIStore.getState().notices.some((n) => /获取音频地址失败/.test(n.message))).toBe(
-        true,
-      ),
+      expect(useUIStore.getState().notices.some((n) => /网络异常/.test(n.message))).toBe(true),
     );
     // 当前曲目未变（没自动跳下一首）
     expect(usePlayingListStore.getState().current).toBe(initialBvId);

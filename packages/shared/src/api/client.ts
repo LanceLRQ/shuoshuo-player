@@ -65,8 +65,11 @@ const SESSION_EXPIRED_CODES: ReadonlySet<number> = new Set<number>(SESSION_EXPIR
 type RequestConfigWithWbi = AxiosRequestConfig & { __useWbi?: boolean };
 type InternalRequestConfigWithWbi = InternalAxiosRequestConfig & { __useWbi?: boolean };
 
+// timeout 10s：让 DNS / connect / TLS 层瞬态故障快速暴露，配合 fetchMusicUrl
+// 的网络层重试（2 次 + backoff）总最坏耗时 ~32s，比 30s 单次挂死体验更好。
+// 历史值 30s 在 Windows DNS 失败场景会让用户干等。
 export const bilibiliService: AxiosInstance = axios.create({
-  timeout: 30000,
+  timeout: 10000,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/x-www-form-urlencoded',

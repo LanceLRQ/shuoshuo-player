@@ -87,6 +87,32 @@ export interface HttpAdapter {
   getJson(url: string, signal?: AbortSignal): Promise<unknown>;
 }
 
+/** 日志级别 */
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+/**
+ * 日志适配器（可选；仅 Tauri 端实装文件落盘）
+ *
+ * 业务侧应通过 `utils/logger.ts` 中的 `logger` 入口调用，而不是直接拿 adapter。
+ * 入口会同时输出 console（生产构建也可见 info/warn/error；debug 仍受 __DEV_LOG__ 控制）
+ * 和派发到 adapter 写文件。adapter 不存在时静默退化为仅 console。
+ *
+ * 生产构建场景：用户报 bug 时，开发者可通过日志文件回溯网络重试、上游 502、
+ * 风控等关键事件，避免被 esbuild dead-code-elimination 剥光的 console.debug 误导。
+ */
+export interface LoggerAdapter {
+  /** 写一条日志；实现方负责持久化（如 append 到当日日志文件） */
+  write(level: LogLevel, tag: string, message: string, data?: unknown): void;
+  /** 读取当日全部日志内容（用于"复制最近 N 行"按钮）；不支持返回 null */
+  readAll?(): Promise<string | null>;
+  /** 清空当日日志；不支持返回 false */
+  clear?(): Promise<boolean>;
+  /** 获取日志目录绝对路径（用于"打开目录"按钮）；不支持返回 null */
+  getDir?(): Promise<string | null>;
+  /** 在 OS 文件管理器中打开日志目录；不支持返回 false */
+  openDir?(): Promise<boolean>;
+}
+
 /**
  * 文件保存适配器（仅 Tauri 端实现）
  *
@@ -143,4 +169,12 @@ export interface PlatformBridge {
    * 用于设置页 PC 端缓存 Tab 显示用量 / 调整上限 / 一键清空
    */
   audioCache?: AudioCacheAdapter;
+  /**
+   * 日志适配器（可选，仅 Tauri 端实装文件落盘）
+   *
+   * 业务代码不应直接调用此字段，而是通过 utils/logger.ts 的 `logger` 入口；
+   * 入口会同时打 console 并派发到此 adapter 写文件。Chrome 扩展端不注入，
+   * 此时入口仅输出 console。
+   */
+  logger?: LoggerAdapter;
 }

@@ -17,6 +17,21 @@ use tauri::Manager;
 
 use crate::commands::audio_cache::{self, AudioCacheState};
 use crate::commands::auth::CookieState;
+use crate::commands::log::{append_log_line, LogState};
+
+/// 关键错误位点同时落盘：在保留 stderr 输出的基础上，把诊断信息追加到日志文件，
+/// 让用户报 bug 时开发者能从 $APP_LOCAL_DATA/logs/ 直接拿到上游错误现场，
+/// 而不必要求用户跑 portable:dev 才能看到 console。
+fn log_audio_proxy_error<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    level: &str,
+    message: &str,
+    data_json: &str,
+) {
+    if let Some(state) = app.try_state::<LogState>() {
+        append_log_line(state.inner(), level, "[audio_proxy]", message, data_json);
+    }
+}
 
 const BILIBILI_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 const BILIBILI_REFERER: &str = "https://www.bilibili.com/";
@@ -359,6 +374,19 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                         "[audio_proxy] UPSTREAM ERROR host={} status={} ct={} body_preview={}",
                         host, status, upstream_ct, body_preview
                     );
+                    log_audio_proxy_error(
+                        &app,
+                        "error",
+                        "UPSTREAM ERROR (bilibili CDN returned 4xx/5xx)",
+                        &format!(
+                            r#"{{"host":"{}","status":{},"ct":"{}","body_preview":"{}","chunk":{}}}"#,
+                            host,
+                            status,
+                            upstream_ct,
+                            body_preview.replace('\\', "\\\\").replace('"', "\\\"").chars().take(256).collect::<String>(),
+                            chunk_index
+                        ),
+                    );
 
                     let mut rb = tauri::http::Response::builder().status(status);
                     for h in ["content-type", "content-length", "content-range"] {
@@ -479,6 +507,20 @@ pub fn handle_audio_proxy<R: tauri::Runtime>(
                 eprintln!(
                     "[audio_proxy] reqwest send failed host={} chunk={} err={}",
                     host, chunk_index, e
+                );
+                log_audio_proxy_error(
+                    &app,
+                    "error",
+                    "reqwest send failed (connection/DNS/TLS)",
+                    &format!(
+                        r#"{{"host":"{}","chunk":{},"err":"{}","is_timeout":{},"is_connect":{},"is_request":{}}}"#,
+                        host,
+                        chunk_index,
+                        e.to_string().replace('\\', "\\\\").replace('"', "\\\""),
+                        e.is_timeout(),
+                        e.is_connect(),
+                        e.is_request()
+                    ),
                 );
                 responder.respond(error_response(502, &e.to_string()));
             }

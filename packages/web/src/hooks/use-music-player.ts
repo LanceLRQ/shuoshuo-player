@@ -15,6 +15,7 @@ import {
   parseLRC,
   createLyricsFinder,
   type BilibiliVideo,
+  type FetchMusicUrlError,
 } from '@shuoshuo-player/shared';
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 
@@ -67,6 +68,29 @@ const AUDIO_FALLBACK_MAX_ATTEMPT = 2;
  * 仅 onloaderror 触发；正常播放路径无开销。Windows WebView2 下自定义协议被映射为
  * http://bili-stream.localhost/，fetch 可正常工作；macOS/Linux 走 bili-stream:// 原生 scheme。
  */
+/**
+ * 把 fetchMusicUrl 的结构化错误转为用户友好的 toast 文案
+ *
+ * - network: 鼓励用户重试 / 检查网络（已在 logger 中记录详细诊断）
+ * - business: 暴露 B 站接口返回的 code / status，引导用户判断是否需登录或视频已下架
+ * - video-source-empty: 明确告知该视频无可用音频流
+ * - risk-control: 不应走到此分支（onFinalError 已 early return）
+ */
+function buildFetchMusicUrlErrorToast(err: FetchMusicUrlError): string {
+  switch (err.kind) {
+    case 'network':
+      return `网络异常，无法获取音频地址（已重试 ${err.retryCount} 次）：${err.message}。请检查 DNS / VPN 或稍后再试`;
+    case 'business':
+      return `B 站接口拒绝：${err.message.slice(0, 80)}。可能视频已下架或需重新登录`;
+    case 'video-source-empty':
+      return `视频 ${err.bvid} 无可用音频流`;
+    case 'risk-control':
+      return `B 站风控未通过，请按对话框提示完成主站验证后切歌`;
+    default:
+      return `获取音频地址失败：${err.bvid}（${err.message.slice(0, 80)}）`;
+  }
+}
+
 async function probeAudioUrl(url: string, bvid: string): Promise<void> {
   if (!__DEV_LOG__ || !url) return;
   try {
@@ -205,7 +229,25 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
         });
       }
 
-      const url = await fetchMusicUrl(video.bvid, biliMid, attempt);
+      // 提取最终错误用于失败后分类 toast；onRetry 期间显示 INFO toast 反馈重试进度
+      const url = await fetchMusicUrl(video.bvid, biliMid, attempt, {
+        onRetry: ({ retryCount, maxRetries }) => {
+          sendNotice({
+            type: NoticeType.INFO,
+            message: `B 站接口暂时不通，正在重试 (${retryCount}/${maxRetries})...`,
+            duration: 2000,
+          });
+        },
+        onFinalError: (err) => {
+          // 风控已有全局对话框引导用户去主站验证，无需再弹 toast 避免双重提示
+          if (err.kind === 'risk-control') return;
+          sendNotice({
+            type: NoticeType.ERROR,
+            message: buildFetchMusicUrlErrorToast(err),
+            duration: 6000,
+          });
+        },
+      });
       if (__DEV_LOG__) {
         console.debug(
           '[BILI-API] initHowl got url:',
@@ -218,12 +260,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       }
       if (!url) {
         setIsLoading(false);
-        // 解析失败直接停在当前曲目，不再自动跳下一首：避免接口故障时整个队列被快速跑空
-        sendNotice({
-          type: NoticeType.ERROR,
-          message: `获取音频地址失败：${video.bvid}。请检查网络或 B 站登录状态后手动切歌`,
-          duration: 5000,
-        });
+        // 解析失败直接停在当前曲目，不再自动跳下一首；toast 已由 onFinalError 发出
         return;
       }
 

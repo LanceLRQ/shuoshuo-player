@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { ExternalLink, Loader2, RefreshCw, Puzzle } from 'lucide-react';
+import {
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Puzzle,
+  FolderOpen,
+  Trash2,
+  ScrollText,
+} from 'lucide-react';
 import {
   useUpdateCheckerStore,
   getPlatformBridge,
@@ -13,6 +21,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
+import { useUIShell } from '@/stores/ui-shell';
 
 const OFFICIAL_RELEASE_URL = 'https://shuoshuo.sikong.ren/player';
 const GITHUB_URL = 'https://github.com/LanceLRQ/shuoshuo-player';
@@ -37,6 +46,47 @@ export function AboutSettings() {
   const sendNotice = useUIStore((s) => s.sendNotice);
 
   const [hasManualChecked, setHasManualChecked] = useState(false);
+
+  /* ===== 日志（仅 Tauri 端 LoggerAdapter 存在时显示）===== */
+  // bridge 可能未注入（测试 / SSR），用 try-catch 保护；adapter 不存在时整块隐藏
+  const loggerAdapter = (() => {
+    try {
+      return getPlatformBridge().logger;
+    } catch {
+      return undefined;
+    }
+  })();
+  const openConfirm = useUIShell((s) => s.openConfirm);
+
+  const handleOpenLogDir = async () => {
+    if (!loggerAdapter?.openDir) return;
+    const ok = await loggerAdapter.openDir();
+    if (!ok) {
+      sendNotice({
+        type: NoticeType.ERROR,
+        message: '打开日志目录失败',
+        duration: 3000,
+      });
+    }
+  };
+
+  const handleClearLogs = () => {
+    if (!loggerAdapter?.clear) return;
+    openConfirm({
+      title: '清空当日日志？',
+      description: '将删除当日 .log 文件的全部内容（不影响历史 rotate 备份）。',
+      confirmText: '清空',
+      destructive: true,
+      onConfirm: async () => {
+        const ok = await loggerAdapter.clear!();
+        sendNotice({
+          type: ok ? NoticeType.SUCCESS : NoticeType.ERROR,
+          message: ok ? '已清空当日日志' : '清空失败',
+          duration: 2000,
+        });
+      },
+    });
+  };
 
   // Chrome 扩展走 Web Store 自动更新，应用内不需要做版本检查 UI
   // 直接给一个跳转商店的按钮，扩展内点击会打开商店页面
@@ -232,6 +282,30 @@ export function AboutSettings() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* 日志（仅桌面端注入 LoggerAdapter；扩展端隐藏整块） */}
+      {loggerAdapter && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ScrollText className="h-4 w-4" />
+              日志
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={handleOpenLogDir}>
+                <FolderOpen className="mr-1.5 h-4 w-4" />
+                打开目录
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleClearLogs}>
+                <Trash2 className="mr-1.5 h-4 w-4" />
+                清空当日日志
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 隐私安全声明（引自 README） */}
       <Card>

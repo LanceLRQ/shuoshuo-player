@@ -5,6 +5,7 @@ import { TauriSpiderAdapter } from './tauri-spider-adapter';
 import { TauriShellAdapter } from './tauri-shell-adapter';
 import { TauriFileSaverAdapter } from './tauri-file-saver';
 import { TauriHttpAdapter } from './tauri-http-adapter';
+import { TauriLoggerAdapter } from './tauri-logger-adapter';
 import { transformBilibiliAudioUrl } from './tauri-audio-url-transformer';
 import {
   getCacheStats,
@@ -47,5 +48,8 @@ export function createTauriPlatformBridge(): PlatformBridge {
       setDir: (path) => setCacheDir(path),
       pickDir: (current) => pickCacheDir(current),
     },
+    // 文件日志：让 logger.warn/error/info 在生产构建里也落盘到
+    // $APP_LOCAL_DATA/logs/app-YYYY-MM-DD.log（portable 模式下走 exe_dir/data/logs/）
+    logger: new TauriLoggerAdapter(),
   };
 }

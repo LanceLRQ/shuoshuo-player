@@ -9,3 +9,4 @@ export * from './platform';
 export * from './type-guards';
 export * from './cloud-list';
 export * from './version-compare';
+export * from './logger';

@@ -24,8 +24,18 @@ pub fn run() {
                 eprintln!("[startup] portable data skeleton init failed: {}", e);
             }
 
-            // 启动时回放 bilibili_cookies.json 到 CookieState（v1 main.js 行为）
+            // 初始化文件日志（最先做：之后所有 setup 步骤的错误都可落盘）
             let handle = app.handle();
+            match commands::log::init(handle) {
+                Ok(log_state) => {
+                    app.manage(log_state);
+                }
+                Err(e) => {
+                    eprintln!("[startup] log init failed: {} (file logging disabled)", e);
+                }
+            }
+
+            // 启动时回放 bilibili_cookies.json 到 CookieState（v1 main.js 行为）
             let state = handle.state::<commands::auth::CookieState>();
             if let Err(e) = commands::auth::restore_cookies(handle, &state) {
                 eprintln!("[startup] restore_cookies failed: {}", e);
@@ -81,6 +91,11 @@ pub fn run() {
             commands::spider::qqmusic_search,
             commands::spider::qqmusic_get_lrc,
             commands::file::save_text_file,
+            commands::log::log_write,
+            commands::log::log_read_all,
+            commands::log::log_clear,
+            commands::log::log_get_dir,
+            commands::log::log_open_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
