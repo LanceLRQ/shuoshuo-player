@@ -62,10 +62,10 @@ const AUDIO_FALLBACK_MAX_ATTEMPT = 2;
 
 /**
  * 出错探测：fetch 一次目标 URL 的 0-1023 字节，把 status / 关键 header / body 前 256B
- * 输出到 webview 控制台，方便定位 Tauri Rust 代理 (bili-stream://) 的真实失败原因。
+ * 输出到 webview 控制台，方便定位 Tauri Rust 代理的真实失败原因。
  *
- * 仅 onloaderror 触发；正常播放路径无开销。WebView fetch 命中自定义协议时 Tauri 会走
- * UriSchemeResponder，与 audio 标签同链路，能复现失败响应。
+ * 仅 onloaderror 触发；正常播放路径无开销。Windows WebView2 下自定义协议被映射为
+ * http://bili-stream.localhost/，fetch 可正常工作；macOS/Linux 走 bili-stream:// 原生 scheme。
  */
 async function probeAudioUrl(url: string, bvid: string): Promise<void> {
   if (!__DEV_LOG__ || !url) return;

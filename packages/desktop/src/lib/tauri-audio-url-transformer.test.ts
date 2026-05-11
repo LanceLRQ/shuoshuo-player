@@ -36,11 +36,19 @@ describe('shouldProxyHost', () => {
 });
 
 describe('transformBilibiliAudioUrl', () => {
-  it('B 站 m4s URL 包装为 bili-stream://localhost/?url=ENCODED', () => {
+  /** 判断输出是否为任一平台的代理格式 */
+  function isProxied(out: string): boolean {
+    return (
+      out.startsWith('bili-stream://localhost/?url=') ||
+      out.startsWith('http://bili-stream.localhost/?url=')
+    );
+  }
+
+  it('B 站 m4s URL 包装为代理协议格式', () => {
     const raw =
       'https://upos-sz-mirrorcos.bilivideo.com/upgcxcode/67/73/37943577367/37943577367-1-30280.m4s?e=xxx';
     const out = transformBilibiliAudioUrl(raw);
-    expect(out.startsWith('bili-stream://localhost/?url=')).toBe(true);
+    expect(isProxied(out)).toBe(true);
     expect(out).toContain(encodeURIComponent(raw));
   });
 
@@ -51,6 +59,11 @@ describe('transformBilibiliAudioUrl', () => {
 
   it('已是 bili-stream:// 不重复包装（幂等）', () => {
     const wrapped = 'bili-stream://localhost/?url=https%3A%2F%2Fexample.com';
+    expect(transformBilibiliAudioUrl(wrapped)).toBe(wrapped);
+  });
+
+  it('已是 http://bili-stream.localhost/ 不重复包装（Windows 幂等）', () => {
+    const wrapped = 'http://bili-stream.localhost/?url=https%3A%2F%2Fexample.com';
     expect(transformBilibiliAudioUrl(wrapped)).toBe(wrapped);
   });
 
@@ -65,7 +78,7 @@ describe('transformBilibiliAudioUrl', () => {
   it('http 协议同样能命中（非 https）', () => {
     const raw = 'http://upos-test.bilivideo.com/foo.m4s';
     const out = transformBilibiliAudioUrl(raw);
-    expect(out.startsWith('bili-stream://')).toBe(true);
+    expect(isProxied(out)).toBe(true);
   });
 
   it('encode 包含特殊字符的 URL（query 含 &/=）', () => {
@@ -81,7 +94,7 @@ describe('transformBilibiliAudioUrl', () => {
     const raw =
       'https://809al93l.edge.mountaintoys.cn:4483/upgcxcode/09/91/38082249109/38082249109-1-30216.m4s?e=xxx';
     const out = transformBilibiliAudioUrl(raw);
-    expect(out.startsWith('bili-stream://localhost/?url=')).toBe(true);
+    expect(isProxied(out)).toBe(true);
     expect(out).toContain(encodeURIComponent(raw));
   });
 });

@@ -625,6 +625,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn extract_target_url_from_http_mapping() {
+        // Windows WebView2 将自定义协议映射到 http://<scheme>.localhost/ 格式
+        let req = "http://bili-stream.localhost/?url=https%3A%2F%2Fupos-sz-mirrorcos.bilivideo.com%2Ffoo.m4s%3Fe%3Dxxx";
+        let real = "https://upos-sz-mirrorcos.bilivideo.com/foo.m4s?e=xxx";
+        assert_eq!(extract_target_url(req).unwrap(), real);
+    }
+
+    #[test]
     fn extract_target_url_from_query() {
         // 手动 URL-encode 避免引入额外 crate；与前端 transformer 的 encodeURIComponent 输出一致
         let req = "bili-stream://localhost/?url=https%3A%2F%2Fupos-sz-mirrorcos.bilivideo.com%2Ffoo.m4s%3Fe%3Dxxx";
