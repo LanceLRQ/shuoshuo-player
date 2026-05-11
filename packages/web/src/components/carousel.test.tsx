@@ -15,6 +15,9 @@ const emblaState = vi.hoisted(() => {
   return obj;
 });
 
+// autoplay plugin mock：暴露 reset() 用于断言手动切换是否重置了计时器
+const autoplayMock = vi.hoisted(() => ({ reset: vi.fn() }));
+
 vi.mock('embla-carousel-react', () => ({
   default: () => {
     // 使用持久化 api 对象（每次 useEmblaCarousel 调用返回同一个）
@@ -39,6 +42,7 @@ vi.mock('embla-carousel-react', () => ({
           emblaState.callbacks[name].push(fn);
         },
         off: vi.fn(),
+        plugins: () => ({ autoplay: autoplayMock }),
       };
       emblaState.api = api as never;
     }
@@ -62,6 +66,7 @@ beforeEach(() => {
   emblaState.selected = 0;
   emblaState.callbacks = {};
   emblaState.api = null;
+  autoplayMock.reset.mockClear();
 });
 
 describe('Carousel', () => {
@@ -107,6 +112,19 @@ describe('Carousel', () => {
     expect(dots).toHaveLength(5);
     fireEvent.click(dots[3]);
     expect(emblaState.api!.scrollTo).toHaveBeenCalledWith(3);
+  });
+
+  it('手动切换 (prev/next/dot) 后会调用 autoplay.reset() 重置自动播放计时器', () => {
+    render(<Carousel slides={SLIDES} renderSlide={(s) => <div>{s.label}</div>} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '上一张' }));
+    expect(autoplayMock.reset).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: '下一张' }));
+    expect(autoplayMock.reset).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getAllByRole('button', { name: /跳到第/ })[2]);
+    expect(autoplayMock.reset).toHaveBeenCalledTimes(3);
   });
 
   it('embla select 事件触发 selectedIndex 重新计算（高亮 dot）', () => {

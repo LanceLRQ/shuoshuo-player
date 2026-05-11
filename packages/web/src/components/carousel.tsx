@@ -25,10 +25,9 @@ export function Carousel<T>({
   className,
   onSlideClick,
 }: CarouselProps<T>) {
-  const [emblaRef, emblaApi] = useEmblaCarousel(
-    { loop },
-    [Autoplay({ delay: autoplayDelay, stopOnInteraction: false })],
-  );
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop }, [
+    Autoplay({ delay: autoplayDelay, stopOnInteraction: false }),
+  ]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [snapCount, setSnapCount] = useState(0);
 
@@ -43,9 +42,27 @@ export function Carousel<T>({
     emblaApi.on('reInit', onSelect);
   }, [emblaApi]);
 
-  const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
-  const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
-  const scrollTo = useCallback((idx: number) => emblaApi?.scrollTo(idx), [emblaApi]);
+  // 手动切换后必须 reset autoplay 计时器，否则刚切到下一张就可能立即被自动切走
+  // （stopOnInteraction:false 下插件不会自动重置内部 setTimeout）
+  const resetAutoplay = useCallback(() => {
+    emblaApi?.plugins().autoplay?.reset();
+  }, [emblaApi]);
+
+  const scrollPrev = useCallback(() => {
+    emblaApi?.scrollPrev();
+    resetAutoplay();
+  }, [emblaApi, resetAutoplay]);
+  const scrollNext = useCallback(() => {
+    emblaApi?.scrollNext();
+    resetAutoplay();
+  }, [emblaApi, resetAutoplay]);
+  const scrollTo = useCallback(
+    (idx: number) => {
+      emblaApi?.scrollTo(idx);
+      resetAutoplay();
+    },
+    [emblaApi, resetAutoplay],
+  );
 
   if (slides.length === 0) return null;
 

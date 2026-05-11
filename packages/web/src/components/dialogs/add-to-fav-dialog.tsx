@@ -113,9 +113,16 @@ export function AddToFavDialog() {
   return (
     <Dialog open={open} onOpenChange={(o) => (o || submitting ? null : close())}>
       <DialogContent>
-        <DialogHeader>
+        {/*
+         * min-w-0：DialogContent 是 grid 容器，其子项默认 min-width: auto 会被
+         * 内部超长标题撑出 max-w-lg；显式置 0 让 grid item 允许收缩，
+         * 配合 DialogDescription 的 line-clamp-2 实现两行截断。
+         */}
+        <DialogHeader className="min-w-0">
           <DialogTitle>{titleText}</DialogTitle>
-          <DialogDescription className="truncate">{descriptionText}</DialogDescription>
+          <DialogDescription className="line-clamp-2 break-words">
+            {descriptionText}
+          </DialogDescription>
         </DialogHeader>
 
         {!isBatch && fetching && <p className="text-sm text-muted-foreground">加载视频信息…</p>}
