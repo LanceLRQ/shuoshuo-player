@@ -1,6 +1,6 @@
 // Windows-only portable 打包脚本
 //
-// 前置：tauri build --bundles none 已产出 src-tauri/target/release/shuoshuo-player.exe
+// 前置：tauri build --no-bundle 已产出 src-tauri/target/release/shuoshuo-player.exe
 //
 // 步骤：
 // 1. 准备 staging/shuoshuo-player-{version}-portable-x64/
@@ -44,7 +44,7 @@ const exeName = 'shuoshuo-player.exe';
 const exePath = join(tauriRoot, 'target', 'release', exeName);
 if (!statSync(exePath, { throwIfNoEntry: false })?.isFile()) {
   console.error(`[pack-portable] missing exe: ${exePath}`);
-  console.error('[pack-portable] run "tauri build --bundles none" first');
+  console.error('[pack-portable] run "tauri build --no-bundle" first');
   process.exit(1);
 }
 
