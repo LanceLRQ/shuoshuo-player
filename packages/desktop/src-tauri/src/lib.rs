@@ -46,12 +46,21 @@ pub fn run() {
                 eprintln!("[startup] tray setup failed: {}", e);
             }
 
-            // dev portable 调试包：启动时自动打开 DevTools
+            // Portable 调试能力：两种触发方式
+            // - console-portable feature（dev 调试包）：启动时自动开 DevTools
+            // - 否则（正式 portable）：检查 CLI 参数 --debug，命中才开
             #[cfg(feature = "devtools-portable")]
             {
-                if let Some(main_window) = handle.get_webview_window("main") {
-                    main_window.open_devtools();
-                    eprintln!("[startup] devtools opened (devtools-portable feature)");
+                let auto_open = cfg!(feature = "console-portable");
+                let cli_debug = std::env::args().any(|a| a == "--debug");
+                if auto_open || cli_debug {
+                    if let Some(main_window) = handle.get_webview_window("main") {
+                        main_window.open_devtools();
+                        eprintln!(
+                            "[startup] devtools opened (auto_open={}, cli_debug={})",
+                            auto_open, cli_debug
+                        );
+                    }
                 }
             }
 

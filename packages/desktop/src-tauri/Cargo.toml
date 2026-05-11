@@ -37,9 +37,14 @@ machine-uid = "0.5"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-# Dev portable 调试包专用：保留 DevTools + Windows 控制台输出（main.rs 与 lib.rs 配合启用）
-# 仅 build:portable:dev 使用，正式 release / build:portable 均不启用此 feature
+# Portable 调试能力（两段开关）：
+# - devtools-portable：仅启用 tauri/devtools，让运行时 open_devtools() API 可用
+#   · build:portable 默认带，用户 `shuoshuo-player.exe --debug` 触发 DevTools
+#   · build:portable:dev 也带（dev 包行为见下）
+# - console-portable：仅控制 main.rs 的 windows_subsystem cfg，让 Rust eprintln! 输出到控制台
+#   · 仅 build:portable:dev 启用；启用后 lib.rs 改为启动时自动开 DevTools（无需 --debug）
 devtools-portable = ["tauri/devtools"]
+console-portable = []
 
 # dev profile 单点优化：让 hash 计算密集依赖始终以 release 优化编译，
 # 业务代码仍保持 debug 便于断点。XOR 混淆本身已是 inline 字节循环（~3GB/s），
