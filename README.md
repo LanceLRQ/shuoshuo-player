@@ -2,7 +2,7 @@
 
 > 简体中文 | [English](./README.en.md)
 
-[![Version](https://img.shields.io/badge/version-2.0.0-brightgreen.svg)](./package.json) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/LanceLRQ/shuoshuo-player?include_prereleases&label=release&color=brightgreen)](https://github.com/LanceLRQ/shuoshuo-player/releases) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 “说说播放器”是一款基于 Bilibili 的第三方音乐播放器。此播放器为粉丝定制版本，可以将说宝或者其他 Up 主的 B 站视频投稿变成你的歌单。
 
@@ -29,22 +29,33 @@
 
 Chrome 浏览器扩展可直接从应用商店一键安装：[说说播放器（水晶蟹定制版）](https://chromewebstore.google.com/detail/%E8%AF%B4%E8%AF%B4%E6%92%AD%E6%94%BE%E5%99%A8-%E6%B0%B4%E6%99%B6%E8%9F%B9%E5%AE%9A%E5%88%B6%E7%89%88/odfgnejgeebbccohpgjdmbklaoicndpb)。
 
-> **当前版本属于 1.x Beta 通道**：2.0 正式版前的预发布阶段，可能存在已知缺陷。
->
-> - **Chrome 扩展**：优先走 Web Store（自动更新）；Linux / Intel Mac 用户也用扩展兜底
-> - **桌面端**：仅提供 **macOS（Apple Silicon）** 与 **Windows x64**，可在 [GitHub Releases](https://github.com/LanceLRQ/shuoshuo-player/releases) 下载；**Beta 阶段未签名**，首次启动需要：
->     - macOS：右键 .app → 打开 → 弹窗中再次点击"打开"
->     - Windows：SmartScreen 拦截 → 更多信息 → 仍要运行
-> - **Windows Portable 版（实验性）**：除 `.exe / .msi` 安装包外，自 1.9.1 起额外提供 `*-portable-x64.zip`，解压即用、数据存放在程序同目录的 `data/` 文件夹。**注意事项**：
->     - 请勿放到 `C:\Program Files\` 等系统受保护目录（无写入权限）
->     - 首次启动若系统未装 WebView2 Runtime 仍会引导联网安装
->     - B 站登录态由 WebView2 管理在系统目录，**复制到另一台电脑后需重新扫码登录**
->     - portable 模式不支持自动更新，请手动到 Releases 下载新版本
->     - 删除 `portable.txt` 即恢复为普通版行为；**正式使用仍推荐安装包版本**
-> - **国内访问 GitHub 慢**：可用镜像下载安装包，与 GitHub Releases 字节一致（自带 `.sha256` 可校验），由 Cloudflare CDN 分发。地址结构：
->     - 指定版本：`https://download.hutao.wiki/shuoshuo-player/releases/download/v<版本号>/<文件名>`
->     - 最新版便利路径：`https://download.hutao.wiki/shuoshuo-player/releases/latest/download/<文件名>`
-> - **更新检查**：应用启动后会在 6 小时内自动检查一次新版本，发现后通过非阻断通知提示，可在「设置 → 关于」手动触发检查
+桌面端（macOS / Windows）请在 [GitHub Releases](https://github.com/LanceLRQ/shuoshuo-player/releases) 下载对应安装包。
+
+> 当前版本处于 **1.x Beta 通道**，使用前请阅读下方 [1.x Beta 通道（预发布）](#1x-beta-通道预发布) 的注意事项。
+
+## 1.x Beta 通道（预发布）
+
+**当前版本属于 1.x Beta 通道**：2.0 正式版前的预发布阶段，可能存在已知缺陷。
+
+### 发布形态
+
+- **Chrome 扩展**：优先走 Web Store（自动更新）；Linux / Intel Mac 用户也用扩展兜底
+- **桌面端**：仅提供 **macOS（Apple Silicon）** 与 **Windows x64**，可在 [GitHub Releases](https://github.com/LanceLRQ/shuoshuo-player/releases) 下载；**Beta 阶段未签名**，首次启动需要：
+    - macOS：右键 .app → 打开 → 弹窗中再次点击"打开"
+    - Windows：SmartScreen 拦截 → 更多信息 → 仍要运行
+- **Windows Portable 版（实验性）**：除 `.exe / .msi` 安装包外，自 1.9.1 起额外提供 `*-portable-x64.zip`，解压即用、数据存放在程序同目录的 `data/` 文件夹。**注意事项**：
+    - 请勿放到 `C:\Program Files\` 等系统受保护目录（无写入权限）
+    - 首次启动若系统未装 WebView2 Runtime 仍会引导联网安装
+    - B 站登录态由 WebView2 管理在系统目录，**复制到另一台电脑后需重新扫码登录**
+    - portable 模式不支持自动更新，请手动到 Releases 下载新版本
+    - 删除 `portable.txt` 即恢复为普通版行为；**正式使用仍推荐安装包版本**
+
+### 镜像与更新
+
+- **国内访问 GitHub 慢**：可用镜像下载安装包，与 GitHub Releases 字节一致（自带 `.sha256` 可校验），由 Cloudflare CDN 分发。地址结构：
+    - 指定版本：`https://download.hutao.wiki/shuoshuo-player/releases/download/v<版本号>/<文件名>`
+    - 最新版便利路径：`https://download.hutao.wiki/shuoshuo-player/releases/latest/download/<文件名>`
+- **更新检查**：应用启动后会在 6 小时内自动检查一次新版本，发现后通过非阻断通知提示，可在「设置 → 关于」手动触发检查
 
 ## 快速开始
 

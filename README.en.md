@@ -2,7 +2,7 @@
 
 > [简体中文](./README.md) | English
 
-[![Version](https://img.shields.io/badge/version-2.0.0-brightgreen.svg)](./package.json) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/LanceLRQ/shuoshuo-player?include_prereleases&label=release&color=brightgreen)](https://github.com/LanceLRQ/shuoshuo-player/releases) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 "Shuoshuo Player" is a third-party music player based on Bilibili. This player is a customized version for fans, allowing you to turn "说说 Crystal" or other Bilibili creators' video submissions into your playlist.
 
