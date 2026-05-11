@@ -46,6 +46,15 @@ pub fn run() {
                 eprintln!("[startup] tray setup failed: {}", e);
             }
 
+            // dev portable 调试包：启动时自动打开 DevTools
+            #[cfg(feature = "devtools-portable")]
+            {
+                if let Some(main_window) = handle.get_webview_window("main") {
+                    main_window.open_devtools();
+                    eprintln!("[startup] devtools opened (devtools-portable feature)");
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -37,6 +37,9 @@ machine-uid = "0.5"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+# Dev portable 调试包专用：保留 DevTools + Windows 控制台输出（main.rs 与 lib.rs 配合启用）
+# 仅 build:portable:dev 使用，正式 release / build:portable 均不启用此 feature
+devtools-portable = ["tauri/devtools"]
 
 # dev profile 单点优化：让 hash 计算密集依赖始终以 release 优化编译，
 # 业务代码仍保持 debug 便于断点。XOR 混淆本身已是 inline 字节循环（~3GB/s），
