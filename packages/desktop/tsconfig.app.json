@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "paths": {
+      "@/*": ["../web/src/*"],
+      "@desktop/*": ["./src/*"],
+      "@shared/*": ["../shared/src/*"],
+      "@web/*": ["../web/src/*"]
+    }
+  },
+  "include": ["src/**/*", "src/**/*.tsx", "../web/src/**/*", "../web/src/**/*.tsx", "../shared/src/types/env.d.ts"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "../web/src/**/*.test.ts",
+    "../web/src/**/*.test.tsx",
+    "../web/src/test/**",
+    "../web/src/background/**"
+  ]
+}

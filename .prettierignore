@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-extension/
+v1/
+packages/desktop/src-tauri/target/
+packages/desktop/src-tauri/gen/
+*.tsbuildinfo
+pnpm-lock.yaml

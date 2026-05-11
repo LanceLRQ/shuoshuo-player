@@ -1,0 +1,12 @@
+# Windows MSVC 静态链接 VC 运行时，避免目标机缺少 VCRUNTIME140.dll / MSVCP140.dll
+# 影响：exe 体积 +200~400KB，但运行时不再依赖 VCRedist
+# 仅对 Windows 生效，macOS / Linux 不受影响
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

@@ -1,0 +1,58 @@
+{
+  "name": "shuoshuo-player",
+  "version": "1.9.1",
+  "private": true,
+  "type": "module",
+  "description": "说说播放器 - 基于 Bilibili 的第三方音乐播放器",
+  "scripts": {
+    "dev:web": "pnpm --filter @shuoshuo-player/web dev",
+    "dev:extension": "pnpm --filter @shuoshuo-player/web dev:extension",
+    "dev:desktop": "pnpm --filter @shuoshuo-player/desktop tauri dev",
+    "build:web": "pnpm --filter @shuoshuo-player/web build",
+    "build:desktop": "pnpm --filter @shuoshuo-player/desktop tauri:build",
+    "build:portable": "pnpm --filter @shuoshuo-player/desktop build:portable",
+    "build:portable:dev": "pnpm --filter @shuoshuo-player/desktop build:portable:dev",
+    "build:extension": "pnpm --filter @shuoshuo-player/web build:extension",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,css}\"",
+    "test": "pnpm -r --parallel --aggregate-output --reporter-hide-prefix run test",
+    "test:watch": "pnpm --filter @shuoshuo-player/shared test:watch",
+    "test:coverage": "pnpm -r --aggregate-output run test:coverage",
+    "test:shared": "pnpm --filter @shuoshuo-player/shared test",
+    "test:web": "pnpm --filter @shuoshuo-player/web test",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:check": "node scripts/sync-version.mjs --check",
+    "pack:extension": "node scripts/pack-extension.mjs",
+    "release:extension": "pnpm build:extension && pnpm pack:extension",
+    "build:version-json": "node scripts/build-version-json.mjs",
+    "release": "bash scripts/release.sh",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "packages/*/src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "packages/*/src/**/*.css": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@10.28.2",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.3.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "typescript-eslint": "^8.59.1"
+  }
+}

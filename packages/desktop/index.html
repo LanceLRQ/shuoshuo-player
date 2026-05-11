@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Tauri WebView 默认 Referer 是 http://localhost:1420，B 站对 *.hdslb.com /
+      *.bilivideo.com 等图片资源做反盗链检查，非 bilibili 域 Referer 会被 403。
+      Chrome 扩展靠 rules.json 的 declarativeNetRequest 改写 Referer，Tauri 无等价
+      机制。设为 no-referrer 让浏览器原生 <img> 请求不带 Referer，B 站对空 Referer
+      放行。axios 走 Tauri adapter 自管理 header，不受此 meta 影响。
+    -->
+    <meta name="referrer" content="no-referrer" />
+    <title>说说播放器</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,266 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify version consistency
+        run: pnpm version:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: TypeScript typecheck
+        run: pnpm typecheck
+
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+  extension:
+    name: Build & pack Chrome extension
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Chrome extension
+        run: pnpm build:extension
+
+      - name: Verify extension size
+        run: |
+          TOTAL_BYTES=$(find packages/web/dist-extension -type f -print0 | xargs -0 wc -c | tail -1 | awk '{print $1}')
+          TOTAL_KIB=$((TOTAL_BYTES / 1024))
+          echo "Extension total: ${TOTAL_BYTES} bytes (${TOTAL_KIB} KiB)"
+          if [ "$TOTAL_KIB" -gt 10240 ]; then
+            echo "::error::Extension size ${TOTAL_KIB} KiB exceeds 10240 KiB budget"
+            exit 1
+          fi
+          echo "::notice::Extension size ${TOTAL_KIB} KiB (under 10240 KiB budget)"
+
+      - name: Pack extension zip
+        run: pnpm pack:extension
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-release
+          path: |
+            release/*.zip
+            release/*.zip.sha256
+          retention-days: 14
+          if-no-files-found: error
+
+  desktop:
+    name: Build desktop bundle (${{ matrix.os }})
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        # 只构建 macOS（ARM64）+ Windows；Linux 桌面用户改用 Chrome 扩展
+        # macos-latest = Apple Silicon runner，输出 ARM64 .dmg / .app；Intel Mac 用户走扩展兜底
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: packages/desktop/src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # build:desktop = pnpm --filter @shuoshuo-player/desktop tauri:build
+      # tauri:build 内部链 = tauri build + node scripts/patch-macos-display-name.mjs
+      # 因此 macOS .app 的 CFBundleDisplayName 会被自动注入「说说播放器」
+      - name: Build desktop bundle
+        run: pnpm build:desktop
+
+      # Windows 专属：在安装包之外追加 portable zip 产物
+      # tauri build --bundles none 会复用上一步已编译的 release exe（增量编译）
+      - name: Build Windows portable bundle
+        if: matrix.os == 'windows-latest'
+        run: pnpm build:portable
+
+      - name: Collect bundles
+        shell: bash
+        run: |
+          mkdir -p release/desktop
+          BUNDLE_DIR=packages/desktop/src-tauri/target/release/bundle
+          # 用 find -exec cp 避免 glob 在某平台无匹配时报错
+          # 仅收集 macOS（dmg / app.tar.gz）与 Windows（msi / exe）产物
+          find "$BUNDLE_DIR" -type f \( \
+            -name "*.dmg" -o \
+            -name "*.app.tar.gz" -o \
+            -name "*.msi" -o \
+            -name "*.exe" \
+          \) -exec cp -v {} release/desktop/ \;
+          # Windows portable zip + sha256（pack-portable.mjs 输出到 packages/desktop/release/）
+          find packages/desktop/release -maxdepth 1 -type f \( \
+            -name "*-portable-x64.zip" -o \
+            -name "*-portable-x64.zip.sha256" \
+          \) -exec cp -v {} release/desktop/ \; 2>/dev/null || true
+          ls -la release/desktop/
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: release/desktop/
+          retention-days: 14
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release (draft)
+    needs: [extension, desktop]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-staging
+
+      - name: Flatten artifacts to release/all/
+        shell: bash
+        run: |
+          mkdir -p release/all
+          find release-staging -type f \( \
+            -name "*.zip" -o \
+            -name "*.sha256" -o \
+            -name "*.dmg" -o \
+            -name "*.app.tar.gz" -o \
+            -name "*.msi" -o \
+            -name "*.exe" \
+          \) -exec cp -v {} release/all/ \;
+          echo "---"
+          ls -la release/all/
+
+      # 生成 version.json（update-checker 客户端拉取的 manifest）
+      # 复用根 package.json + GITHUB_REF_NAME + GITHUB_SHA，CI 自动注入
+      - name: Generate version.json
+        run: |
+          node scripts/build-version-json.mjs
+          cp release/version.json release/all/version.json
+          ls -la release/all/version.json
+
+      # 1.x → prerelease；2.x+ → 正式版
+      - name: Determine prerelease flag
+        id: meta
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" == v1.* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: 说说播放器 ${{ github.ref_name }}
+          draft: true
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          files: release/all/*
+          body: |
+            ## 说说播放器 ${{ github.ref_name }}
+
+            > 1.x 区间为 **Beta 版本**，2.0+ 为稳定版。当前版本可能存在已知缺陷，欢迎反馈。
+
+            ### 国内镜像下载
+
+            访问 GitHub 慢的用户可从镜像下载（与本页 asset 字节一致，由 Cloudflare CDN 分发）：
+
+            ```
+            https://download.hutao.wiki/shuoshuo-player/releases/download/${{ github.ref_name }}/<文件名>
+            ```
+
+            ### Chrome 扩展安装
+
+            - **Chrome Web Store（推荐）**：审核通过后在商店搜索"说说播放器"安装
+            - **手动加载（开发者模式）**：下载 `shuoshuo-player-extension-${{ github.ref_name }}.zip`，解压后在 `chrome://extensions/` 开启"开发者模式" → "加载已解压的扩展程序"
+
+            ### 桌面端安装
+
+            本版本仅提供 **macOS（Apple Silicon）** 与 **Windows x64** 安装包；Intel Mac 与 Linux 用户请使用 Chrome 扩展。
+
+            **未签名说明**：Beta 阶段桌面端未做代码签名/公证，首次启动会触发系统警告：
+            - **macOS**：双击 `.dmg` 安装后，在 Launchpad 右键 .app → 打开 → 弹窗中再次点击"打开"
+            - **Windows**：双击 `.exe` 或 `.msi` → SmartScreen 拦截 → "更多信息" → "仍要运行"
+
+            ### 完整性校验
+
+            每个 `.zip` 同目录附带 `.sha256` 校验文件：
+
+            ```bash
+            shasum -a 256 -c shuoshuo-player-extension-${{ github.ref_name }}.zip.sha256
+            ```
+
+            ### 变更摘要
+
+            <!-- TODO：手动补充本版本主要变更（feat / fix / break change） -->

@@ -1,0 +1,31 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "默认窗口能力 - 包含 store / shell:open / http:scope（白名单详见 phase-6-tauri-desktop.md）",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "store:default",
+    "shell:allow-open",
+    "dialog:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://api.bilibili.com/**" },
+        { "url": "https://*.bilibili.com/**" },
+        { "url": "https://*.bilivideo.com/**" },
+        { "url": "https://*.bilivideo.cn/**" },
+        { "url": "https://*.acgvideo.com/**" },
+        { "url": "https://*.hdslb.com/**" },
+        { "url": "https://*.cgvideo.com/**" },
+        { "url": "https://*.akamaized.net/**" },
+        { "url": "https://shuoshuo.sikong.ren/**" },
+        { "url": "https://u.y.qq.com/**" },
+        { "url": "https://c.y.qq.com/**" },
+        { "url": "https://music.163.com/**" },
+        { "url": "https://download.hutao.wiki/**" },
+        { "url": "https://api.github.com/**" }
+      ]
+    }
+  ]
+}

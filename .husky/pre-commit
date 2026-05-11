@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+# pre-commit：仅对 staged 文件跑 lint-staged（eslint --fix + prettier --write）
+# 完整 CI 五连（lint/typecheck/test/build:extension/体积守门）由 GitHub Actions 触发
+pnpm exec lint-staged
+
+# 版本号一致性闸门：7 处文件必须与根 package.json 对齐
+# 改根版本忘记跑 `pnpm version:sync` 时本地拦截，避免 CI 才发现
+pnpm version:check

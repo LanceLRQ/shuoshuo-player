@@ -1,0 +1,53 @@
+[package]
+name = "shuoshuo-player"
+version = "1.9.1"
+description = "说说播放器 - 桌面版"
+authors = []
+edition = "2021"
+
+[lib]
+name = "shuoshuo_player_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-store = "2"
+tauri-plugin-shell = "2"
+# unsafe-headers：允许前端 fetch 设置 Cookie / Origin / Referer 等 forbidden headers。
+# B 站 API 必须显式注入这三个 header（手动管理鉴权 cookie + 满足反爬规则），
+# 否则 plugin-http 默认行为会丢弃它们，请求被 B 站 403 拦截。
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json", "cookies"] }
+tokio = { version = "1", features = ["full"] }
+base64 = "0.22"
+regex = "1"
+url = "2"
+once_cell = "1"
+lru = "0.12"
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+machine-uid = "0.5"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+# Portable 调试能力（两段开关）：
+# - devtools-portable：仅启用 tauri/devtools，让运行时 open_devtools() API 可用
+#   · build:portable 默认带，用户 `shuoshuo-player.exe --debug` 触发 DevTools
+#   · build:portable:dev 也带（dev 包行为见下）
+# - console-portable：仅控制 main.rs 的 windows_subsystem cfg，让 Rust eprintln! 输出到控制台
+#   · 仅 build:portable:dev 启用；启用后 lib.rs 改为启动时自动开 DevTools（无需 --debug）
+devtools-portable = ["tauri/devtools"]
+console-portable = []
+
+# dev profile 单点优化：让 hash 计算密集依赖始终以 release 优化编译，
+# 业务代码仍保持 debug 便于断点。XOR 混淆本身已是 inline 字节循环（~3GB/s），
+# 不再需要 chacha20/cipher 的 opt-level 提升。
+[profile.dev.package.sha2]
+opt-level = 3

@@ -131,14 +131,21 @@ dist
 
 .idea
 .vscode
-shuoshuo-player-pc/src/build
-publish/build.pem
-shuoshuo-player/build
 .DS_Store
+plans
+CLAUDE.local.md
 
-cloud-services/temp/*
-cloud-services/tmp/*
+# v2 Monorepo / Tauri / 扩展产物
+packages/*/dist/
+packages/*/dist-extension/
+packages/desktop/src-tauri/target/
+packages/desktop/src-tauri/gen/
+*.tsbuildinfo
 
-env/mongo
-cloud-services/bin/*
-cloud-services/server.yaml
+# 发布产物（zip / sha256 / 安装包）
+release/
+
+# IDE 临时文件
+*.swp
+*.swo
+
