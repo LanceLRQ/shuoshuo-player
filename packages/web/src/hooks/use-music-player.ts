@@ -128,6 +128,9 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   const initHowlRef = useRef<((video: BilibiliVideo, attempt?: number) => Promise<void>) | null>(
     null,
   );
+  // 并发哨兵：快速切歌时旧的 fetchMusicUrl 仍可能 resolve，凭 gen 比对丢弃所有 stale 路径
+  // （await 后、onload、onloaderror、onplay、onend 等回调都会检查），防止孤儿 Howl 自动播放
+  const initGenRef = useRef(0);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -203,6 +206,10 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   // 初始化 Howl 实例
   const initHowl = useCallback(
     async (video: BilibiliVideo, attempt: number = 0) => {
+      // 占用一个新 generation，作为本次调用的身份标识
+      // 所有异步回调（await 后、Howl 构造、onload、onloaderror）都对照 gen，stale 路径直接丢弃
+      const gen = ++initGenRef.current;
+
       // 释放旧实例
       if (howlRef.current) {
         howlRef.current.stop();
@@ -258,6 +265,14 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
           url || '<EMPTY>',
         );
       }
+      // Stale 校验（最关键的拦截点）：await 期间用户已切歌，丢弃此次结果
+      // 不调 setIsLoading(false)：新调用已接管 loading 状态，避免视觉跳动
+      if (gen !== initGenRef.current) {
+        if (__DEV_LOG__) {
+          console.debug('[BILI-API] initHowl stale (post-fetch), drop:', video.bvid, 'gen=', gen);
+        }
+        return;
+      }
       if (!url) {
         setIsLoading(false);
         // 解析失败直接停在当前曲目，不再自动跳下一首；toast 已由 onFinalError 发出
@@ -273,11 +288,30 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
         html5: true,
         volume,
         onload: () => {
+          // 该实例属于已过期的初始化（用户已切歌）→ 立即销毁，不调 play()
+          if (gen !== initGenRef.current) {
+            try {
+              howl.stop();
+              howl.unload();
+            } catch {
+              /* 忽略：unload 期间可能抛错，无害 */
+            }
+            return;
+          }
           setIsLoading(false);
           setDuration(howl.duration());
           if (autoPlay) howl.play();
         },
         onloaderror: (id, err) => {
+          // stale：用户已切歌，旧 Howl 的加载错误不应触发降级重试
+          if (gen !== initGenRef.current) {
+            try {
+              howl.unload();
+            } catch {
+              /* 忽略 */
+            }
+            return;
+          }
           // 取 howl 内部 audio element 的 MediaError 详情：err 仅是 howler 抽象数字（4=src not supported），
           // 真实失败原因由浏览器写在 audioEl.error.{code, message}
           let mediaErrInfo: { code: number; message: string } | null = null;
@@ -350,6 +384,16 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
           });
         },
         onplay: () => {
+          // 兜底（onload 已拦截 99% 路径）：stale 实例不应推动 isPlaying / 清 playNext
+          if (gen !== initGenRef.current) {
+            try {
+              howl.stop();
+              howl.unload();
+            } catch {
+              /* 忽略 */
+            }
+            return;
+          }
           setIsPlaying(true);
           setIsPausing(false);
           startRaf();
@@ -360,25 +404,45 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
           }
         },
         onpause: () => {
+          if (gen !== initGenRef.current) return;
           setIsPlaying(false);
           setIsPausing(true);
           stopRaf();
         },
         onstop: () => {
+          if (gen !== initGenRef.current) return;
           setIsPlaying(false);
           setIsPausing(false);
           setProgress(0);
           stopRaf();
         },
         onseek: () => {
+          if (gen !== initGenRef.current) return;
           const cur = howl.seek();
           if (typeof cur === 'number') setProgress(cur);
         },
-        onend: handleEnd,
+        // stale 的 onend 绝不能触发 goNext，否则会越过用户的切歌意图
+        onend: () => {
+          if (gen !== initGenRef.current) return;
+          handleEnd();
+        },
         onplayerror: () => {
+          if (gen !== initGenRef.current) return;
           howl.once('unlock', () => howl.play());
         },
       });
+
+      // 极端 race：构造期间又被切歌（同步路径几乎不可能，但 Howl 构造内部有微任务）
+      // 兜底丢弃，避免装到 howlRef 后又被新实例覆盖造成"双 howl 内存中并存"
+      if (gen !== initGenRef.current) {
+        try {
+          howl.stop();
+          howl.unload();
+        } catch {
+          /* 忽略 */
+        }
+        return;
+      }
       howlRef.current = howl;
       // 立即播放（首次 onplay 触发后清除 playNext）
       howl.play();
@@ -395,7 +459,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   useEffect(() => {
     if (!playNext) return;
     if (!currentVideo) {
-      // 当前曲目被删除，停止并清除信号
+      // 当前曲目被删除：自增 gen 让任何 pending initHowl 进入 stale，避免它继续构造孤儿 Howl
+      initGenRef.current++;
       if (howlRef.current) {
         howlRef.current.stop();
         howlRef.current.unload();
@@ -448,6 +513,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   // 卸载时释放
   useEffect(() => {
     return () => {
+      // 自增 gen：让卸载后才 resolve 的 pending fetchMusicUrl 不再构造 Howl
+      initGenRef.current++;
       stopRaf();
       if (howlRef.current) {
         howlRef.current.stop();

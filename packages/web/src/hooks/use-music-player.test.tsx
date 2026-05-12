@@ -481,6 +481,101 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(usePlayingListStore.getState().playNext).toBe(false);
     expect(result.current.isPlaying).toBe(false);
   });
+
+  // === 双音频并发 bug 回归：快速切歌时旧请求 resolve 不应创建孤儿 Howl 自动播放 ===
+  it('快速切歌竞态：旧 fetchMusicUrl 晚到（gen stale）→ 不创建第二个 Howl 实例', async () => {
+    // 第二个视频
+    const VIDEO_B: BilibiliVideo = { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Song B' };
+    useBilibiliVideosStore.setState({
+      ids: [TEST_VIDEO.bvid, VIDEO_B.bvid],
+      entities: { [TEST_VIDEO.bvid]: TEST_VIDEO, [VIDEO_B.bvid]: VIDEO_B },
+    });
+
+    // 让第一次 fetchMusicUrl 永不 resolve（模拟慢网络），第二次正常 resolve
+    let resolveA: ((url: string) => void) | null = null;
+    vi.mocked(fetchMusicUrl)
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveA = resolve;
+          }),
+      )
+      .mockImplementationOnce(async () => 'https://test.example/B.m4s');
+
+    renderHook(() => useMusicPlayer());
+
+    // 1) 触发 A 的播放，initHowl 进入 await（fetchMusicUrl A 未 resolve）
+    await act(async () => {
+      usePlayingListStore.setState({ current: TEST_VIDEO.bvid, playNext: true });
+    });
+    // A 尚未创建 Howl，因为 fetchMusicUrl pending
+    expect(howlerState.HowlMock).not.toHaveBeenCalled();
+
+    // 2) 用户快速切到 B：gen++，新 initHowl 进入，B 立即返回 URL → 构造 Howl-B
+    await act(async () => {
+      usePlayingListStore.setState({ current: VIDEO_B.bvid, playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(1));
+    const howlBPlayCount = howlerState.lastInstance!.play.mock.calls.length;
+
+    // 3) 现在 A 的 fetchMusicUrl 终于 resolve → 应被 gen 哨兵拦截，不构造第二个 Howl
+    await act(async () => {
+      resolveA?.('https://test.example/A.m4s');
+      // 让 microtask 排空
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // 关键断言：Howl 构造次数仍为 1（只有 B），A 没有产生孤儿实例
+    expect(howlerState.HowlMock).toHaveBeenCalledTimes(1);
+    // B 的 play 次数没变（不会被 A 路径触发额外 play）
+    expect(howlerState.lastInstance!.play.mock.calls.length).toBe(howlBPlayCount);
+  });
+
+  it('快速切歌竞态：旧 Howl 的 onload 触发时（已 stale）不应调 play()', async () => {
+    const VIDEO_B: BilibiliVideo = { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Song B' };
+    useBilibiliVideosStore.setState({
+      ids: [TEST_VIDEO.bvid, VIDEO_B.bvid],
+      entities: { [TEST_VIDEO.bvid]: TEST_VIDEO, [VIDEO_B.bvid]: VIDEO_B },
+    });
+
+    // 两次都立即返回 URL，但我们手动控制何时触发 onload
+    vi.mocked(fetchMusicUrl)
+      .mockImplementationOnce(async () => 'https://test.example/A.m4s')
+      .mockImplementationOnce(async () => 'https://test.example/B.m4s');
+
+    renderHook(() => useMusicPlayer());
+
+    // 1) 播放 A，Howl-A 创建（构造时同步 play() 一次），但暂不触发 onload
+    await act(async () => {
+      usePlayingListStore.setState({ current: TEST_VIDEO.bvid, playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(1));
+    const cbA = howlerState.lastCb;
+    const instanceA = howlerState.lastInstance!;
+
+    // 2) 切到 B：Howl-B 创建（gen++）
+    await act(async () => {
+      usePlayingListStore.setState({ current: VIDEO_B.bvid, playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(2));
+    const instanceB = howlerState.lastInstance!;
+    const playACountBefore = instanceA.play.mock.calls.length;
+    const stopACountBefore = instanceA.stop.mock.calls.length;
+
+    // 3) A 的 onload 现在才触发（旧 Howl 的回调晚到）→ 哨兵应拦截：不调 A.play()，应调 A.stop()/A.unload()
+    act(() => {
+      cbA.onload?.();
+    });
+
+    // A.play() 调用次数没变（onload 内的 if (autoPlay) howl.play() 未执行）
+    expect(instanceA.play.mock.calls.length).toBe(playACountBefore);
+    // 哨兵主动销毁 A
+    expect(instanceA.stop.mock.calls.length).toBeGreaterThan(stopACountBefore);
+    expect(instanceA.unload).toHaveBeenCalled();
+    // B 实例不受影响
+    expect(instanceB).toBe(howlerState.lastInstance);
+  });
 });
 
 describe('H1: useMusicPlayer 媒体会话 API 接入', () => {
