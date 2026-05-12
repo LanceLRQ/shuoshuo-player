@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import {
   usePlayerProfileStore,
+  usePlayingListStore,
+  isExplicitPageTrackId,
   urlPrefixFixed,
   formatPlayTime,
   getPlatformBridge,
@@ -52,11 +54,16 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
   const player = useMusicPlayer();
   const volume = usePlayerProfileStore((s) => s.volume);
   const loopMode = usePlayerProfileStore((s) => s.loopMode);
+  const currentTrackId = usePlayingListStore((s) => s.current);
   const openAddToFav = useUIShell((s) => s.openAddToFav);
   const showLyric = useUIShell((s) => s.showLyric);
   const toggleLyric = useUIShell((s) => s.toggleLyric);
 
+  // 显式 :p<n> 条目播放上下文：已锁定 P，不再展示分 P 选择器
+  const isExplicitContext = isExplicitPageTrackId(currentTrackId);
+
   const [showQueue, setShowQueue] = useState(false);
+  const [showPartSelector, setShowPartSelector] = useState(false);
 
   const cur = player.currentVideo;
   const cover = cur?.pic ? urlPrefixFixed(cur.pic) : '';
@@ -225,8 +232,8 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
                   />
                 </PopoverContent>
               </Popover>
-              {cur && (cur.videos ?? 1) > 1 && (
-                <Popover>
+              {cur && (cur.videos ?? 1) > 1 && !isExplicitContext && (
+                <Popover open={showPartSelector} onOpenChange={setShowPartSelector}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <PopoverTrigger asChild>
@@ -243,7 +250,7 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
                     <TooltipContent>选择分 P</TooltipContent>
                   </Tooltip>
                   <PopoverContent side="top" align="end" sideOffset={10} className="w-auto p-0">
-                    <PartSelector video={cur} />
+                    <PartSelector video={cur} onAfterSubmit={() => setShowPartSelector(false)} />
                   </PopoverContent>
                 </Popover>
               )}

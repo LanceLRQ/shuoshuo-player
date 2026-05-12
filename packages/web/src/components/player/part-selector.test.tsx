@@ -6,6 +6,7 @@ import {
 } from '@shuoshuo-player/shared';
 import { PartSelector } from './part-selector';
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
+import { useUIShell } from '@/stores/ui-shell';
 
 const MULTI: BilibiliVideo = {
   aid: 1,
@@ -42,75 +43,108 @@ function resetStores() {
     switchToPage: undefined,
   });
   useVideoPagePrefStore.setState({ defaultPage: {} });
+  useUIShell.setState({
+    addToFavOpen: false,
+    addToFavBvids: [],
+    addToFavExcludeId: null,
+    addToFavFromSearch: false,
+  });
 }
 
 describe('PartSelector', () => {
   beforeEach(resetStores);
 
-  it('列出所有 P + 当前 playingPage 高亮（aria-selected=true）', () => {
+  it('常态 header 显示当前 P + 总 P + 默认 P（如有）', () => {
     usePlayerRuntimeStore.setState({ playingPage: 2 });
+    useVideoPagePrefStore.setState({ defaultPage: { [MULTI.bvid]: 3 } });
     render(<PartSelector video={MULTI} />);
-    expect(screen.getByText('Intro')).toBeInTheDocument();
-    expect(screen.getByText('Verse')).toBeInTheDocument();
-    expect(screen.getByText('Outro')).toBeInTheDocument();
-    expect(screen.getByText(/当前：P2 \/ 共 3 P/)).toBeInTheDocument();
-
-    const p2 = screen.getByRole('option', { selected: true });
-    expect(p2).toHaveTextContent('Verse');
+    expect(screen.getByText(/当前 P2/)).toBeInTheDocument();
+    expect(screen.getByText(/共 3 P/)).toBeInTheDocument();
+    expect(screen.getByText(/默认 P3/)).toBeInTheDocument();
   });
 
-  it('点 P → 调 switchToPage', () => {
+  it('单击 P 行调 switchToPage（常态）', () => {
     const switchToPage = vi.fn();
     usePlayerRuntimeStore.setState({ switchToPage });
     render(<PartSelector video={MULTI} />);
-    fireEvent.click(screen.getByRole('option', { name: /分P 1|Intro/i }));
-    expect(switchToPage).toHaveBeenCalledWith(1);
-    fireEvent.click(screen.getByText('Outro'));
-    expect(switchToPage).toHaveBeenLastCalledWith(3);
+    fireEvent.click(screen.getByRole('option', { name: /播放 P3/ }));
+    expect(switchToPage).toHaveBeenCalledWith(3);
   });
 
-  it('playingPage >= 2 时"设为默认 P"复选框可用', () => {
+  it('点 Pin 按钮 toggle 默认 P', () => {
     usePlayerRuntimeStore.setState({ playingPage: 2 });
     render(<PartSelector video={MULTI} />);
-    const cb = screen.getByRole('checkbox') as HTMLButtonElement;
-    expect(cb).not.toBeDisabled();
-    expect(screen.getByText(/将 P2 设为该投稿的默认 P/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /设为默认 P2/ }));
+    expect(useVideoPagePrefStore.getState().defaultPage[MULTI.bvid]).toBe(2);
   });
 
-  it('playingPage=1 时"设为默认 P"置灰（默认 P 是冗余表达）', () => {
-    usePlayerRuntimeStore.setState({ playingPage: 1 });
+  it('再次点击当前默认行 Pin → 清除', () => {
+    useVideoPagePrefStore.setState({ defaultPage: { [MULTI.bvid]: 2 } });
     render(<PartSelector video={MULTI} />);
-    const cb = screen.getByRole('checkbox') as HTMLButtonElement;
-    expect(cb).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /清除默认 P2/ }));
+    expect(useVideoPagePrefStore.getState().defaultPage[MULTI.bvid]).toBeUndefined();
   });
 
-  it('显式 :p<n> TrackId 上下文：复选框置灰且文案提示', () => {
+  it('P1 行 Pin 按钮 disabled', () => {
+    render(<PartSelector video={MULTI} />);
+    const p1Pin = screen.getByRole('button', { name: /设为默认 P1/ }) as HTMLButtonElement;
+    expect(p1Pin).toBeDisabled();
+  });
+
+  it('显式 :p<n> 上下文整列 Pin 置灰（disabled）', () => {
     usePlayingListStore.setState({
       trackIds: [`${MULTI.bvid}:p2`],
       current: `${MULTI.bvid}:p2`,
     });
-    usePlayerRuntimeStore.setState({ playingPage: 2 });
     render(<PartSelector video={MULTI} />);
-    const cb = screen.getByRole('checkbox') as HTMLButtonElement;
-    expect(cb).toBeDisabled();
-    expect(screen.getByText(/该条目已显式锁定 P/)).toBeInTheDocument();
+    const pinButtons = screen.getAllByRole('button', { name: /(设为默认|清除默认)/ });
+    pinButtons.forEach((btn) => {
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+    });
   });
 
-  it('勾选"设为默认 P" → 写入 useVideoPagePrefStore', () => {
-    usePlayerRuntimeStore.setState({ playingPage: 3 });
+  it('进入多选模式：header 显示已选 0 + 加入歌单按钮 disabled', () => {
     render(<PartSelector video={MULTI} />);
-    fireEvent.click(screen.getByRole('checkbox'));
-    expect(useVideoPagePrefStore.getState().defaultPage[MULTI.bvid]).toBe(3);
+    fireEvent.click(screen.getByRole('button', { name: '进入多选模式' }));
+    expect(screen.getByText(/已选 0/)).toBeInTheDocument();
+    const addBtn = screen.getByRole('button', { name: /加入歌单 \(0\)/ }) as HTMLButtonElement;
+    expect(addBtn).toBeDisabled();
   });
 
-  it('取消"设为默认 P" → 删 key（回到 page 1 语义）', () => {
-    useVideoPagePrefStore.setState({ defaultPage: { [MULTI.bvid]: 3 } });
-    usePlayerRuntimeStore.setState({ playingPage: 3 });
+  it('多选模式下行点击 = 切勾选；加入歌单 → openAddToFavBatch with trackIds', () => {
+    const openAddToFavBatch = vi.fn();
+    useUIShell.setState({ openAddToFavBatch });
+    const onAfterSubmit = vi.fn();
+    render(<PartSelector video={MULTI} onAfterSubmit={onAfterSubmit} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '进入多选模式' }));
+    // 多选模式下行 aria-label 应是"选择"前缀
+    fireEvent.click(screen.getByRole('option', { name: /选择 P1/ }));
+    fireEvent.click(screen.getByRole('option', { name: /选择 P3/ }));
+
+    expect(screen.getByText(/已选 2/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /加入歌单 \(2\)/ }));
+
+    // P1 → 纯 bvid；P3 → bvid:p3
+    expect(openAddToFavBatch).toHaveBeenCalledWith([MULTI.bvid, `${MULTI.bvid}:p3`]);
+    expect(onAfterSubmit).toHaveBeenCalled();
+  });
+
+  it('多选模式全选 / 反选', () => {
     render(<PartSelector video={MULTI} />);
-    const cb = screen.getByRole('checkbox') as HTMLButtonElement;
-    // 初始勾选态：defaultPage[bvid]=3, playingPage=3
-    expect(cb.getAttribute('data-state')).toBe('checked');
-    fireEvent.click(cb);
-    expect(useVideoPagePrefStore.getState().defaultPage[MULTI.bvid]).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: '进入多选模式' }));
+    fireEvent.click(screen.getByRole('button', { name: '全选' }));
+    expect(screen.getByText(/已选 3/)).toBeInTheDocument();
+    // 再点切换为反选（实际全清空）
+    fireEvent.click(screen.getByRole('button', { name: '反选' }));
+    expect(screen.getByText(/已选 0/)).toBeInTheDocument();
+  });
+
+  it('退出多选模式：header 还原 + 选中清空', () => {
+    render(<PartSelector video={MULTI} />);
+    fireEvent.click(screen.getByRole('button', { name: '进入多选模式' }));
+    fireEvent.click(screen.getByRole('option', { name: /选择 P2/ }));
+    fireEvent.click(screen.getByRole('button', { name: '退出多选' }));
+    expect(screen.getByText(/当前 P/)).toBeInTheDocument();
   });
 });

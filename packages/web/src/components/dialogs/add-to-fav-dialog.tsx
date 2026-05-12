@@ -102,6 +102,17 @@ export function AddToFavDialog() {
   /** 是否显示"整投稿 / 指定 P"二选项 */
   const showPartModeRadio = !isBatch && isMultiPart && targetPage >= 2;
 
+  /**
+   * 计算单条模式下实际要写入的 TrackId（与 handleConfirm 内逻辑同步），
+   * 用于"目标歌单已包含该 TrackId 时禁用"的检测。
+   */
+  const writeTrackIdForSingle = useMemo(() => {
+    if (isBatch || !singleBvid) return undefined;
+    return showPartModeRadio && partMode === 'page'
+      ? buildTrackId(singleBvid, targetPage)
+      : singleBvid;
+  }, [isBatch, singleBvid, showPartModeRadio, partMode, targetPage]);
+
   const toggle = (favId: string) => {
     if (favId === excludeId) return;
     setSelected((prev) => {
@@ -174,21 +185,27 @@ export function AddToFavDialog() {
               onValueChange={(v) => setPartMode(v as 'video' | 'page')}
               className="mt-2 flex flex-col gap-2"
             >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="video" id="part-mode-video" />
-                <Label htmlFor="part-mode-video" className="cursor-pointer text-sm font-normal">
-                  整个投稿
-                  <span className="ml-1 text-xs text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-2">
+                <RadioGroupItem value="video" id="part-mode-video" className="shrink-0" />
+                <Label
+                  htmlFor="part-mode-video"
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-sm font-normal"
+                >
+                  <span className="shrink-0">整个投稿</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                     （播放时按默认 P / P1）
                   </span>
                 </Label>
               </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="page" id="part-mode-page" />
-                <Label htmlFor="part-mode-page" className="cursor-pointer text-sm font-normal">
-                  仅 P{targetPage}
+              <div className="flex min-w-0 items-center gap-2">
+                <RadioGroupItem value="page" id="part-mode-page" className="shrink-0" />
+                <Label
+                  htmlFor="part-mode-page"
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-sm font-normal"
+                >
+                  <span className="shrink-0">仅 P{targetPage}</span>
                   {targetPagePart && (
-                    <span className="ml-1 truncate text-xs text-muted-foreground">
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                       · {targetPagePart}
                     </span>
                   )}
@@ -207,17 +224,32 @@ export function AddToFavDialog() {
             <div className="flex flex-col gap-1">
               {customLists.map((fav) => {
                 const isExcluded = !isBatch && fav.id === excludeId;
+                // 动态检测：目标歌单是否已包含待添加的 TrackId
+                // - 单条模式：歌单的 bv_ids 是否包含 writeTrackIdForSingle
+                // - 批量模式：歌单是否已完全包含所有待添加项（部分包含仍允许，store 内部去重）
+                const containsAll = isBatch
+                  ? bvids.length > 0 && bvids.every((id) => fav.bv_ids.includes(id))
+                  : writeTrackIdForSingle !== undefined &&
+                    fav.bv_ids.includes(writeTrackIdForSingle);
+                const isDisabled = isExcluded || containsAll;
                 const isSelected = selected.has(fav.id);
+                const disabledLabel = isExcluded
+                  ? '已包含'
+                  : containsAll
+                    ? isBatch
+                      ? '已全部包含'
+                      : '已包含'
+                    : null;
                 return (
                   <button
                     key={fav.id}
                     type="button"
-                    disabled={isExcluded || submitting}
+                    disabled={isDisabled || submitting}
                     onClick={() => toggle(fav.id)}
                     className={cn(
                       'flex items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors',
                       isSelected ? 'border-primary bg-primary/10' : 'border-input',
-                      (isExcluded || submitting) && 'cursor-not-allowed opacity-50',
+                      (isDisabled || submitting) && 'cursor-not-allowed opacity-50',
                     )}
                   >
                     {iconForType(fav.type)}
@@ -227,7 +259,9 @@ export function AddToFavDialog() {
                         {fav.bv_ids.length} 首
                       </p>
                     </div>
-                    {isExcluded && <span className="text-xs text-muted-foreground">已包含</span>}
+                    {disabledLabel && (
+                      <span className="text-xs text-muted-foreground">{disabledLabel}</span>
+                    )}
                   </button>
                 );
               })}

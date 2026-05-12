@@ -21,8 +21,8 @@ import {
   useFavoritesStore,
   useVideoPagePrefStore,
   formatNumber10K,
-  buildTrackId,
   bilibiliThumbUrl,
+  buildTrackId,
   getPlatformBridge,
   NoticeType,
   type BilibiliVideo,
@@ -96,24 +96,35 @@ function VideoItemImpl({
   style,
   className,
 }: VideoItemProps) {
-  const currentBvId = usePlayingListStore((s) => s.current);
+  const currentTrackId = usePlayingListStore((s) => s.current);
   const setPlaylist = usePlayingListStore((s) => s.setPlaylist);
   const addSingle = usePlayingListStore((s) => s.addSingle);
   const sendNotice = useUIStore((s) => s.sendNotice);
-  // selector 只订阅当前 bvid 的存在性，避免其他收藏变化导致整列重渲染
-  const isFavored = useFavoritesStore((s) => video.bvid in s.entries);
+  /**
+   * 本行的有效 TrackId：显式 explicitPage 时形如 bvid:p<n>，否则纯 bvid。
+   * 用于 isPlaying 比对、handlePlayClick / addSingle / favorites toggle，
+   * 使同一 bvid 的多个 :p<n> 条目在 UI 上各自独立。
+   */
+  const effectiveTrackId = useMemo(
+    () => buildTrackId(video.bvid, explicitPage),
+    [video.bvid, explicitPage],
+  );
+  // selector 只订阅当前 trackId 的存在性，避免其他收藏变化导致整列重渲染
+  const isFavored = useFavoritesStore((s) => effectiveTrackId in s.entries);
   const toggleFavorite = useFavoritesStore((s) => s.toggle);
   // 默认 P 偏好 + 操作（D3）：仅多 P 投稿菜单中显示"记住默认 P"入口
   const defaultPage = useVideoPagePrefStore((s) => s.defaultPage[video.bvid] ?? 1);
   const setDefaultPage = useVideoPagePrefStore((s) => s.setDefaultPage);
-  const openAddToFav = useUIShell((s) => s.openAddToFav);
+  const openPagesPicker = useUIShell((s) => s.openPagesPicker);
+  const openAddToFavStore = useUIShell((s) => s.openAddToFav);
   const [imgError, setImgError] = useState(false);
 
   const totalP = video.videos ?? 1;
-  const isMultiPart = totalP > 1;
+  // 仅"纯 bvid + 多 P 投稿"才展示分 P 操作入口；显式 :p<n> 条目已锁定 P，隐藏分 P 菜单
+  const isMultiPart = totalP > 1 && explicitPage === undefined;
   /**
-   * 归一化分 P 列表：有 view 元数据时取 pages，缺失时用 1..totalP 占位（仅显示 P 序号）。
-   * 让 DropdownMenuSub 子项渲染统一一份 map，避免双分支重复。
+   * 归一化分 P 列表：view 元数据有 pages 时直接取，缺失时按 totalP 占位生成。
+   * "记住默认 P"sub menu 复用此列表渲染。
    */
   const partItems = useMemo<Array<{ key: string | number; page: number; part?: string }>>(() => {
     if (video.pages && video.pages.length > 0) {
@@ -122,12 +133,9 @@ function VideoItemImpl({
     return Array.from({ length: totalP }, (_, i) => ({ key: i + 1, page: i + 1 }));
   }, [video.pages, totalP]);
 
-  const handleAddPageToFav = useCallback(
-    (page: number) => {
-      openAddToFav(buildTrackId(video.bvid, page), { fromSearch });
-    },
-    [openAddToFav, video.bvid, fromSearch],
-  );
+  const handleOpenPagesPicker = useCallback(() => {
+    openPagesPicker(video);
+  }, [openPagesPicker, video]);
 
   const handlePinDefaultPage = useCallback(
     (page: number) => {
@@ -141,34 +149,40 @@ function VideoItemImpl({
     [setDefaultPage, sendNotice, video.bvid],
   );
 
-  const isPlaying = currentBvId === video.bvid;
+  const isPlaying = currentTrackId === effectiveTrackId;
 
   const handlePlayClick = useCallback(() => {
     if (favId) {
-      // 由调用方决定是否要预先 setPlaylist；这里仅插入并标记 playNow
-      addSingle(video.bvid, true);
+      addSingle(effectiveTrackId, true);
     } else {
-      setPlaylist('', [video.bvid], video.bvid, true);
+      setPlaylist('', [effectiveTrackId], effectiveTrackId, true);
     }
-  }, [addSingle, setPlaylist, favId, video.bvid]);
+  }, [addSingle, setPlaylist, favId, effectiveTrackId]);
 
   const handleAddToPlay = useCallback(() => {
-    addSingle(video.bvid, false);
+    addSingle(effectiveTrackId, false);
     sendNotice({ type: NoticeType.SUCCESS, message: '添加成功', duration: 2000 });
-  }, [addSingle, sendNotice, video.bvid]);
+  }, [addSingle, sendNotice, effectiveTrackId]);
 
   const handleAddToFav = useCallback(() => {
-    onAddToFav?.(video, fromSearch);
-  }, [onAddToFav, video, fromSearch]);
+    // 调用方注入了自定义 onAddToFav（如 discovery 搜索结果页传 fromSearch:true）→ 优先委托；
+    // 未注入时（home / fav-list 等场景）fallback 直接打开 AddToFavDialog，
+    // 用 effectiveTrackId 让显式 :p<n> 条目按精确 P 入歌单。
+    if (onAddToFav) {
+      onAddToFav(video, fromSearch);
+    } else {
+      openAddToFavStore(effectiveTrackId, { fromSearch });
+    }
+  }, [onAddToFav, video, fromSearch, openAddToFavStore, effectiveTrackId]);
 
   const handleToggleLike = useCallback(() => {
-    const nextFavored = toggleFavorite(video.bvid);
+    const nextFavored = toggleFavorite(effectiveTrackId);
     sendNotice({
       type: NoticeType.SUCCESS,
       message: nextFavored ? '已添加到我的收藏' : '已从我的收藏移除',
       duration: 2000,
     });
-  }, [toggleFavorite, sendNotice, video.bvid]);
+  }, [toggleFavorite, sendNotice, effectiveTrackId]);
 
   // 封面/行可直接触发播放：仅在非批量选择、非搜索结果场景启用
   const canPlayDirect = !selectMode && !fromSearch;
@@ -356,28 +370,10 @@ function VideoItemImpl({
                   </DropdownMenuItem>
                 )}
                 {showAddBtn && isMultiPart && (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Layers className="mr-2 h-4 w-4" />
-                      选择分 P 添加到歌单
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="max-h-[60vh] w-64 overflow-y-auto">
-                      {partItems.map((it) => (
-                        <DropdownMenuItem
-                          key={`add-${it.key}`}
-                          onSelect={() => handleAddPageToFav(it.page)}
-                          className="min-w-0"
-                        >
-                          <span className="mr-2 shrink-0 tabular-nums text-muted-foreground">
-                            P{it.page}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate">
-                            {it.part || `分P ${it.page}`}
-                          </span>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
+                  <DropdownMenuItem onSelect={handleOpenPagesPicker}>
+                    <Layers className="mr-2 h-4 w-4" />
+                    选择分 P 添加到歌单
+                  </DropdownMenuItem>
                 )}
                 {isMultiPart && (
                   <DropdownMenuSub>

@@ -337,6 +337,89 @@ describe('AddToFavDialog', () => {
     expect(addFavVideo).toHaveBeenCalledWith('c1', 'BV1Multi:p2');
   });
 
+  it('单条模式：目标歌单已含 writeTrackId → 禁用 + 显示"已包含"', () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1Multi'],
+      entities: {
+        BV1Multi: {
+          bvid: 'BV1Multi',
+          title: 'M',
+          videos: 2,
+          pages: [
+            { cid: 1, page: 1, part: '', duration: 0 },
+            { cid: 2, page: 2, part: '', duration: 0 },
+          ],
+        } as never,
+      },
+    });
+    useFavListStore.setState({
+      list: [
+        makeFav('c1', 'Already Has', FavListType.CUSTOM, ['BV1Multi:p2']),
+        makeFav('c2', 'Empty', FavListType.CUSTOM, []),
+      ],
+    });
+
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFav('BV1Multi:p2'));
+
+    const alreadyBtn = screen.getByText('Already Has').closest('button') as HTMLButtonElement;
+    const emptyBtn = screen.getByText('Empty').closest('button') as HTMLButtonElement;
+    expect(alreadyBtn).toBeDisabled();
+    expect(emptyBtn).not.toBeDisabled();
+    expect(screen.getByText('已包含')).toBeInTheDocument();
+  });
+
+  it('单条多 P 模式切换：切到"整投稿"后禁用态按纯 bvid 重算', () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1Multi'],
+      entities: {
+        BV1Multi: {
+          bvid: 'BV1Multi',
+          title: 'M',
+          videos: 2,
+          pages: [
+            { cid: 1, page: 1, part: '', duration: 0 },
+            { cid: 2, page: 2, part: '', duration: 0 },
+          ],
+        } as never,
+      },
+    });
+    useFavListStore.setState({
+      list: [
+        // 歌单已含 :p2 但没有纯 bvid
+        makeFav('c1', 'Has Page Only', FavListType.CUSTOM, ['BV1Multi:p2']),
+      ],
+    });
+
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFav('BV1Multi:p2'));
+    // 默认"仅 P2"模式 → c1 已包含禁用
+    expect(screen.getByText('Has Page Only').closest('button')).toBeDisabled();
+
+    // 切到"整投稿"模式 → writeTrackId 变为纯 bvid，c1 不含 → 启用
+    fireEvent.click(screen.getByRole('radio', { name: /整个投稿/ }));
+    expect(screen.getByText('Has Page Only').closest('button')).not.toBeDisabled();
+  });
+
+  it('批量模式：歌单完全包含所有待添加项 → 禁用 + 显示"已全部包含"', () => {
+    useFavListStore.setState({
+      list: [
+        makeFav('c1', 'Full Coverage', FavListType.CUSTOM, ['BVa', 'BVb', 'BVc']),
+        makeFav('c2', 'Partial', FavListType.CUSTOM, ['BVa']),
+        makeFav('c3', 'None', FavListType.CUSTOM, []),
+      ],
+    });
+
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFavBatch(['BVa', 'BVb']));
+
+    expect(screen.getByText('Full Coverage').closest('button')).toBeDisabled();
+    expect(screen.getByText('已全部包含')).toBeInTheDocument();
+    // 部分包含仍允许（store 内部去重）
+    expect(screen.getByText('Partial').closest('button')).not.toBeDisabled();
+    expect(screen.getByText('None').closest('button')).not.toBeDisabled();
+  });
+
   it('批量模式：标题/描述切换 + 提交调用 addFavVideoByBvids', async () => {
     const addFavVideoByBvids = vi.fn(async () => ({ success: 3, failed: 0 }));
     useFavListStore.setState({

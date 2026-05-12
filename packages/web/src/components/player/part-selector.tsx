@@ -1,33 +1,34 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { ListChecks, Plus, X } from 'lucide-react';
 import {
-  parseTrackId,
+  buildTrackId,
+  isExplicitPageTrackId,
   usePlayingListStore,
   useVideoPagePrefStore,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
+import { useUIShell } from '@/stores/ui-shell';
 import { PartList } from './part-list';
 
 interface PartSelectorProps {
   video: BilibiliVideo;
+  /** 加入歌单提交后 / 退多选关 popover 的回调（由父组件控制 Popover open 状态） */
+  onAfterSubmit?: () => void;
 }
 
 /**
- * SPlayer 控制条上的 P 选择器（Popover 内容）。
+ * SPlayer 控制条 P 选择 Popover 内容。
  *
- * 行为约束（§5.2）：
- * - 列出 video.pages 所有 P + 时长，当前实际播放 P 高亮
- * - 点击切 P → 调 switchToPage（不改 store.current）
- * - "设为默认 P" 复选框：
- *   - 显式 TrackId 上下文（current 含 :p<n>）置灰 — 显式条目已锚定 P，偏好不再适用
- *   - 状态 = (defaultPage[bvid] === playingPage 且 playingPage >= 2)
- *   - 勾选 → setDefaultPage(bvid, playingPage)
- *   - 取消 → setDefaultPage(bvid, 1)（store 内部会删 key）
+ * 常态：单击行切 P 播放；Pin 列点击切换默认 P 偏好。
+ * 多选模式：行点击改为切勾选；底部"加入歌单(N)"批量加入。
+ *
+ * 与 useVideoPagePrefStore / usePlayerRuntimeStore.switchToPage / useUIShell.openAddToFavBatch
+ * 解耦：所有状态都通过既有 store API 操作。
  */
-export function PartSelector({ video }: PartSelectorProps) {
+export function PartSelector({ video, onAfterSubmit }: PartSelectorProps) {
   const pages = video.pages ?? [];
   const totalP = video.videos ?? pages.length;
   const currentTrackId = usePlayingListStore((s) => s.current);
@@ -35,48 +36,123 @@ export function PartSelector({ video }: PartSelectorProps) {
   const switchToPage = usePlayerRuntimeStore((s) => s.switchToPage);
   const defaultPage = useVideoPagePrefStore((s) => s.defaultPage[video.bvid] ?? 1);
   const setDefaultPage = useVideoPagePrefStore((s) => s.setDefaultPage);
+  const openAddToFavBatch = useUIShell((s) => s.openAddToFavBatch);
 
-  // 是否显式 TrackId（含 :p<n>）—— 决定"设为默认 P"是否可用
-  const isExplicit = useMemo(() => {
-    const parsed = parseTrackId(currentTrackId);
-    return parsed?.page !== undefined;
-  }, [currentTrackId]);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  // 默认 P 复选框选中态：当且仅当 playingPage >= 2 且与 defaultPage 一致
-  const setAsDefaultChecked = playingPage >= 2 && defaultPage === playingPage;
-  const setAsDefaultDisabled = isExplicit || playingPage < 2;
+  const isExplicit = useMemo(() => isExplicitPageTrackId(currentTrackId), [currentTrackId]);
 
-  const handleToggleDefault = (next: boolean) => {
-    if (setAsDefaultDisabled) return;
-    setDefaultPage(video.bvid, next ? playingPage : 1);
+  const toggleSelect = (page: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(page)) next.delete(page);
+      else next.add(page);
+      return next;
+    });
+  };
+
+  const handleEnterSelect = () => {
+    setSelectMode(true);
+    setSelected(new Set());
+  };
+
+  const handleExitSelect = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  const handleToggleAll = () => {
+    if (selected.size === pages.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(pages.map((p) => p.page)));
+    }
+  };
+
+  const handleTogglePin = (page: number) => {
+    if (defaultPage === page) {
+      setDefaultPage(video.bvid, 1);
+    } else {
+      setDefaultPage(video.bvid, page);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (selected.size === 0) return;
+    const trackIds = Array.from(selected)
+      .sort((a, b) => a - b)
+      .map((page) => buildTrackId(video.bvid, page));
+    openAddToFavBatch(trackIds);
+    handleExitSelect();
+    onAfterSubmit?.();
   };
 
   return (
-    <div className="flex w-72 flex-col gap-1 p-1" aria-label="分 P 选择器">
-      <div className="px-2 py-1 text-xs text-muted-foreground">
-        当前：P{playingPage} / 共 {totalP} P
-      </div>
-      <PartList pages={pages} activePage={playingPage} onSelect={(page) => switchToPage?.(page)} />
-      <div
-        className={cn(
-          'mt-1 flex items-center gap-2 border-t px-2 pt-2',
-          setAsDefaultDisabled && 'opacity-50',
-        )}
-      >
-        <Checkbox
-          id="set-as-default-page"
-          checked={setAsDefaultChecked}
-          disabled={setAsDefaultDisabled}
-          onCheckedChange={(v) => handleToggleDefault(v === true)}
-          aria-label="将当前 P 设为该投稿的默认 P"
-        />
-        <Label
-          htmlFor="set-as-default-page"
-          className={cn('text-xs', setAsDefaultDisabled ? 'cursor-not-allowed' : 'cursor-pointer')}
-        >
-          {isExplicit ? '该条目已显式锁定 P，不可改默认' : `将 P${playingPage} 设为该投稿的默认 P`}
-        </Label>
-      </div>
+    <div className="flex w-72 flex-col gap-0 p-1" aria-label="分 P 选择器">
+      {/* Header */}
+      {selectMode ? (
+        <div className="flex items-center gap-1 border-b px-1 py-1">
+          <span className="shrink-0 text-xs text-muted-foreground">已选 {selected.size}</span>
+          <button
+            type="button"
+            onClick={handleToggleAll}
+            className="rounded px-1.5 py-0.5 text-xs text-primary hover:bg-accent"
+          >
+            {selected.size === pages.length ? '反选' : '全选'}
+          </button>
+          <div className="flex-1" />
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={selected.size === 0}
+            className="h-6 gap-1 px-2 text-xs"
+          >
+            <Plus className="h-3 w-3" />
+            加入歌单 ({selected.size})
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handleExitSelect}
+            className="h-6 w-6"
+            aria-label="退出多选"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2 border-b px-2 py-1.5">
+          <span className="text-xs text-muted-foreground">
+            当前 P{playingPage} · 共 {totalP} P
+            {defaultPage >= 2 && <span className="ml-1 text-primary">· 默认 P{defaultPage}</span>}
+          </span>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handleEnterSelect}
+            className="h-6 w-6"
+            aria-label="进入多选模式"
+          >
+            <ListChecks className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* P 列表（依赖 PartList 多选 + Pin 支持） */}
+      <PartList
+        pages={pages}
+        activePage={playingPage}
+        onSelect={(page) => switchToPage?.(page)}
+        selectable={selectMode}
+        selectedPages={selected}
+        onToggleSelect={toggleSelect}
+        defaultPage={defaultPage}
+        onTogglePin={handleTogglePin}
+        pinDisabled={isExplicit}
+        pinDisabledReason="当前条目已显式锁定 P，默认 P 不适用"
+        className={cn('mt-1', selectMode && 'mt-0')}
+      />
     </div>
   );
 }

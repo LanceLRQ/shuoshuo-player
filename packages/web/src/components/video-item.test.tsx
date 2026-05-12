@@ -10,6 +10,13 @@ import {
 import { useUIShell } from '@/stores/ui-shell';
 import { VideoItem } from './video-item';
 
+function resetUIShell() {
+  useUIShell.setState({
+    pagesPickerOpen: false,
+    pagesPickerVideo: null,
+  });
+}
+
 const SAMPLE: BilibiliVideo = {
   aid: 1,
   bvid: 'BV1Test00001',
@@ -229,15 +236,14 @@ describe('VideoItem: 多 P 投稿操作菜单（D3）', () => {
     expect(screen.getByText(/记住默认 P/)).toBeInTheDocument();
   });
 
-  it('sub menu 展开后渲染所有 P 与时长', async () => {
+  it('点击"选择分 P 添加到歌单"打开 PagesPickerDialog（仅写 store flag）', async () => {
     const user = userEvent.setup();
+    resetUIShell();
     render(<VideoItem video={MULTI} />);
     await user.click(screen.getByRole('button', { name: '更多操作' }));
-    await user.hover(screen.getByText('选择分 P 添加到歌单'));
-    // sub menu 中应能找到 P1/P2/P3 三项标题
-    expect(await screen.findByText('Intro')).toBeInTheDocument();
-    expect(screen.getByText('Verse')).toBeInTheDocument();
-    expect(screen.getByText('Outro')).toBeInTheDocument();
+    await user.click(screen.getByText('选择分 P 添加到歌单'));
+    expect(useUIShell.getState().pagesPickerOpen).toBe(true);
+    expect(useUIShell.getState().pagesPickerVideo?.bvid).toBe(MULTI.bvid);
   });
 
   it('已有默认 P 时，标题显示"当前 P{n}"且 sub menu 列出"清除"项', async () => {

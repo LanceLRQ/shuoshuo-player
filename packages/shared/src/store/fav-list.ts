@@ -120,14 +120,22 @@ export const useFavListStore = create<FavListState>((set, get) => ({
   addFavVideoByBvids: async (favId, trackIds) => {
     const ui = useUIStore.getState();
     const userVideos = useBilibiliUserVideosStore.getState();
+    // 按 bvid 去重 view 调用：多 P 投稿 N 个 P 共享同一 view 结果。
+    // 此前每 P 各调一次 view，B 站对同 bvid 高频 view 易触发限流 → 仅首次成功、后续 failed，
+    // 导致用户选 N 个 P 实际只入库 1 条。
+    const uniqueBvids = Array.from(new Set(trackIds.map(trackIdToBvid)));
+    const viewResults = new Map<string, boolean>();
+    for (let i = 0; i < uniqueBvids.length; i++) {
+      const bvId = uniqueBvids[i];
+      const ok = await userVideos.getVideoByBvid(bvId, i + 1, uniqueBvids.length);
+      viewResults.set(bvId, ok);
+    }
+
     let success = 0;
     let failed = 0;
-    for (let i = 0; i < trackIds.length; i++) {
-      const trackId = trackIds[i];
-      // B 站 view 接口只接受纯 bvid；trackId 含 :p<n> 时先剥离再调用
+    for (const trackId of trackIds) {
       const bvId = trackIdToBvid(trackId);
-      const ok = await userVideos.getVideoByBvid(bvId, i + 1, trackIds.length);
-      if (ok) {
+      if (viewResults.get(bvId)) {
         get().addFavVideo(favId, trackId);
         success++;
       } else {
