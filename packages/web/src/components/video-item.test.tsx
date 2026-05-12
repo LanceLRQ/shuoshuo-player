@@ -63,11 +63,10 @@ describe('VideoItem', () => {
     expect(root.className).toMatch(/bg-accent/);
   });
 
-  it('点击立即播放按钮（无 favId）→ setPlaylist + playNext=true', () => {
-    render(<VideoItem video={SAMPLE} />);
-    // 第一个按钮是 PlayCircle ghost icon button（无 aria-label，靠位置识别）
-    const buttons = screen.getAllByRole('button');
-    fireEvent.click(buttons[0]);
+  it('双击行（无 favId）→ setPlaylist + playNext=true', () => {
+    const { container } = render(<VideoItem video={SAMPLE} />);
+    const root = container.firstChild as HTMLElement;
+    fireEvent.doubleClick(root);
 
     const state = usePlayingListStore.getState();
     expect(state.bvIds).toContain('BV1Test00001');
@@ -75,14 +74,34 @@ describe('VideoItem', () => {
     expect(state.playNext).toBe(true);
   });
 
-  it('favId 存在时立即播放走 addSingle 而非 setPlaylist', () => {
-    render(<VideoItem video={SAMPLE} favId="fav-1" />);
-    const buttons = screen.getAllByRole('button');
-    fireEvent.click(buttons[0]);
+  it('点击封面 → 触发播放（与右侧按钮原行为一致）', () => {
+    render(<VideoItem video={SAMPLE} />);
+    // 封面 div 设置了 role="button" + aria-label="播放"
+    const cover = screen.getByRole('button', { name: '播放' });
+    fireEvent.click(cover);
+
+    const state = usePlayingListStore.getState();
+    expect(state.bvIds).toContain('BV1Test00001');
+    expect(state.playNext).toBe(true);
+  });
+
+  it('favId 存在时双击走 addSingle 而非 setPlaylist', () => {
+    const { container } = render(<VideoItem video={SAMPLE} favId="fav-1" />);
+    fireEvent.doubleClick(container.firstChild as HTMLElement);
 
     const state = usePlayingListStore.getState();
     expect(state.bvIds).toEqual(['BV1Test00001']);
     expect(state.playNext).toBe(true);
+  });
+
+  it('右侧按钮在非搜索模式下渲染为"收藏"（aria-label=收藏），点击不触发播放', () => {
+    render(<VideoItem video={SAMPLE} />);
+    const likeBtn = screen.getByRole('button', { name: '收藏' });
+    fireEvent.click(likeBtn);
+    // 收藏功能未实装，不应触发播放
+    const state = usePlayingListStore.getState();
+    expect(state.bvIds).toEqual([]);
+    expect(state.current).toBe('');
   });
 
   it('fromSearch=true 时主按钮调用 onAddToFav 而非播放', () => {
@@ -90,6 +109,23 @@ describe('VideoItem', () => {
     render(<VideoItem video={SAMPLE} fromSearch onAddToFav={onAddToFav} />);
     fireEvent.click(screen.getAllByRole('button')[0]); // 第一个 ghost 按钮（添加到歌单）
     expect(onAddToFav).toHaveBeenCalledWith(SAMPLE, true);
+  });
+
+  it('fromSearch=true 时双击行不触发播放（避免与添加到歌单语义冲突）', () => {
+    const { container } = render(<VideoItem video={SAMPLE} fromSearch onAddToFav={vi.fn()} />);
+    fireEvent.doubleClick(container.firstChild as HTMLElement);
+    const state = usePlayingListStore.getState();
+    expect(state.bvIds).toEqual([]);
+  });
+
+  it('selectMode 下双击不触发播放、封面无 role=button', () => {
+    const onToggleSelect = vi.fn();
+    const { container } = render(
+      <VideoItem video={SAMPLE} selectMode onToggleSelect={onToggleSelect} />,
+    );
+    fireEvent.doubleClick(container.firstChild as HTMLElement);
+    expect(usePlayingListStore.getState().bvIds).toEqual([]);
+    expect(screen.queryByRole('button', { name: '播放' })).toBeNull();
   });
 
   it('htmlTitle=true 时 dangerouslySetInnerHTML 渲染 em 高亮', () => {

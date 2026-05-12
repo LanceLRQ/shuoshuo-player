@@ -1,4 +1,4 @@
-import { type CSSProperties, memo, useCallback, useState } from 'react';
+import { type CSSProperties, type MouseEvent, memo, useCallback, useState } from 'react';
 import dayjs from 'dayjs';
 import {
   Play,
@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Trash2,
   User,
+  Heart,
 } from 'lucide-react';
 import {
   usePlayingListStore,
@@ -104,6 +105,28 @@ function VideoItemImpl({
     onAddToFav?.(video, fromSearch);
   }, [onAddToFav, video, fromSearch]);
 
+  // 收藏功能占位，具体行为待后续讨论后实装
+  const handleToggleLike = useCallback(() => {
+    /* TODO: 收藏功能待实现 */
+  }, []);
+
+  // 封面/行可直接触发播放：仅在非批量选择、非搜索结果场景启用
+  const canPlayDirect = !selectMode && !fromSearch;
+
+  const handleCoverClick = useCallback(
+    (e: MouseEvent) => {
+      if (!canPlayDirect) return;
+      e.stopPropagation();
+      handlePlayClick();
+    },
+    [canPlayDirect, handlePlayClick],
+  );
+
+  const handleRowDoubleClick = useCallback(() => {
+    if (!canPlayDirect) return;
+    handlePlayClick();
+  }, [canPlayDirect, handlePlayClick]);
+
   const handleOpenBilibili = useCallback(() => {
     void getPlatformBridge().shell.openExternal(`https://www.bilibili.com/video/${video.bvid}`);
   }, [video.bvid]);
@@ -122,10 +145,12 @@ function VideoItemImpl({
     <div
       style={style}
       onClick={selectMode ? handleRowClick : undefined}
+      onDoubleClick={canPlayDirect ? handleRowDoubleClick : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-md px-3 py-2 transition-colors',
+        'group/row flex items-center gap-3 rounded-md px-3 py-2 transition-colors',
         !selectMode && 'hover:bg-accent/50',
         !selectMode && isPlaying && 'bg-accent',
+        canPlayDirect && 'select-none',
         selectMode && 'cursor-pointer hover:bg-accent/50',
         selectMode && selected && 'border border-primary/40 bg-primary/10',
         selectMode && !selected && 'border border-transparent',
@@ -141,7 +166,15 @@ function VideoItemImpl({
           />
         </div>
       )}
-      <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded bg-muted">
+      <div
+        onClick={canPlayDirect ? handleCoverClick : undefined}
+        role={canPlayDirect ? 'button' : undefined}
+        aria-label={canPlayDirect ? '播放' : undefined}
+        className={cn(
+          'relative h-12 w-20 shrink-0 overflow-hidden rounded bg-muted',
+          canPlayDirect && 'cursor-pointer',
+        )}
+      >
         {!imgError && video.pic ? (
           <img
             src={bilibiliThumbUrl(video.pic, 200, 125)}
@@ -155,10 +188,16 @@ function VideoItemImpl({
             <PlayCircle className="h-6 w-6" />
           </div>
         )}
-        {isPlaying && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+        {isPlaying ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 dark:bg-black/60">
             <PlayCircle className="h-5 w-5 text-white" />
           </div>
+        ) : (
+          canPlayDirect && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 dark:bg-black/60">
+              <PlayCircle className="h-5 w-5 text-white" />
+            </div>
+          )
         )}
       </div>
 
@@ -214,11 +253,11 @@ function VideoItemImpl({
             ) : (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={handlePlayClick}>
-                    <PlayCircle className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" onClick={handleToggleLike} aria-label="收藏">
+                    <Heart className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>立即播放</TooltipContent>
+                <TooltipContent>收藏</TooltipContent>
               </Tooltip>
             )}
 
