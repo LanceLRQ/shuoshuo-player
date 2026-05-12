@@ -223,9 +223,12 @@ export function FavListPage() {
               {favoritesOrder === 'desc' ? '最新收藏在前' : '最早收藏在前'}
             </Button>
           )}
-          <span className="text-xs text-muted-foreground">
-            {filteredVideos.length} / {favVideoList.length}
-          </span>
+          {/* 总数已在 FavCard 标题旁显示，这里只在搜索时显示命中情况 */}
+          {searchKey && (
+            <span className="text-xs text-muted-foreground">
+              命中 {filteredVideos.length} / {favVideoList.length}
+            </span>
+          )}
         </div>
       )}
 
