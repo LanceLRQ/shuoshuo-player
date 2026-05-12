@@ -217,11 +217,12 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
   }, [openConfirm, resetBiliUser, sendNotice]);
 
   return (
-    <header className="z-50 flex h-14 items-center bg-background">
-      {/* 左段：与 NavMenu 同宽切换；border-r 与 NavMenu 边线视觉延续 */}
+    <header className="z-50 flex h-14 items-center">
+      {/* 左段：与 NavMenu 同宽切换；不画 border-r，避免与右段 rounded-tl 圆弧底端衔接错位
+          垂直分隔线由 NavMenu 自身 border-r 在 row2 起承担，圆弧效果更平滑 */}
       <div
         className={cn(
-          'flex h-full shrink-0 items-center border-r transition-[width] duration-300',
+          'flex h-full shrink-0 items-center transition-[width] duration-300',
           menuOpen ? 'w-64 justify-between px-3' : 'w-16 justify-center',
         )}
       >
@@ -250,8 +251,9 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
         )}
       </div>
 
-      {/* 右段：标题 + 版本号 + 现有操作 */}
-      <div className="flex flex-1 items-center gap-2 px-4">
+      {/* 右段：标题 + 版本号 + 现有操作；左 + 顶边框 + 左上圆弧自闭合；
+          panel 色（light=白 / dark=亮一点黑），与下方 main / footer 同色形成内容区 */}
+      <div className="flex h-full flex-1 items-center gap-2 rounded-tl-lg border-l border-t bg-background px-4 dark:bg-muted">
         <span className="font-semibold tracking-tight">说说播放器</span>
         <span className="text-xs text-muted-foreground">v{APP_VERSION}</span>
         {IS_BETA_VERSION && (

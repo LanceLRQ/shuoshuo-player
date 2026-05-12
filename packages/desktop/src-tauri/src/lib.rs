@@ -96,6 +96,7 @@ pub fn run() {
             commands::log::log_clear,
             commands::log::log_get_dir,
             commands::log::log_open_dir,
+            commands::window::set_window_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

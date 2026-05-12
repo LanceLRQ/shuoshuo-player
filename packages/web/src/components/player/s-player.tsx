@@ -96,8 +96,8 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
        * grid 子级 DOM 顺序：row1 (TopBar) > row2 (NavMenu+main) > row3 (footer)，
        * 同 z auto 时 footer 整体（含 thumb 溢出 6px）渲染在 row2 之上，无需 z-index。
        */}
-      <footer className="relative h-20 border-t bg-background">
-        <div className="absolute -top-[6px] left-0 right-0 px-2">
+      <footer className="relative h-20 border-t bg-background dark:bg-muted">
+        <div className="absolute -top-[6px] left-0 right-0">
           <Slider
             value={[player.progress]}
             max={Math.max(player.duration, 0.01)}

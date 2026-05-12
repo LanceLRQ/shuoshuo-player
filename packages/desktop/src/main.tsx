@@ -14,6 +14,7 @@ import {
   createTauriBilibiliHttpAdapter,
   createTauriCloudHttpAdapter,
 } from '@desktop/lib/tauri-bilibili-http-adapter';
+import { startWindowThemeSync } from '@desktop/lib/window-theme-sync';
 import '@/styles/globals.css';
 
 // 启动期 nav 接口若长时间未响应（极端网络场景），UI 不应永久卡在 spinner；
@@ -39,6 +40,10 @@ bootstrapPersistence()
     console.error('[shuoshuo-desktop] bootstrap 失败，使用空状态启动：', err);
   })
   .finally(() => {
+    // 应用主题 → 原生窗口外观同步（必须在 bootstrapPersistence 之后，
+    // 才能读到持久化后的 theme 值；订阅延后注册避免启动期重复触发）
+    startWindowThemeSync();
+
     // Wbi 密钥仅在启动时拉一次（与 v1 player.js mount-once 行为一致）；
     // wbi key 每日更新，单次会话内无需周期刷新——多次 nav 反而可能触发 B 站风控
     void triggerWbiRefresh().catch(() => {
