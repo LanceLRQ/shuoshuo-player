@@ -49,8 +49,8 @@ export function SettingsPage() {
       onValueChange={handleTabChange}
       className="-mx-6 -my-4 flex h-[calc(100%+2rem)] flex-col"
     >
-      {/* 头部跨整宽，border-b 顶到 NavMenu 分隔线；TabsList 在 max-w 居中容器内左对齐 */}
-      <div className="flex-none border-b">
+      {/* 头部跨整宽，border-t 接 TopBar 视觉延续；TabsList 在 max-w 居中容器内左对齐 */}
+      <div className="flex-none border-t">
         <div className="mx-auto max-w-3xl px-6 py-3">
           <TabsList>
             {availableTabs.includes('appearance') && (

@@ -217,7 +217,7 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
   }, [openConfirm, resetBiliUser, sendNotice]);
 
   return (
-    <header className="z-50 flex h-14 items-center border-b bg-background">
+    <header className="z-50 flex h-14 items-center bg-background">
       {/* 左段：与 NavMenu 同宽切换；border-r 与 NavMenu 边线视觉延续 */}
       <div
         className={cn(

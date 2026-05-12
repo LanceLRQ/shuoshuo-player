@@ -103,9 +103,23 @@ export function NavMenu({ menuOpen }: NavMenuProps) {
             <Separator className="my-2" />
 
             {menuOpen && (
-              <p className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                我的歌单
-              </p>
+              <div className="flex items-center justify-between gap-2 px-2 pb-1">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">我的歌单</p>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                      onClick={() => openFavEdit(null)}
+                      aria-label="创建歌单"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>创建歌单</TooltipContent>
+                </Tooltip>
+              </div>
             )}
 
             {/* 系统级「我的收藏」：独立 store，作为「我的歌单」列表第一项 */}
@@ -130,24 +144,25 @@ export function NavMenu({ menuOpen }: NavMenuProps) {
               />
             ))}
 
-            <Separator className="my-2" />
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    'h-9 w-full',
-                    menuOpen ? 'justify-start px-3' : 'justify-center px-0',
-                  )}
-                  onClick={() => openFavEdit(null)}
-                >
-                  <Plus className="h-4 w-4" />
-                  {menuOpen && <span className="ml-2">创建歌单</span>}
-                </Button>
-              </TooltipTrigger>
-              {!menuOpen && <TooltipContent side="right">创建歌单</TooltipContent>}
-            </Tooltip>
+            {/* 折叠态：底部仍保留 Plus 按钮（无标题可挂入口） */}
+            {!menuOpen && (
+              <>
+                <Separator className="my-2" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="h-9 w-full justify-center px-0"
+                      onClick={() => openFavEdit(null)}
+                      aria-label="创建歌单"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">创建歌单</TooltipContent>
+                </Tooltip>
+              </>
+            )}
           </nav>
         </TooltipProvider>
       </ScrollArea>
