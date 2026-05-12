@@ -1,10 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {
   usePlayingListStore,
   useUIStore,
   useFavoritesStore,
+  useVideoPagePrefStore,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
+import { useUIShell } from '@/stores/ui-shell';
 import { VideoItem } from './video-item';
 
 const SAMPLE: BilibiliVideo = {
@@ -26,7 +29,7 @@ const SAMPLE: BilibiliVideo = {
 function reset() {
   usePlayingListStore.setState({
     favId: '',
-    bvIds: [],
+    trackIds: [],
     current: '',
     playNext: false,
   });
@@ -75,7 +78,7 @@ describe('VideoItem', () => {
     fireEvent.doubleClick(root);
 
     const state = usePlayingListStore.getState();
-    expect(state.bvIds).toContain('BV1Test00001');
+    expect(state.trackIds).toContain('BV1Test00001');
     expect(state.current).toBe('BV1Test00001');
     expect(state.playNext).toBe(true);
   });
@@ -87,7 +90,7 @@ describe('VideoItem', () => {
     fireEvent.click(cover);
 
     const state = usePlayingListStore.getState();
-    expect(state.bvIds).toContain('BV1Test00001');
+    expect(state.trackIds).toContain('BV1Test00001');
     expect(state.playNext).toBe(true);
   });
 
@@ -96,7 +99,7 @@ describe('VideoItem', () => {
     fireEvent.doubleClick(container.firstChild as HTMLElement);
 
     const state = usePlayingListStore.getState();
-    expect(state.bvIds).toEqual(['BV1Test00001']);
+    expect(state.trackIds).toEqual(['BV1Test00001']);
     expect(state.playNext).toBe(true);
   });
 
@@ -106,7 +109,7 @@ describe('VideoItem', () => {
     fireEvent.click(likeBtn);
     // 收藏功能不应触发播放
     const state = usePlayingListStore.getState();
-    expect(state.bvIds).toEqual([]);
+    expect(state.trackIds).toEqual([]);
     expect(state.current).toBe('');
   });
 
@@ -155,7 +158,7 @@ describe('VideoItem', () => {
     const { container } = render(<VideoItem video={SAMPLE} fromSearch onAddToFav={vi.fn()} />);
     fireEvent.doubleClick(container.firstChild as HTMLElement);
     const state = usePlayingListStore.getState();
-    expect(state.bvIds).toEqual([]);
+    expect(state.trackIds).toEqual([]);
   });
 
   it('selectMode 下双击不触发播放、封面无 role=button', () => {
@@ -164,7 +167,7 @@ describe('VideoItem', () => {
       <VideoItem video={SAMPLE} selectMode onToggleSelect={onToggleSelect} />,
     );
     fireEvent.doubleClick(container.firstChild as HTMLElement);
-    expect(usePlayingListStore.getState().bvIds).toEqual([]);
+    expect(usePlayingListStore.getState().trackIds).toEqual([]);
     expect(screen.queryByRole('button', { name: '播放' })).toBeNull();
   });
 
@@ -185,5 +188,85 @@ describe('VideoItem', () => {
     render(<VideoItem video={SAMPLE} fullCreateTime />);
     // 完整日期格式 YYYY 年 MM 月 DD 日 HH:mm
     expect(screen.getByText(/年.*月.*日/)).toBeInTheDocument();
+  });
+});
+
+describe('VideoItem: 多 P 投稿操作菜单（D3）', () => {
+  const MULTI: BilibiliVideo = {
+    ...SAMPLE,
+    bvid: 'BV1Multi00001',
+    videos: 3,
+    pages: [
+      { cid: 100, page: 1, part: 'Intro', duration: 60 },
+      { cid: 101, page: 2, part: 'Verse', duration: 90 },
+      { cid: 102, page: 3, part: 'Outro', duration: 30 },
+    ],
+  };
+
+  beforeEach(() => {
+    reset();
+    useVideoPagePrefStore.setState({ defaultPage: {} });
+    useUIShell.setState({
+      addToFavOpen: false,
+      addToFavBvids: [],
+      addToFavExcludeId: null,
+      addToFavFromSearch: false,
+    });
+  });
+
+  it('单 P 投稿打开菜单后不渲染"选择分 P 添加到歌单"sub menu', async () => {
+    const user = userEvent.setup();
+    render(<VideoItem video={SAMPLE} />);
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    expect(screen.queryByText('选择分 P 添加到歌单')).not.toBeInTheDocument();
+  });
+
+  it('多 P 投稿菜单含"选择分 P 添加到歌单"与"记住默认 P"', async () => {
+    const user = userEvent.setup();
+    render(<VideoItem video={MULTI} />);
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    expect(screen.getByText('选择分 P 添加到歌单')).toBeInTheDocument();
+    expect(screen.getByText(/记住默认 P/)).toBeInTheDocument();
+  });
+
+  it('sub menu 展开后渲染所有 P 与时长', async () => {
+    const user = userEvent.setup();
+    render(<VideoItem video={MULTI} />);
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    await user.hover(screen.getByText('选择分 P 添加到歌单'));
+    // sub menu 中应能找到 P1/P2/P3 三项标题
+    expect(await screen.findByText('Intro')).toBeInTheDocument();
+    expect(screen.getByText('Verse')).toBeInTheDocument();
+    expect(screen.getByText('Outro')).toBeInTheDocument();
+  });
+
+  it('已有默认 P 时，标题显示"当前 P{n}"且 sub menu 列出"清除"项', async () => {
+    const user = userEvent.setup();
+    useVideoPagePrefStore.setState({ defaultPage: { BV1Multi00001: 2 } });
+    render(<VideoItem video={MULTI} />);
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    expect(screen.getByText(/记住默认 P（当前 P2）/)).toBeInTheDocument();
+    await user.hover(screen.getByText(/记住默认 P/));
+    expect(await screen.findByText('清除默认 P 设置')).toBeInTheDocument();
+  });
+
+  it('无默认 P 时菜单标题不带括号', async () => {
+    const user = userEvent.setup();
+    render(<VideoItem video={MULTI} />);
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    // 标题文案恰好是"记住默认 P"（不带括号）
+    const trigger = screen.getByText('记住默认 P');
+    expect(trigger).toBeInTheDocument();
+  });
+
+  it('标题左侧渲染 "{N}P" 总数 Badge（仅多 P 视频）', () => {
+    render(<VideoItem video={MULTI} />);
+    const badge = screen.getByLabelText('共 3 分 P');
+    expect(badge).toHaveTextContent('3P');
+  });
+
+  it('单 P 视频不渲染标题左侧 Badge', () => {
+    render(<VideoItem video={SAMPLE} />);
+    expect(screen.queryByLabelText(/共 \d+ 分 P/)).toBeNull();
   });
 });

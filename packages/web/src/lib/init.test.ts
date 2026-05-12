@@ -197,7 +197,8 @@ describe('F2: initializeApp', () => {
     await init.initializeApp();
 
     expect(shared.useFavListStore.getState().list).toHaveLength(1);
-    expect(shared.usePlayingListStore.getState().bvIds).toEqual(['BV1', 'BV2']);
+    // hydrate 兼容性：旧 bvIds 字段被正确读到新的 trackIds 字段
+    expect(shared.usePlayingListStore.getState().trackIds).toEqual(['BV1', 'BV2']);
     expect(shared.usePlayerProfileStore.getState().theme).toBe('dark');
     expect(shared.usePlayerProfileStore.getState().volume).toBe(0.5);
     expect(shared.useLyricsStore.getState().lyricMaps).toHaveProperty('BV1');

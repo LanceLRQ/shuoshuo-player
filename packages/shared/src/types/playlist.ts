@@ -36,6 +36,15 @@ export interface PlayerProfile {
    * 空字符串 / undefined 表示不覆盖（用 globals.css 默认值）。
    */
   primaryColor: string;
+  /**
+   * 多 P 投稿连续播放（实验性，默认关闭）。
+   *
+   * 开启后：播放纯 bvid（非显式 :p<n>）TrackId 且为多 P 投稿时，
+   * onend 触发会先尝试切到下一 P，直到所有 P 播完才走 next() 切下一个 TrackId。
+   *
+   * 关闭时：多 P 投稿与单 P 投稿表现一致——一首结束即切下一首。
+   */
+  autoPlayNextPage: boolean;
 }
 
 /** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致；#FF8FA7 中粉） */

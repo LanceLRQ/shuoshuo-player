@@ -48,6 +48,36 @@ describe('usePlayerProfileStore', () => {
     expect(usePlayerProfileStore.getState().autoPlay).toBe(true);
   });
 
+  describe('autoPlayNextPage（B4）', () => {
+    it('默认值为 false', () => {
+      // 不调用 reset 中的 setState，直接拿初始 state
+      usePlayerProfileStore.setState({
+        theme: 'auto',
+        volume: 0.8,
+        autoPlay: false,
+        loopMode: 'loop',
+        autoPlayNextPage: false,
+      });
+      expect(usePlayerProfileStore.getState().autoPlayNextPage).toBe(false);
+    });
+
+    it('setAutoPlayNextPage 切换开关', () => {
+      usePlayerProfileStore.getState().setAutoPlayNextPage(true);
+      expect(usePlayerProfileStore.getState().autoPlayNextPage).toBe(true);
+      usePlayerProfileStore.getState().setAutoPlayNextPage(false);
+      expect(usePlayerProfileStore.getState().autoPlayNextPage).toBe(false);
+    });
+
+    it('setAutoPlayNextPage 强制布尔化', () => {
+      // @ts-expect-error 测试非布尔输入
+      usePlayerProfileStore.getState().setAutoPlayNextPage(1);
+      expect(usePlayerProfileStore.getState().autoPlayNextPage).toBe(true);
+      // @ts-expect-error 测试非布尔输入
+      usePlayerProfileStore.getState().setAutoPlayNextPage(null);
+      expect(usePlayerProfileStore.getState().autoPlayNextPage).toBe(false);
+    });
+  });
+
   describe('getEffectiveTheme', () => {
     it('明确 light 时返回 light', () => {
       usePlayerProfileStore.setState({ theme: 'light' });

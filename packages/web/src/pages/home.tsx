@@ -68,8 +68,8 @@ export function HomePage() {
 
   const handleSlideClick = (video: BilibiliVideo) => {
     // 点击轮播图：替换播放队列为最近 30 条并立即播放当前曲
-    const bvIds = latestVideos.map((v) => v.bvid);
-    setPlaylist(MAIN_FAV_ID, bvIds, video.bvid, true);
+    const trackIds = latestVideos.map((v) => v.bvid);
+    setPlaylist(MAIN_FAV_ID, trackIds, video.bvid, true);
   };
 
   const handleManualUpdate = (mode: 'default' | 'fully') => {
@@ -106,9 +106,7 @@ export function HomePage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">最新投稿</h2>
-          {spaceInfo?.name && (
-            <p className="text-xs text-muted-foreground">{spaceInfo.name}</p>
-          )}
+          {spaceInfo?.name && <p className="text-xs text-muted-foreground">{spaceInfo.name}</p>}
         </div>
         <Button
           variant="outline"

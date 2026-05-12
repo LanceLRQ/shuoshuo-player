@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import type { BilibiliVideo } from '../types';
+import type { BilibiliVideo, BilibiliVideoPage } from '../types';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
@@ -38,6 +38,24 @@ type PickMode = 'default' | 'fav_folder' | 'view';
 type RawItem = Record<string, unknown> & { bvid: string };
 type Mapped = Partial<BilibiliVideo> & { bvid: string };
 
+/** view.pages[] 原始项 → BilibiliVideoPage（裁剪到 cid/page/part/duration 四字段） */
+function mapPagesField(raw: unknown): BilibiliVideoPage[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: BilibiliVideoPage[] = [];
+  for (const p of raw) {
+    if (!p || typeof p !== 'object') continue;
+    const obj = p as { cid?: number; page?: number; part?: string; duration?: number };
+    if (typeof obj.cid !== 'number' || typeof obj.page !== 'number') continue;
+    out.push({
+      cid: obj.cid,
+      page: obj.page,
+      part: typeof obj.part === 'string' ? obj.part : '',
+      duration: typeof obj.duration === 'number' ? obj.duration : 0,
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 function mapViewItem(i: RawItem): Mapped {
   const stat = (i.stat ?? {}) as { view?: number; reply?: number };
   const owner = (i.owner ?? {}) as { name?: string; mid?: number };
@@ -56,6 +74,9 @@ function mapViewItem(i: RawItem): Mapped {
     mid: owner.mid,
     // view 接口返回单 P 的 cid；fetchMusicUrl 走 playurl 时可直接复用，省一次 view 调用
     cid: typeof i.cid === 'number' ? (i.cid as number) : undefined,
+    // 分 P 元数据：view 接口返回 videos（总数）+ pages[]（每 P cid/page/part/duration）
+    videos: typeof i.videos === 'number' ? (i.videos as number) : undefined,
+    pages: mapPagesField(i.pages),
     description: (i.desc ?? i.description) as string,
   };
 }

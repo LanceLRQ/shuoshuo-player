@@ -47,7 +47,7 @@ function reset() {
   });
   usePlayingListStore.setState({
     favId: '',
-    bvIds: [],
+    trackIds: [],
     current: '',
     playNext: false,
   });
@@ -101,7 +101,7 @@ describe('FavCard', () => {
 
     const state = usePlayingListStore.getState();
     expect(state.favId).toBe('fav-x');
-    expect(state.bvIds).toEqual(['BV1', 'BV2']);
+    expect(state.trackIds).toEqual(['BV1', 'BV2']);
     expect(state.current).toBe('BV1');
     expect(state.playNext).toBe(true);
   });
@@ -293,7 +293,7 @@ describe('FavCard', () => {
 
     const state = usePlayingListStore.getState();
     expect(state.favId).toBe('fav-u');
-    expect(state.bvIds).toEqual(['BV_UP_A', 'BV_UP_B']);
+    expect(state.trackIds).toEqual(['BV_UP_A', 'BV_UP_B']);
     expect(state.current).toBe('BV_UP_A');
     expect(state.playNext).toBe(true);
   });
@@ -340,7 +340,7 @@ describe('FavCard', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /播放/ }));
-    expect(usePlayingListStore.getState().bvIds).toEqual(['BV_FAV_X']);
+    expect(usePlayingListStore.getState().trackIds).toEqual(['BV_FAV_X']);
   });
 
   it('main 歌单：deletable=false（删除菜单项不渲染）', () => {

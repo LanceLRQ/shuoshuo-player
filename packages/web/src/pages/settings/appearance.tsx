@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sun, Moon, Monitor, RotateCcw } from 'lucide-react';
+import { Sun, Moon, Monitor, RotateCcw, FlaskConical } from 'lucide-react';
 import { usePlayerProfileStore, DEFAULT_PRIMARY_COLOR } from '@shuoshuo-player/shared';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 const THEME_OPTIONS: Array<{
   value: 'light' | 'dark' | 'auto';
@@ -53,6 +54,8 @@ export function AppearanceSettings() {
   const primaryColor = usePlayerProfileStore((s) => s.primaryColor);
   const setPrimaryColor = usePlayerProfileStore((s) => s.setPrimaryColor);
   const resetPrimaryColor = usePlayerProfileStore((s) => s.resetPrimaryColor);
+  const autoPlayNextPage = usePlayerProfileStore((s) => s.autoPlayNextPage);
+  const setAutoPlayNextPage = usePlayerProfileStore((s) => s.setAutoPlayNextPage);
 
   const [hueDraft, setHueDraft] = useState<number>(() => parseHue(primaryColor));
   // 用户期望的"基础亮度"。色轮拖动时 L 仅做色相补偿夹紧不写回该值，
@@ -200,6 +203,39 @@ export function AppearanceSettings() {
               <RotateCcw className="mr-1 h-3.5 w-3.5" />
               恢复默认
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            播放行为
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-normal text-amber-600 dark:text-amber-400">
+              <FlaskConical className="h-3 w-3" />
+              实验性
+            </span>
+          </CardTitle>
+          <CardDescription>多 P 投稿播放策略，可随时切换。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1 space-y-1">
+              <Label htmlFor="auto-play-next-page" className="cursor-pointer text-sm font-medium">
+                多 P 投稿连续播放
+              </Label>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                开启后，播放多 P 视频投稿（如 Live 切片合辑、翻唱专辑）时，播放完一 P 会自动继续下一
+                P，直到所有 P 播完才切下一首。 关闭时（默认），多 P 投稿与单 P
+                投稿表现一致——一首结束即切下一首。
+              </p>
+            </div>
+            <Switch
+              id="auto-play-next-page"
+              checked={autoPlayNextPage}
+              onCheckedChange={setAutoPlayNextPage}
+              aria-label="多 P 投稿连续播放"
+            />
           </div>
         </CardContent>
       </Card>

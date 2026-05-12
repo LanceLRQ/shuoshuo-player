@@ -52,4 +52,15 @@ describe('AppearanceSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: /恢复默认/ }));
     expect(usePlayerProfileStore.getState().primaryColor).toBe(DEFAULT_PRIMARY_COLOR);
   });
+
+  it('autoPlayNextPage toggle 默认关闭，点击后开启 store 字段（D4）', () => {
+    usePlayerProfileStore.setState({ autoPlayNextPage: false });
+    render(<AppearanceSettings />);
+    const sw = screen.getByRole('switch', { name: /多 P 投稿连续播放/ }) as HTMLButtonElement;
+    expect(sw.getAttribute('data-state')).toBe('unchecked');
+    fireEvent.click(sw);
+    expect(usePlayerProfileStore.getState().autoPlayNextPage).toBe(true);
+    fireEvent.click(sw);
+    expect(usePlayerProfileStore.getState().autoPlayNextPage).toBe(false);
+  });
 });

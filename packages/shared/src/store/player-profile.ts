@@ -9,6 +9,7 @@ interface PlayerProfileState extends PlayerProfile {
   setAutoPlay: (autoPlay: boolean) => void;
   setPrimaryColor: (color: string) => void;
   resetPrimaryColor: () => void;
+  setAutoPlayNextPage: (enabled: boolean) => void;
   /** 解析 'auto' 主题为实际 light/dark（依赖 prefers-color-scheme） */
   getEffectiveTheme: () => 'light' | 'dark';
 }
@@ -19,6 +20,7 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   autoPlay: false,
   loopMode: 'loop',
   primaryColor: DEFAULT_PRIMARY_COLOR,
+  autoPlayNextPage: false,
 
   setTheme: (theme) => set({ theme }),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(1, volume)) }),
@@ -26,6 +28,7 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   setAutoPlay: (autoPlay) => set({ autoPlay }),
   setPrimaryColor: (color) => set({ primaryColor: color || DEFAULT_PRIMARY_COLOR }),
   resetPrimaryColor: () => set({ primaryColor: DEFAULT_PRIMARY_COLOR }),
+  setAutoPlayNextPage: (enabled) => set({ autoPlayNextPage: Boolean(enabled) }),
 
   getEffectiveTheme: () => {
     const { theme } = get();

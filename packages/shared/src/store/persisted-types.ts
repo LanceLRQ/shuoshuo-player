@@ -1,5 +1,5 @@
 /**
- * 10 个持久化 store 的"对外快照形状"统一定义
+ * 11 个持久化 store 的"对外快照形状"统一定义
  *
  * 与 store 内部 State 的差异：
  * - 仅声明会被写入 player_data 的字段（去掉 actions、瞬态字段）
@@ -35,6 +35,9 @@ export interface PersistedBilibiliUserVideosShape {
 
 export interface PersistedPlayingListShape {
   favId?: string;
+  /** 当前字段；旧版本（A 系列前）使用 bvIds，hydrate 时兼容读取 */
+  trackIds?: string[];
+  /** @deprecated 仅用于 hydrate 兼容，新代码不要写入 */
   bvIds?: string[];
   current?: string;
 }
@@ -50,6 +53,8 @@ export interface PersistedPlayerProfileShape {
   loopMode?: LoopMode;
   /** HSL 主色字符串（如 "221.2 83.2% 53.3%"），与 globals.css --primary 同语义 */
   primaryColor?: string;
+  /** 多 P 投稿自动连续播放（B4 起，默认 false） */
+  autoPlayNextPage?: boolean;
 }
 
 export interface PersistedLyricsShape {
@@ -74,6 +79,11 @@ export interface PersistedUpdateCheckerShape {
 }
 
 export interface PersistedFavoritesShape {
-  /** bvid → 收藏时间戳（秒） */
+  /** TrackId（bvid 或 bvid:p<n>） → 收藏时间戳（秒） */
   entries?: Record<string, number>;
+}
+
+export interface PersistedVideoPagePrefShape {
+  /** bvid → 默认 P（>= 2） */
+  defaultPage?: Record<string, number>;
 }

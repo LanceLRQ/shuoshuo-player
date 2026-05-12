@@ -1,16 +1,26 @@
 import { create } from 'zustand';
 import type { LoopMode } from '../types';
 
+/**
+ * 播放队列
+ *
+ * 队列元素称为 TrackId，可为：
+ * - 纯 bvid（如 'BV1aB4y1k7Yx'）→ 按该投稿"默认 P / P1"播放
+ * - bvid:p<n>（如 'BV1aB4y1k7Yx:p3'）→ 显式锁定该 P
+ *
+ * 自 B2 起字段从 bvIds 重命名为 trackIds，更精确表达"队列条目可能含分 P 标识"。
+ * 持久化 hydrate 路径仍兼容旧 bvIds 字段（见 middleware/persist.ts）。
+ */
 interface PlayingListState {
   favId: string;
-  bvIds: string[];
+  trackIds: string[];
   current: string;
   /** 上一个动作希望立即开始播放（由 SPlayer 消费后通过 clearPlayNext 复位） */
   playNext: boolean;
 
-  addSingle: (bvId: string, playNow?: boolean) => void;
-  setPlaylist: (favId: string, bvIds: string[], current?: string, playNow?: boolean) => void;
-  removeItem: (bvId: string) => void;
+  addSingle: (trackId: string, playNow?: boolean) => void;
+  setPlaylist: (favId: string, trackIds: string[], current?: string, playNow?: boolean) => void;
+  removeItem: (trackId: string) => void;
   clearPlaylist: () => void;
   updateCurrentPlaying: (index: number, playNext?: boolean) => void;
   clearPlayNext: () => void;
@@ -20,44 +30,48 @@ interface PlayingListState {
 
 export const usePlayingListStore = create<PlayingListState>((set, get) => ({
   favId: '',
-  bvIds: [],
+  trackIds: [],
   current: '',
   playNext: false,
 
-  addSingle: (bvId, playNow = false) =>
+  addSingle: (trackId, playNow = false) =>
     set((state) => {
-      const bvIds = state.bvIds.includes(bvId) ? state.bvIds : [...state.bvIds, bvId];
+      const trackIds = state.trackIds.includes(trackId)
+        ? state.trackIds
+        : [...state.trackIds, trackId];
       return {
-        bvIds,
-        ...(playNow ? { current: bvId, playNext: true } : {}),
+        trackIds,
+        ...(playNow ? { current: trackId, playNext: true } : {}),
       };
     }),
 
-  setPlaylist: (favId, bvIds, current, playNow = false) =>
+  setPlaylist: (favId, trackIds, current, playNow = false) =>
     set({
       favId,
-      bvIds,
-      current: current || bvIds[0] || '',
+      trackIds,
+      current: current || trackIds[0] || '',
       playNext: playNow,
     }),
 
-  removeItem: (bvId) =>
+  removeItem: (trackId) =>
     set((state) => {
-      const bvIds = state.bvIds.filter((id) => id !== bvId);
-      const isCurrent = state.current === bvId;
-      const currentIndex = state.bvIds.indexOf(bvId);
+      const trackIds = state.trackIds.filter((id) => id !== trackId);
+      const isCurrent = state.current === trackId;
+      const currentIndex = state.trackIds.indexOf(trackId);
       return {
-        bvIds,
-        current: isCurrent ? bvIds[Math.min(currentIndex, bvIds.length - 1)] || '' : state.current,
+        trackIds,
+        current: isCurrent
+          ? trackIds[Math.min(currentIndex, trackIds.length - 1)] || ''
+          : state.current,
         playNext: isCurrent,
       };
     }),
 
-  clearPlaylist: () => set({ favId: '', bvIds: [], current: '', playNext: false }),
+  clearPlaylist: () => set({ favId: '', trackIds: [], current: '', playNext: false }),
 
   updateCurrentPlaying: (index, playNext = true) =>
     set((state) => {
-      const next = state.bvIds[index] || '';
+      const next = state.trackIds[index] || '';
       if (next === state.current && !playNext) return state;
       return { current: next, playNext };
     }),
@@ -65,20 +79,20 @@ export const usePlayingListStore = create<PlayingListState>((set, get) => ({
   clearPlayNext: () => set({ playNext: false }),
 
   getNextIndex: (loopMode) => {
-    const { bvIds, current } = get();
-    if (bvIds.length === 0) return -1;
-    const currentIndex = bvIds.indexOf(current);
+    const { trackIds, current } = get();
+    if (trackIds.length === 0) return -1;
+    const currentIndex = trackIds.indexOf(current);
     if (loopMode === 'single') return currentIndex;
-    if (loopMode === 'random') return Math.floor(Math.random() * bvIds.length);
-    return (currentIndex + 1) % bvIds.length;
+    if (loopMode === 'random') return Math.floor(Math.random() * trackIds.length);
+    return (currentIndex + 1) % trackIds.length;
   },
 
   getPrevIndex: (loopMode) => {
-    const { bvIds, current } = get();
-    if (bvIds.length === 0) return -1;
-    const currentIndex = bvIds.indexOf(current);
+    const { trackIds, current } = get();
+    if (trackIds.length === 0) return -1;
+    const currentIndex = trackIds.indexOf(current);
     if (loopMode === 'single') return currentIndex;
-    if (loopMode === 'random') return Math.floor(Math.random() * bvIds.length);
-    return (currentIndex - 1 + bvIds.length) % bvIds.length;
+    if (loopMode === 'random') return Math.floor(Math.random() * trackIds.length);
+    return (currentIndex - 1 + trackIds.length) % trackIds.length;
   },
 }));

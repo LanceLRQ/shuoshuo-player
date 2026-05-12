@@ -2,6 +2,7 @@ import {
   bilibiliThumbUrl,
   formatNumber10K,
   getBilibiliMidByURL,
+  pickVideosFields,
   urlPrefixFixed,
 } from './bilibili';
 
@@ -97,5 +98,84 @@ describe('A4: bilibiliThumbUrl', () => {
     expect(bilibiliThumbUrl('https://biliimg.com/foo.png', 64, 64)).toBe(
       'https://biliimg.com/foo.png@64w_64h_1c.webp',
     );
+  });
+});
+
+describe('A4: pickVideosFields(view) 映射 pages/videos', () => {
+  const baseViewItem = {
+    bvid: 'BV1aB4y1k7Yx',
+    aid: 12345,
+    pic: 'https://x.com/p.jpg',
+    title: 't',
+    sub_title: '',
+    is_union_video: false,
+    ctime: 100,
+    duration: '3:00',
+    stat: { view: 9, reply: 1 },
+    owner: { name: 'up', mid: 7 },
+    desc: 'd',
+    cid: 99,
+  };
+
+  it('单 P 投稿：videos=1, pages 长度 1', () => {
+    const mapped = pickVideosFields(
+      {
+        ...baseViewItem,
+        videos: 1,
+        pages: [{ cid: 99, page: 1, part: '', duration: 180 }],
+      } as never,
+      'view',
+    );
+    expect(mapped[0]?.videos).toBe(1);
+    expect(mapped[0]?.pages).toEqual([{ cid: 99, page: 1, part: '', duration: 180 }]);
+  });
+
+  it('多 P 投稿：videos=N, pages 完整映射', () => {
+    const mapped = pickVideosFields(
+      {
+        ...baseViewItem,
+        videos: 3,
+        pages: [
+          { cid: 100, page: 1, part: 'Intro', duration: 60 },
+          { cid: 101, page: 2, part: 'Verse', duration: 90 },
+          { cid: 102, page: 3, part: 'Outro', duration: 30 },
+        ],
+      } as never,
+      'view',
+    );
+    expect(mapped[0]?.videos).toBe(3);
+    expect(mapped[0]?.pages).toHaveLength(3);
+    expect(mapped[0]?.pages?.[1]).toEqual({ cid: 101, page: 2, part: 'Verse', duration: 90 });
+  });
+
+  it('pages 缺失 → pages 字段为 undefined', () => {
+    const mapped = pickVideosFields({ ...baseViewItem }, 'view');
+    expect(mapped[0]?.pages).toBeUndefined();
+  });
+
+  it('pages[] 中非法项被过滤（缺 cid 或非数字 page）', () => {
+    const mapped = pickVideosFields(
+      {
+        ...baseViewItem,
+        videos: 2,
+        pages: [
+          { cid: 100, page: 1, part: 'ok', duration: 60 },
+          { page: 2, part: 'no-cid', duration: 30 },
+          { cid: 102, page: 'three' as never, part: 'bad-page', duration: 30 },
+          null,
+        ],
+      } as never,
+      'view',
+    );
+    expect(mapped[0]?.pages).toEqual([{ cid: 100, page: 1, part: 'ok', duration: 60 }]);
+  });
+
+  it('default 模式不触发 view 映射（不动 pages 字段）', () => {
+    const mapped = pickVideosFields(
+      { bvid: 'BV1', videos: 99, pages: [{ cid: 1, page: 1, part: '', duration: 0 }] } as never,
+      'default',
+    );
+    // default 模式直接透传，无映射规则；pages 透传不动
+    expect((mapped[0] as { videos?: number }).videos).toBe(99);
   });
 });

@@ -14,6 +14,7 @@ import {
   ListMusic,
   Plus,
   ExternalLink,
+  Layers,
 } from 'lucide-react';
 import {
   usePlayerProfileStore,
@@ -31,6 +32,7 @@ import { Marquee } from '@/components/marquee';
 import { useMusicPlayer } from '@/hooks/use-music-player';
 import { useUIShell } from '@/stores/ui-shell';
 import { PlayingQueue } from './playing-queue';
+import { PartSelector } from './part-selector';
 
 const LOOP_MODE_TIPS: Record<LoopMode, string> = {
   single: '单曲循环',
@@ -223,6 +225,28 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
                   />
                 </PopoverContent>
               </Popover>
+              {cur && (cur.videos ?? 1) > 1 && (
+                <Popover>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={CTRL_BTN_TEXT}
+                          aria-label="选择分 P"
+                        >
+                          <Layers className="h-5 w-5" />
+                        </Button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>选择分 P</TooltipContent>
+                  </Tooltip>
+                  <PopoverContent side="top" align="end" sideOffset={10} className="w-auto p-0">
+                    <PartSelector video={cur} />
+                  </PopoverContent>
+                </Popover>
+              )}
               {cur && (
                 <>
                   <Tooltip>

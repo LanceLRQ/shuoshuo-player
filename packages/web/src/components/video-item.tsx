@@ -1,4 +1,4 @@
-import { type CSSProperties, type MouseEvent, memo, useCallback, useState } from 'react';
+import { type CSSProperties, type MouseEvent, memo, useCallback, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import {
   Play,
@@ -11,12 +11,17 @@ import {
   Trash2,
   User,
   Star,
+  Layers,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 import {
   usePlayingListStore,
   useUIStore,
   useFavoritesStore,
+  useVideoPagePrefStore,
   formatNumber10K,
+  buildTrackId,
   bilibiliThumbUrl,
   getPlatformBridge,
   NoticeType,
@@ -26,17 +31,27 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { PartBadge } from './part-badge';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { useUIShell } from '@/stores/ui-shell';
 
 export interface VideoItemProps {
   video: BilibiliVideo;
+  /**
+   * 该条目的显式 P（来自 TrackId 的 :p<n> 部分）；
+   * undefined / 缺省视为纯 bvid 条目，按 video-page-pref 偏好播放。
+   */
+  explicitPage?: number;
   /** 所在歌单 ID，决定播放时是否加载整张歌单 */
   favId?: string;
   showAuthor?: boolean;
@@ -64,6 +79,7 @@ export interface VideoItemProps {
 
 function VideoItemImpl({
   video,
+  explicitPage,
   favId,
   showAuthor = false,
   fullCreateTime = false,
@@ -87,7 +103,43 @@ function VideoItemImpl({
   // selector 只订阅当前 bvid 的存在性，避免其他收藏变化导致整列重渲染
   const isFavored = useFavoritesStore((s) => video.bvid in s.entries);
   const toggleFavorite = useFavoritesStore((s) => s.toggle);
+  // 默认 P 偏好 + 操作（D3）：仅多 P 投稿菜单中显示"记住默认 P"入口
+  const defaultPage = useVideoPagePrefStore((s) => s.defaultPage[video.bvid] ?? 1);
+  const setDefaultPage = useVideoPagePrefStore((s) => s.setDefaultPage);
+  const openAddToFav = useUIShell((s) => s.openAddToFav);
   const [imgError, setImgError] = useState(false);
+
+  const totalP = video.videos ?? 1;
+  const isMultiPart = totalP > 1;
+  /**
+   * 归一化分 P 列表：有 view 元数据时取 pages，缺失时用 1..totalP 占位（仅显示 P 序号）。
+   * 让 DropdownMenuSub 子项渲染统一一份 map，避免双分支重复。
+   */
+  const partItems = useMemo<Array<{ key: string | number; page: number; part?: string }>>(() => {
+    if (video.pages && video.pages.length > 0) {
+      return video.pages.map((p) => ({ key: p.cid, page: p.page, part: p.part }));
+    }
+    return Array.from({ length: totalP }, (_, i) => ({ key: i + 1, page: i + 1 }));
+  }, [video.pages, totalP]);
+
+  const handleAddPageToFav = useCallback(
+    (page: number) => {
+      openAddToFav(buildTrackId(video.bvid, page), { fromSearch });
+    },
+    [openAddToFav, video.bvid, fromSearch],
+  );
+
+  const handlePinDefaultPage = useCallback(
+    (page: number) => {
+      setDefaultPage(video.bvid, page);
+      sendNotice({
+        type: NoticeType.SUCCESS,
+        message: page <= 1 ? '已清除默认 P 设置' : `已设默认 P${page}`,
+        duration: 2000,
+      });
+    },
+    [setDefaultPage, sendNotice, video.bvid],
+  );
 
   const isPlaying = currentBvId === video.bvid;
 
@@ -207,17 +259,32 @@ function VideoItemImpl({
             </div>
           )
         )}
+        {/* 多 P 投稿右下角标：单 P 不渲染（PartBadge 内部判定） */}
+        <div className="pointer-events-none absolute bottom-0.5 right-0.5">
+          <PartBadge video={video} explicitPage={explicitPage} />
+        </div>
       </div>
 
       <div className="min-w-0 flex-1">
-        {htmlTitle ? (
-          <p
-            className="truncate text-sm font-medium [&>em]:not-italic [&>em]:text-primary"
-            dangerouslySetInnerHTML={{ __html: video.title }}
-          />
-        ) : (
-          <p className="truncate text-sm font-medium">{video.title}</p>
-        )}
+        <div className="flex min-w-0 items-center gap-1.5">
+          {isMultiPart && (
+            <Badge
+              variant="outline"
+              className="shrink-0 rounded border-primary/40 bg-primary/15 px-1 py-0 text-[10px] font-medium leading-tight tabular-nums text-primary"
+              aria-label={`共 ${totalP} 分 P`}
+            >
+              {totalP}P
+            </Badge>
+          )}
+          {htmlTitle ? (
+            <p
+              className="min-w-0 flex-1 truncate text-sm font-medium [&>em]:not-italic [&>em]:text-primary"
+              dangerouslySetInnerHTML={{ __html: video.title }}
+            />
+          ) : (
+            <p className="min-w-0 flex-1 truncate text-sm font-medium">{video.title}</p>
+          )}
+        </div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           {showAuthor && video.author && (
             <Badge variant="outline" className="gap-1 font-normal">
@@ -271,7 +338,7 @@ function VideoItemImpl({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="更多操作">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -287,6 +354,70 @@ function VideoItemImpl({
                     <Plus className="mr-2 h-4 w-4" />
                     添加到歌单
                   </DropdownMenuItem>
+                )}
+                {showAddBtn && isMultiPart && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Layers className="mr-2 h-4 w-4" />
+                      选择分 P 添加到歌单
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="max-h-[60vh] w-64 overflow-y-auto">
+                      {partItems.map((it) => (
+                        <DropdownMenuItem
+                          key={`add-${it.key}`}
+                          onSelect={() => handleAddPageToFav(it.page)}
+                          className="min-w-0"
+                        >
+                          <span className="mr-2 shrink-0 tabular-nums text-muted-foreground">
+                            P{it.page}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {it.part || `分P ${it.page}`}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                )}
+                {isMultiPart && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Pin className="mr-2 h-4 w-4" />
+                      记住默认 P{defaultPage >= 2 ? `（当前 P${defaultPage}）` : ''}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="max-h-[60vh] w-64 overflow-y-auto">
+                      {partItems.map((it) => (
+                        <DropdownMenuItem
+                          key={`pin-${it.key}`}
+                          onSelect={() => handlePinDefaultPage(it.page)}
+                          className="min-w-0"
+                        >
+                          <span
+                            className={cn(
+                              'mr-2 shrink-0 tabular-nums',
+                              defaultPage === it.page
+                                ? 'font-semibold text-primary'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            P{it.page}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {it.part || `分P ${it.page}`}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                      {defaultPage >= 2 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => handlePinDefaultPage(1)}>
+                            <PinOff className="mr-2 h-4 w-4" />
+                            清除默认 P 设置
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                 )}
                 {(showAddBtn || showAddToPlayBtn) && <DropdownMenuSeparator />}
                 <DropdownMenuItem onSelect={handleOpenBilibili}>
