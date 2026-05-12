@@ -169,6 +169,43 @@ describe('parseImportData', () => {
     });
     expect(out!.favList.map((it) => it.id)).toEqual(['A']);
   });
+
+  it('favorites：v2 文件提取 entries + favoriteCount', () => {
+    const out = parseImportData({
+      version: '2',
+      fav_list: { list: [] },
+      favorites: { entries: { BV1: 100, BV2: 200 } },
+    });
+    expect(out!.payload.favorites.entries).toEqual({ BV1: 100, BV2: 200 });
+    expect(out!.favoriteCount).toBe(2);
+  });
+
+  it('favorites：缺失字段（v1 文件 / 旧 v2 文件）→ 空对象兜底', () => {
+    const out = parseImportData({
+      version: '2',
+      fav_list: { list: [] },
+    });
+    expect(out!.payload.favorites.entries).toEqual({});
+    expect(out!.favoriteCount).toBe(0);
+  });
+
+  it('favorites：非有限正数 ts 被过滤（字符串、NaN、负数、Infinity）', () => {
+    const out = parseImportData({
+      version: '2',
+      fav_list: { list: [] },
+      favorites: {
+        entries: {
+          BV1: 100,
+          BV2: 'not-a-number',
+          BV3: NaN,
+          BV4: -1,
+          BV5: Infinity,
+          BV6: 0,
+        },
+      },
+    });
+    expect(out!.payload.favorites.entries).toEqual({ BV1: 100, BV6: 0 });
+  });
 });
 
 describe('buildMerged', () => {
@@ -176,6 +213,7 @@ describe('buildMerged', () => {
     fav_list: { list: [v2Item('A', 'imported-A'), v2Item('B', 'imported-B')] },
     lyrics: { lyricMaps: { BV1: { bvid: 'BV1' }, BV2: { bvid: 'BV2' } } as never },
     bili_videos: { entities: {}, ids: [] },
+    favorites: { entries: {} },
   };
 
   it('skip：仅添加 current 不存在的项；A 保持现有内容', () => {
@@ -219,6 +257,7 @@ describe('buildMerged', () => {
       },
       lyrics: { lyricMaps: {} },
       bili_videos: { entities: {}, ids: [] },
+      favorites: { entries: {} },
     };
     const out = buildMerged(
       {
@@ -260,6 +299,7 @@ describe('buildMerged', () => {
       },
       lyrics: { lyricMaps: {} },
       bili_videos: { entities: {}, ids: [] },
+      favorites: { entries: {} },
     };
     const out = buildMerged(
       {
@@ -367,6 +407,7 @@ describe('buildMerged', () => {
         } as never,
         ids: ['BV1', 'BV2'],
       },
+      favorites: { entries: {} },
     };
     const currentVideos = {
       bili_videos: {
@@ -387,5 +428,46 @@ describe('buildMerged', () => {
     expect(
       (replaceOut.bili_videos.entities as never as Record<string, { title?: string }>).BV1.title,
     ).toBe('current-1');
+  });
+
+  it('favorites：union 合并；同 bvid 取 Math.min(ts) 保留首次喜欢', () => {
+    const payload = {
+      fav_list: { list: [] },
+      lyrics: { lyricMaps: {} },
+      bili_videos: { entities: {}, ids: [] },
+      favorites: { entries: { BV1: 200, BV2: 500 } },
+    };
+    const out = buildMerged({ favorites: { entries: { BV1: 100, BV3: 300 } } }, payload, 'skip');
+    // BV1：双方都有，取 min(100, 200) = 100
+    // BV2：仅 imported，追加
+    // BV3：仅 current，保留
+    expect(out.favorites.entries).toEqual({ BV1: 100, BV2: 500, BV3: 300 });
+  });
+
+  it('favorites：skip / replace 模式行为完全一致（硬约束 union+min）', () => {
+    const payload = {
+      fav_list: { list: [] },
+      lyrics: { lyricMaps: {} },
+      bili_videos: { entities: {}, ids: [] },
+      favorites: { entries: { BV1: 50, BV2: 600 } },
+    };
+    const current = { favorites: { entries: { BV1: 100 } } };
+
+    const skipOut = buildMerged(current, payload, 'skip');
+    const replaceOut = buildMerged(current, payload, 'replace');
+    expect(skipOut.favorites.entries).toEqual(replaceOut.favorites.entries);
+    // 双方 BV1：min(100, 50) = 50
+    expect(skipOut.favorites.entries?.BV1).toBe(50);
+  });
+
+  it('favorites：current 缺失（首次导入）→ 完全采纳 imported', () => {
+    const payload = {
+      fav_list: { list: [] },
+      lyrics: { lyricMaps: {} },
+      bili_videos: { entities: {}, ids: [] },
+      favorites: { entries: { BV1: 100, BV2: 200 } },
+    };
+    const out = buildMerged({}, payload, 'skip');
+    expect(out.favorites.entries).toEqual({ BV1: 100, BV2: 200 });
   });
 });

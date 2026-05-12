@@ -1,5 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { usePlayingListStore, useUIStore, type BilibiliVideo } from '@shuoshuo-player/shared';
+import {
+  usePlayingListStore,
+  useUIStore,
+  useFavoritesStore,
+  type BilibiliVideo,
+} from '@shuoshuo-player/shared';
 import { VideoItem } from './video-item';
 
 const SAMPLE: BilibiliVideo = {
@@ -26,6 +31,7 @@ function reset() {
     playNext: false,
   });
   useUIStore.setState({ notices: [] });
+  useFavoritesStore.setState({ entries: {} });
 }
 
 describe('VideoItem', () => {
@@ -98,10 +104,44 @@ describe('VideoItem', () => {
     render(<VideoItem video={SAMPLE} />);
     const likeBtn = screen.getByRole('button', { name: '收藏' });
     fireEvent.click(likeBtn);
-    // 收藏功能未实装，不应触发播放
+    // 收藏功能不应触发播放
     const state = usePlayingListStore.getState();
     expect(state.bvIds).toEqual([]);
     expect(state.current).toBe('');
+  });
+
+  it('点击收藏按钮：未收藏 → 写入 useFavoritesStore.entries[bvid]', () => {
+    render(<VideoItem video={SAMPLE} />);
+    fireEvent.click(screen.getByRole('button', { name: '收藏' }));
+    const entries = useFavoritesStore.getState().entries;
+    expect('BV1Test00001' in entries).toBe(true);
+    expect(typeof entries['BV1Test00001']).toBe('number');
+  });
+
+  it('点击收藏按钮：已收藏 → 移除', () => {
+    useFavoritesStore.setState({ entries: { BV1Test00001: 100 } });
+    render(<VideoItem video={SAMPLE} />);
+    fireEvent.click(screen.getByRole('button', { name: '收藏' }));
+    expect('BV1Test00001' in useFavoritesStore.getState().entries).toBe(false);
+  });
+
+  it('已收藏时 Star 图标含 fill-current 与 text-yellow-500 样式类', () => {
+    useFavoritesStore.setState({ entries: { BV1Test00001: 100 } });
+    const { container } = render(<VideoItem video={SAMPLE} />);
+    const likeBtn = screen.getByRole('button', { name: '收藏' });
+    const svg = likeBtn.querySelector('svg');
+    expect(svg?.getAttribute('class')).toMatch(/fill-current/);
+    expect(svg?.getAttribute('class')).toMatch(/text-yellow-500/);
+    // 未收藏的 SAMPLE2 不应该带 fill-current
+    void container;
+  });
+
+  it('未收藏时 Star 图标不含 fill-current', () => {
+    const { container } = render(<VideoItem video={SAMPLE} />);
+    const likeBtn = screen.getByRole('button', { name: '收藏' });
+    const svg = likeBtn.querySelector('svg');
+    expect(svg?.getAttribute('class')).not.toMatch(/fill-current/);
+    void container;
   });
 
   it('fromSearch=true 时主按钮调用 onAddToFav 而非播放', () => {

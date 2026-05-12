@@ -1,5 +1,5 @@
 /**
- * 7 个持久化 store 的"对外快照形状"统一定义
+ * 10 个持久化 store 的"对外快照形状"统一定义
  *
  * 与 store 内部 State 的差异：
  * - 仅声明会被写入 player_data 的字段（去掉 actions、瞬态字段）
@@ -71,4 +71,9 @@ export interface PersistedUpdateCheckerShape {
   latestKnown?: UpdateInfo | null;
   /** 用户主动忽略的版本号集合 */
   ignoredVersions?: string[];
+}
+
+export interface PersistedFavoritesShape {
+  /** bvid → 收藏时间戳（秒） */
+  entries?: Record<string, number>;
 }

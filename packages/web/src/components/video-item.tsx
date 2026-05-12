@@ -10,11 +10,12 @@ import {
   ExternalLink,
   Trash2,
   User,
-  Heart,
+  Star,
 } from 'lucide-react';
 import {
   usePlayingListStore,
   useUIStore,
+  useFavoritesStore,
   formatNumber10K,
   bilibiliThumbUrl,
   getPlatformBridge,
@@ -83,6 +84,9 @@ function VideoItemImpl({
   const setPlaylist = usePlayingListStore((s) => s.setPlaylist);
   const addSingle = usePlayingListStore((s) => s.addSingle);
   const sendNotice = useUIStore((s) => s.sendNotice);
+  // selector 只订阅当前 bvid 的存在性，避免其他收藏变化导致整列重渲染
+  const isFavored = useFavoritesStore((s) => video.bvid in s.entries);
+  const toggleFavorite = useFavoritesStore((s) => s.toggle);
   const [imgError, setImgError] = useState(false);
 
   const isPlaying = currentBvId === video.bvid;
@@ -105,10 +109,14 @@ function VideoItemImpl({
     onAddToFav?.(video, fromSearch);
   }, [onAddToFav, video, fromSearch]);
 
-  // 收藏功能占位，具体行为待后续讨论后实装
   const handleToggleLike = useCallback(() => {
-    /* TODO: 收藏功能待实现 */
-  }, []);
+    const nextFavored = toggleFavorite(video.bvid);
+    sendNotice({
+      type: NoticeType.SUCCESS,
+      message: nextFavored ? '已添加到我的收藏' : '已从我的收藏移除',
+      duration: 2000,
+    });
+  }, [toggleFavorite, sendNotice, video.bvid]);
 
   // 封面/行可直接触发播放：仅在非批量选择、非搜索结果场景启用
   const canPlayDirect = !selectMode && !fromSearch;
@@ -254,10 +262,10 @@ function VideoItemImpl({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" onClick={handleToggleLike} aria-label="收藏">
-                    <Heart className="h-4 w-4" />
+                    <Star className={cn('h-4 w-4', isFavored && 'fill-current text-yellow-500')} />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>收藏</TooltipContent>
+                <TooltipContent>{isFavored ? '取消收藏' : '收藏'}</TooltipContent>
               </Tooltip>
             )}
 

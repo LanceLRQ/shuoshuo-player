@@ -90,17 +90,30 @@ export function NavMenu({ menuOpen }: NavMenuProps) {
 
             <Separator className="my-2" />
 
+            {/* master 歌单单独成行：主 UP 主投稿入口，从「我的歌单」列表中拆出 */}
+            <NavRow
+              item={{
+                to: '/fav/main',
+                label: MASTER_UP_INFO.uname,
+                icon: <Heart className="h-4 w-4 text-rose-500" />,
+              }}
+              collapsed={!menuOpen}
+            />
+
+            <Separator className="my-2" />
+
             {menuOpen && (
               <p className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">
                 我的歌单
               </p>
             )}
 
+            {/* 系统级「我的收藏」：独立 store，作为「我的歌单」列表第一项 */}
             <NavRow
               item={{
-                to: '/fav/main',
-                label: MASTER_UP_INFO.uname,
-                icon: <Heart className="h-4 w-4 text-rose-500" />,
+                to: '/fav/favorites',
+                label: '我的收藏',
+                icon: <Star className="h-4 w-4 text-yellow-500" />,
               }}
               collapsed={!menuOpen}
             />

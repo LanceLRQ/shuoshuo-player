@@ -2,17 +2,27 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import Fuse from 'fuse.js';
-import { Search, X, AlertCircle, FolderOpen } from 'lucide-react';
+import {
+  Search,
+  X,
+  AlertCircle,
+  FolderOpen,
+  ArrowDownNarrowWide,
+  ArrowUpNarrowWide,
+} from 'lucide-react';
 import {
   MASTER_UP_INFO,
   FavListType,
   useBilibiliUserVideosStore,
   useBilibiliVideosStore,
   useFavListStore,
+  useFavoritesStore,
   useUIStore,
+  selectSortedBvids,
   NoticeType,
   type BilibiliVideo,
   type FavListItem,
+  type FavoritesOrder,
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { VideoItem } from '@/components/video-item';
@@ -21,6 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 const MAIN_FAV_ID = 'main';
+const FAVORITES_FAV_ID = 'favorites';
 const MASTER_MID = String(MASTER_UP_INFO.mid);
 const ROW_HEIGHT = 108;
 
@@ -35,15 +46,28 @@ const MAIN_FAV_ITEM: FavListItem = {
   update_time: 0,
 };
 
+/** 系统级「我的收藏」虚拟条目：复用 CUSTOM 渲染路径，bv_ids 由 favorites store 派生 */
+const FAVORITES_FAV_ITEM: FavListItem = {
+  id: FAVORITES_FAV_ID,
+  name: '我的收藏',
+  type: FavListType.CUSTOM,
+  bv_ids: [],
+  create_time: 0,
+  update_time: 0,
+};
+
 export function FavListPage() {
   const params = useParams<{ id: string }>();
   const favId = params.id ?? MAIN_FAV_ID;
 
   const [searchKey, setSearchKey] = useState('');
+  const [favoritesOrder, setFavoritesOrder] = useState<FavoritesOrder>('desc');
   const parentRef = useRef<HTMLDivElement>(null);
 
   const favList = useFavListStore((s) => s.list);
   const removeFavVideo = useFavListStore((s) => s.removeFavVideo);
+
+  const favoritesEntries = useFavoritesStore((s) => s.entries);
 
   const userVideoInfos = useBilibiliUserVideosStore((s) => s.infos);
   const favFolderInfos = useBilibiliUserVideosStore((s) => s.favFolders);
@@ -57,8 +81,11 @@ export function FavListPage() {
     setSearchKey('');
   }, [favId]);
 
+  const isFavoritesPage = favId === FAVORITES_FAV_ID;
+
   const favListInfo = useMemo<FavListItem | null>(() => {
     if (favId === MAIN_FAV_ID) return MAIN_FAV_ITEM;
+    if (favId === FAVORITES_FAV_ID) return FAVORITES_FAV_ITEM;
     return favList.find((f) => f.id === favId) ?? null;
   }, [favId, favList]);
 
@@ -67,6 +94,12 @@ export function FavListPage() {
   // 根据类型计算视频列表
   const favVideoList = useMemo<BilibiliVideo[]>(() => {
     if (!favListInfo) return [];
+    // 我的收藏：bv_ids 由 favorites store 派生，按当前排序模式
+    if (isFavoritesPage) {
+      return selectSortedBvids(favoritesEntries, favoritesOrder)
+        .map((bvid) => videoEntities[bvid])
+        .filter((v): v is BilibiliVideo => Boolean(v));
+    }
     if (favListInfo.type === FavListType.UPLOADER) {
       const mid = favListInfo.mid ?? '';
       const entry = userVideoInfos[mid];
@@ -87,7 +120,15 @@ export function FavListPage() {
     return favListInfo.bv_ids
       .map((bvid) => videoEntities[bvid])
       .filter((v): v is BilibiliVideo => Boolean(v));
-  }, [favListInfo, userVideoInfos, favFolderInfos, videoEntities]);
+  }, [
+    favListInfo,
+    isFavoritesPage,
+    favoritesEntries,
+    favoritesOrder,
+    userVideoInfos,
+    favFolderInfos,
+    videoEntities,
+  ]);
 
   // Fuse.js 多字段搜索（v1 仅 title；v2 扩为 title/author/sub_title/description）
   const fuse = useMemo(
@@ -115,12 +156,17 @@ export function FavListPage() {
 
   const handleRemoveSong = (bvid: string) => {
     if (!isTypeCustom) return;
+    const isFav = isFavoritesPage;
     openConfirm({
-      title: '移除歌曲',
-      description: '确定从歌单中移除这首歌吗？',
+      title: isFav ? '取消收藏' : '移除歌曲',
+      description: isFav ? '确定从我的收藏中移除这首歌吗？' : '确定从歌单中移除这首歌吗？',
       destructive: true,
       onConfirm: () => {
-        removeFavVideo(favId, bvid);
+        if (isFav) {
+          useFavoritesStore.getState().remove(bvid);
+        } else {
+          removeFavVideo(favId, bvid);
+        }
         sendNotice({ type: NoticeType.SUCCESS, message: '已移除', duration: 2000 });
       },
     });
@@ -162,6 +208,21 @@ export function FavListPage() {
               </Button>
             )}
           </div>
+          {isFavoritesPage && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 gap-1"
+              onClick={() => setFavoritesOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+            >
+              {favoritesOrder === 'desc' ? (
+                <ArrowDownNarrowWide className="h-3.5 w-3.5" />
+              ) : (
+                <ArrowUpNarrowWide className="h-3.5 w-3.5" />
+              )}
+              {favoritesOrder === 'desc' ? '最新收藏在前' : '最早收藏在前'}
+            </Button>
+          )}
           <span className="text-xs text-muted-foreground">
             {filteredVideos.length} / {favVideoList.length}
           </span>

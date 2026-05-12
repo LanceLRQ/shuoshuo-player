@@ -17,11 +17,13 @@ import { useLyricsStore } from '../lyrics';
 import { useCloudServiceStore } from '../cloud-service';
 import { useMusicUrlCacheStore } from '../music-url-cache';
 import { useUpdateCheckerStore } from '../update-checker';
+import { useFavoritesStore } from '../favorites';
 import type {
   PersistedBilibiliUserVideosShape,
   PersistedBilibiliVideosShape,
   PersistedCloudServiceShape,
   PersistedFavListShape,
+  PersistedFavoritesShape,
   PersistedLyricsShape,
   PersistedMusicUrlCacheShape,
   PersistedPlayerProfileShape,
@@ -105,7 +107,7 @@ interface StorePersistEntry {
 }
 
 /**
- * 7 个可持久化 store 的 hydrate / snapshot / subscribe 注册表
+ * 10 个可持久化 store 的 hydrate / snapshot / subscribe 注册表
  *
  * 形状契约由 PersistedXxxShape 维护；
  * - bili_user_videos 的 isLoading 必须强制重置为 false，否则恢复后停在加载态
@@ -263,6 +265,20 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     },
     subscribe(cb) {
       return useUpdateCheckerStore.subscribe(cb);
+    },
+  },
+  {
+    key: 'favorites',
+    hydrate(raw) {
+      const data = asRecord(raw) as PersistedFavoritesShape | null;
+      if (!data) return;
+      useFavoritesStore.setState({ entries: data.entries ?? {} });
+    },
+    snapshot() {
+      return { entries: useFavoritesStore.getState().entries };
+    },
+    subscribe(cb) {
+      return useFavoritesStore.subscribe(cb);
     },
   },
 ];

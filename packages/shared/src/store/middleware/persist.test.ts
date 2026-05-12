@@ -141,7 +141,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     return entry;
   }
 
-  it('注册表覆盖 9 个 PERSIST_KEYS', () => {
+  it('注册表覆盖 10 个 PERSIST_KEYS', () => {
     const keys = STORE_PERSIST_REGISTRY.map((e) => e.key).sort();
     expect(keys).toEqual(
       [
@@ -154,6 +154,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
         'cloud_service',
         'music_url_cache',
         'update_checker',
+        'favorites',
       ].sort(),
     );
   });
@@ -198,6 +199,25 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     expect(useLyricsStore.getState().lyricMaps.BV1).toBeDefined();
   });
 
+  it('favorites hydrate / snapshot 往返一致', async () => {
+    const { useFavoritesStore } = await import('../favorites');
+    useFavoritesStore.setState({ entries: {} });
+
+    const data = { entries: { BV1: 100, BV2: 200 } };
+    getEntry('favorites').hydrate(data);
+    expect(useFavoritesStore.getState().entries).toEqual({ BV1: 100, BV2: 200 });
+
+    const snap = getEntry('favorites').snapshot() as typeof data;
+    expect(snap.entries).toEqual({ BV1: 100, BV2: 200 });
+  });
+
+  it('favorites hydrate 缺失 entries 字段兜底空对象', async () => {
+    const { useFavoritesStore } = await import('../favorites');
+    useFavoritesStore.setState({ entries: { BVx: 999 } });
+    getEntry('favorites').hydrate({});
+    expect(useFavoritesStore.getState().entries).toEqual({});
+  });
+
   it('cloud_service hydrate session（缺失 session 时不抛错）', () => {
     getEntry('cloud_service').hydrate({});
     expect(useCloudServiceStore.getState().session.token).toBe('');
@@ -231,7 +251,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     expect(cb).not.toHaveBeenCalled();
   });
 
-  it('collectPersistableSnapshot 聚合所有 7 个 store 当前状态', () => {
+  it('collectPersistableSnapshot 聚合所有 10 个 store 当前状态', () => {
     useFavListStore.setState({
       list: [{ id: 'a', name: 'A', type: 'CUSTOM' as never, bv_ids: [] } as never],
     });

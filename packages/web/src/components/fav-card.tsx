@@ -89,6 +89,10 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
   const isCustom = fav.type === FavListType.CUSTOM;
   const isUploader = fav.type === FavListType.UPLOADER;
   const isBiliFav = fav.type === FavListType.BILI_FAV;
+  // 系统级「我的收藏」：避免与用户自建 CUSTOM 歌单混淆，统一关闭"自定义"徽标 / 创建时间 / 自定义头像
+  const isSystemFavorites = favId === 'favorites';
+  // 紧凑模式：UPLOADER 保留 banner（头像 + 统计 + 简介），其他类型压缩为约两行高度
+  const isCompact = !isUploader;
   const deletable = favId !== 'main';
 
   const folderInfo = (favFolder?.info ?? {}) as { cover?: string };
@@ -180,9 +184,27 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
   });
 
   const avatar = useMemo(() => {
+    // 紧凑模式（非 UPLOADER）：头像缩到 h-12，避免占用一整行 banner 高度
+    const sizeCls = isCompact ? 'h-12 w-12' : 'h-20 w-20';
+    if (isSystemFavorites) {
+      // 与左侧栏「我的收藏」NavRow 视觉对齐：黄色 Star
+      return (
+        <div
+          className={cn(
+            'flex items-center justify-center rounded-full border-2 border-background bg-yellow-50 shadow dark:bg-yellow-500/10',
+            sizeCls,
+          )}
+          aria-label="我的收藏"
+        >
+          <Star
+            className={cn('fill-yellow-500 text-yellow-500', isCompact ? 'h-6 w-6' : 'h-10 w-10')}
+          />
+        </div>
+      );
+    }
     if (space?.face) {
       return (
-        <Avatar className="h-20 w-20 border-2 border-background shadow">
+        <Avatar className={cn('border-2 border-background shadow', sizeCls)}>
           <AvatarImage src={urlPrefixFixed(space.face)} alt={space.name} />
           <AvatarFallback>{space.name?.[0]}</AvatarFallback>
         </Avatar>
@@ -190,7 +212,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
     }
     if (folderInfo.cover) {
       return (
-        <Avatar className="h-20 w-20 border-2 border-background shadow">
+        <Avatar className={cn('border-2 border-background shadow', sizeCls)}>
           <AvatarImage src={urlPrefixFixed(folderInfo.cover)} alt={fav.name} />
           <AvatarFallback>{fav.name?.[0]}</AvatarFallback>
         </Avatar>
@@ -203,7 +225,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       const initial = fav.name ? [...fav.name][0] : '?';
       if (firstVideoCover) {
         return (
-          <Avatar className="h-20 w-20 rounded-md border-2 border-background shadow">
+          <Avatar className={cn('rounded-md border-2 border-background shadow', sizeCls)}>
             <AvatarImage src={bilibiliThumbUrl(firstVideoCover, 200, 200)} alt={fav.name} />
             <AvatarFallback className="rounded-md">{initial}</AvatarFallback>
           </Avatar>
@@ -212,7 +234,11 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       const hue = stringToHue(fav.id || fav.name || 'fav');
       return (
         <div
-          className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-background text-3xl font-semibold text-white shadow"
+          className={cn(
+            'flex items-center justify-center rounded-full border-2 border-background font-semibold text-white shadow',
+            sizeCls,
+            isCompact ? 'text-base' : 'text-3xl',
+          )}
           style={{
             backgroundImage: `linear-gradient(135deg, hsl(${hue} 70% 60%), hsl(${(hue + 60) % 360} 70% 48%))`,
           }}
@@ -223,13 +249,23 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       );
     }
     return (
-      <Avatar className="h-20 w-20 border-2 border-background shadow">
+      <Avatar className={cn('border-2 border-background shadow', sizeCls)}>
         <AvatarFallback>
-          <Music className="h-10 w-10 text-muted-foreground" />
+          <Music className={cn('text-muted-foreground', isCompact ? 'h-6 w-6' : 'h-10 w-10')} />
         </AvatarFallback>
       </Avatar>
     );
-  }, [space, folderInfo, fav.name, fav.id, isCustom, isBiliFav, firstVideoCover]);
+  }, [
+    space,
+    folderInfo,
+    fav.name,
+    fav.id,
+    isCustom,
+    isBiliFav,
+    isSystemFavorites,
+    isCompact,
+    firstVideoCover,
+  ]);
 
   const bgStyle = space?.top_photo
     ? {
@@ -247,8 +283,8 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       )}
       style={bgStyle}
     >
-      <div className="p-6">
-        <div className="flex items-start gap-4">
+      <div className={cn(isCompact ? 'p-3' : 'p-6')}>
+        <div className={cn('flex gap-4', isSystemFavorites ? 'items-center' : 'items-start')}>
           {avatar}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -257,17 +293,19 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
               >
                 {space?.name ?? fav.name}
               </h3>
-              <Badge variant="secondary">{getTypeLabel(fav.type)}</Badge>
+              {!isSystemFavorites && <Badge variant="secondary">{getTypeLabel(fav.type)}</Badge>}
             </div>
-            <p
-              className={cn(
-                'mt-1 truncate text-sm text-muted-foreground',
-                space?.top_photo && 'text-white/80',
-              )}
-            >
-              {space?.sign ??
-                `创建于 ${dayjs(fav.create_time * 1000).format('YYYY 年 MM 月 DD 日 HH:mm')}`}
-            </p>
+            {!isSystemFavorites && (
+              <p
+                className={cn(
+                  'mt-1 truncate text-sm text-muted-foreground',
+                  space?.top_photo && 'text-white/80',
+                )}
+              >
+                {space?.sign ??
+                  `创建于 ${dayjs(fav.create_time * 1000).format('YYYY 年 MM 月 DD 日 HH:mm')}`}
+              </p>
+            )}
             {space?.stats && (
               <div
                 className={cn(
