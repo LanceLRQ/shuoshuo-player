@@ -23,6 +23,44 @@ export interface FavListItem {
 /** 循环模式 */
 export type LoopMode = 'single' | 'loop' | 'random';
 
+/** 悬浮歌词水平对齐 */
+export type FloatingLyricsAlign = 'left' | 'center' | 'right';
+/** 悬浮歌词字重 */
+export type FloatingLyricsWeight = 'normal' | 'bold';
+/** 悬浮歌词字体族 */
+export type FloatingLyricsFamily = 'sans' | 'serif' | 'mono';
+/** 悬浮歌词预设文字色（'' === 'primary'，跟随主色） */
+export type FloatingLyricsColor = '' | 'primary' | 'white' | 'black' | 'muted';
+
+/** 悬浮歌词配置（位于 PlayerProfile.floatingLyrics） */
+export interface FloatingLyricsConfig {
+  /** 是否启用（默认 true） */
+  enabled: boolean;
+  /** 字号 px，12-32 */
+  fontSize: number;
+  fontWeight: FloatingLyricsWeight;
+  fontFamily: FloatingLyricsFamily;
+  textAlign: FloatingLyricsAlign;
+  /** 距 footer 顶边的垂直偏移 px，16-64 */
+  verticalOffset: number;
+  /** 预设色键；'' 视同 'primary' */
+  textColor: FloatingLyricsColor;
+  /** 背景透明度 0-1 */
+  bgOpacity: number;
+}
+
+/** 悬浮歌词默认值（首次启动 / 恢复默认时使用） */
+export const DEFAULT_FLOATING_LYRICS: FloatingLyricsConfig = {
+  enabled: true,
+  fontSize: 20,
+  fontWeight: 'normal',
+  fontFamily: 'sans',
+  textAlign: 'center',
+  verticalOffset: 16,
+  textColor: '',
+  bgOpacity: 0.8,
+};
+
 /** 播放器全局配置 */
 export interface PlayerProfile {
   theme: 'light' | 'dark' | 'auto';
@@ -45,6 +83,8 @@ export interface PlayerProfile {
    * 关闭时：多 P 投稿与单 P 投稿表现一致——一首结束即切下一首。
    */
   autoPlayNextPage: boolean;
+  /** 悬浮歌词（footer 上方歌词条）的样式与开关 */
+  floatingLyrics: FloatingLyricsConfig;
 }
 
 /** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致；#FF8FA7 中粉） */

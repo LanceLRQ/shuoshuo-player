@@ -14,6 +14,7 @@ import type {
   CloudServiceSession,
   FavFolderCacheEntry,
   FavListItem,
+  FloatingLyricsConfig,
   LoopMode,
   LyricEntry,
   VideoListCacheEntry,
@@ -55,6 +56,11 @@ export interface PersistedPlayerProfileShape {
   primaryColor?: string;
   /** 多 P 投稿自动连续播放（B4 起，默认 false） */
   autoPlayNextPage?: boolean;
+  /**
+   * 悬浮歌词配置；老用户无此字段，hydrate 必须 spread DEFAULT_FLOATING_LYRICS 兜底。
+   * 字段级 partial：从老版本升级或外部 import 可能只带部分键。
+   */
+  floatingLyrics?: Partial<FloatingLyricsConfig>;
 }
 
 export interface PersistedLyricsShape {

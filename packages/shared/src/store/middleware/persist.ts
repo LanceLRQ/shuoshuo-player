@@ -21,6 +21,7 @@ import { useFavoritesStore } from '../favorites';
 import { useVideoPagePrefStore } from '../video-page-pref';
 import { hasPageSuffix, trackIdToBvid } from '../../utils/track-id';
 import type { FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
+import { DEFAULT_FLOATING_LYRICS } from '../../types';
 import type {
   PersistedBilibiliUserVideosShape,
   PersistedBilibiliVideosShape,
@@ -228,7 +229,12 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     hydrate(raw) {
       const data = asRecord(raw) as PersistedPlayerProfileShape | null;
       if (!data) return;
-      usePlayerProfileStore.setState(data);
+      // 老用户的 ui_profile 不含 floatingLyrics 字段，必须 spread DEFAULT 兜底，
+      // 否则渲染层访问 cfg.fontSize / cfg.textAlign 等会拿到 undefined 引发崩溃。
+      usePlayerProfileStore.setState({
+        ...data,
+        floatingLyrics: { ...DEFAULT_FLOATING_LYRICS, ...(data.floatingLyrics ?? {}) },
+      });
     },
     snapshot() {
       const s = usePlayerProfileStore.getState();
@@ -239,6 +245,7 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         loopMode: s.loopMode,
         primaryColor: s.primaryColor,
         autoPlayNextPage: s.autoPlayNextPage,
+        floatingLyrics: s.floatingLyrics,
       };
     },
     subscribe(cb) {

@@ -17,6 +17,7 @@ import { useLyricsStore } from '../lyrics';
 import { usePlayerProfileStore } from '../player-profile';
 import { usePlayingListStore } from '../playing-list';
 import { useCloudServiceStore } from '../cloud-service';
+import { DEFAULT_FLOATING_LYRICS } from '../../types';
 
 function makeAdapter(): StorageAdapter & { _store: Map<string, string> } {
   const store = new Map<string, string>();
@@ -259,6 +260,40 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     getEntry('ui_profile').hydrate({ theme: 'dark', volume: 0.3 });
     expect(usePlayerProfileStore.getState().theme).toBe('dark');
     expect(usePlayerProfileStore.getState().volume).toBe(0.3);
+  });
+
+  it('ui_profile hydrate 无 floatingLyrics 字段时兜底为 DEFAULT_FLOATING_LYRICS', () => {
+    // 重置悬浮歌词字段，模拟"老用户没有此字段"的初始 store 状态
+    usePlayerProfileStore.setState({ floatingLyrics: { ...DEFAULT_FLOATING_LYRICS } });
+    // 老快照（B4 之前）不带 floatingLyrics
+    getEntry('ui_profile').hydrate({ theme: 'dark' });
+    expect(usePlayerProfileStore.getState().floatingLyrics).toEqual(DEFAULT_FLOATING_LYRICS);
+  });
+
+  it('ui_profile hydrate 部分 floatingLyrics 字段时与 DEFAULT 合并', () => {
+    getEntry('ui_profile').hydrate({
+      theme: 'dark',
+      floatingLyrics: { fontSize: 20, fontWeight: 'bold' },
+    });
+    const cfg = usePlayerProfileStore.getState().floatingLyrics;
+    expect(cfg.fontSize).toBe(20);
+    expect(cfg.fontWeight).toBe('bold');
+    // 未提供字段走 default
+    expect(cfg.textAlign).toBe(DEFAULT_FLOATING_LYRICS.textAlign);
+    expect(cfg.enabled).toBe(DEFAULT_FLOATING_LYRICS.enabled);
+    expect(cfg.bgOpacity).toBe(DEFAULT_FLOATING_LYRICS.bgOpacity);
+  });
+
+  it('ui_profile snapshot 包含 floatingLyrics 字段', () => {
+    usePlayerProfileStore.setState({
+      floatingLyrics: { ...DEFAULT_FLOATING_LYRICS, fontSize: 22, textAlign: 'left' },
+    });
+    const snap = getEntry('ui_profile').snapshot() as {
+      floatingLyrics?: { fontSize: number; textAlign: string };
+    };
+    expect(snap.floatingLyrics).toBeDefined();
+    expect(snap.floatingLyrics?.fontSize).toBe(22);
+    expect(snap.floatingLyrics?.textAlign).toBe('left');
   });
 
   it('lyrics hydrate', () => {

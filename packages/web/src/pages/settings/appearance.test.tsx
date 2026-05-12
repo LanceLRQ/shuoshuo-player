@@ -1,11 +1,16 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { usePlayerProfileStore, DEFAULT_PRIMARY_COLOR } from '@shuoshuo-player/shared';
+import {
+  usePlayerProfileStore,
+  DEFAULT_FLOATING_LYRICS,
+  DEFAULT_PRIMARY_COLOR,
+} from '@shuoshuo-player/shared';
 import { AppearanceSettings } from './appearance';
 
 function reset() {
   usePlayerProfileStore.setState({
     theme: 'auto',
     primaryColor: DEFAULT_PRIMARY_COLOR,
+    floatingLyrics: { ...DEFAULT_FLOATING_LYRICS },
   });
 }
 
@@ -49,8 +54,63 @@ describe('AppearanceSettings', () => {
   it('恢复默认按钮 → 重置主色', () => {
     usePlayerProfileStore.setState({ primaryColor: '100 50% 50%' });
     render(<AppearanceSettings />);
-    fireEvent.click(screen.getByRole('button', { name: /恢复默认/ }));
+    // 主色 Card 和悬浮歌词 Card 都有"恢复默认"按钮，按 DOM 顺序主色 Card 在前
+    const resetButtons = screen.getAllByRole('button', { name: /恢复默认/ });
+    fireEvent.click(resetButtons[0]);
     expect(usePlayerProfileStore.getState().primaryColor).toBe(DEFAULT_PRIMARY_COLOR);
+  });
+
+  describe('悬浮歌词 Card', () => {
+    it('总开关 Switch 默认开启', () => {
+      render(<AppearanceSettings />);
+      const sw = screen.getByRole('switch', { name: /启用悬浮歌词/ }) as HTMLButtonElement;
+      expect(sw.getAttribute('data-state')).toBe('checked');
+    });
+
+    it('点击总开关 → 翻转 floatingLyrics.enabled', () => {
+      render(<AppearanceSettings />);
+      const sw = screen.getByRole('switch', { name: /启用悬浮歌词/ }) as HTMLButtonElement;
+      fireEvent.click(sw);
+      expect(usePlayerProfileStore.getState().floatingLyrics.enabled).toBe(false);
+      fireEvent.click(sw);
+      expect(usePlayerProfileStore.getState().floatingLyrics.enabled).toBe(true);
+    });
+
+    it('字号 slider 变更 → setFloatingLyrics.fontSize', () => {
+      render(<AppearanceSettings />);
+      const slider = screen.getByLabelText(/字号/) as HTMLInputElement;
+      fireEvent.change(slider, { target: { value: '20' } });
+      expect(usePlayerProfileStore.getState().floatingLyrics.fontSize).toBe(20);
+    });
+
+    it('点击字重 加粗 → setFloatingLyrics.fontWeight=bold', () => {
+      render(<AppearanceSettings />);
+      fireEvent.click(screen.getByRole('button', { name: /加粗/ }));
+      expect(usePlayerProfileStore.getState().floatingLyrics.fontWeight).toBe('bold');
+    });
+
+    it('点击对齐 靠左 → setFloatingLyrics.textAlign=left', () => {
+      render(<AppearanceSettings />);
+      fireEvent.click(screen.getByRole('button', { name: '靠左' }));
+      expect(usePlayerProfileStore.getState().floatingLyrics.textAlign).toBe('left');
+    });
+
+    it('恢复默认按钮在 default 状态下 disabled', () => {
+      render(<AppearanceSettings />);
+      const resetButtons = screen.getAllByRole('button', { name: /恢复默认/ });
+      // 索引 1 = 悬浮歌词 Card 的恢复默认
+      expect((resetButtons[1] as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('调整后点恢复默认 → 重置 floatingLyrics 全部字段', () => {
+      usePlayerProfileStore.setState({
+        floatingLyrics: { ...DEFAULT_FLOATING_LYRICS, fontSize: 24, fontWeight: 'bold' },
+      });
+      render(<AppearanceSettings />);
+      const resetButtons = screen.getAllByRole('button', { name: /恢复默认/ });
+      fireEvent.click(resetButtons[1]);
+      expect(usePlayerProfileStore.getState().floatingLyrics).toEqual(DEFAULT_FLOATING_LYRICS);
+    });
   });
 
   it('autoPlayNextPage toggle 默认关闭，点击后开启 store 字段（D4）', () => {
