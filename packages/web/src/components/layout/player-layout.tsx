@@ -21,6 +21,41 @@ function detectMacTrafficLightArea(): boolean {
   return /mac os x/i.test(ua);
 }
 
+/** HSL → RGB（h: 0-360, s/l: 0-100），返回 [r,g,b] 0-255 整数 */
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const sN = s / 100;
+  const lN = l / 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = sN * Math.min(lN, 1 - lN);
+  const f = (n: number) => lN - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
+
+/** WCAG 相对亮度（0-1）：考虑人眼对绿色权重最高、蓝色最低 */
+function relativeLuminance(r: number, g: number, b: number): number {
+  const lin = (c: number) => {
+    const sRGB = c / 255;
+    return sRGB <= 0.03928 ? sRGB / 12.92 : Math.pow((sRGB + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/**
+ * 根据主色 HSL 选定 --primary-foreground：
+ * - 偏亮主色（感知亮度 > 0.5）：返回同色相深字 `H S% 30%`，色调可辨
+ * - 偏暗主色（感知亮度 ≤ 0.5）：返回纯白 `0 0% 100%`，对比最大化
+ *
+ * 阈值 0.5 对应「人眼明显偏向亮/暗」分界；预设色（粉/黄/浅绿/天蓝/深红/深蓝）实测全部符合直觉。
+ */
+function computePrimaryForeground(h: number, s: number, l: number): string {
+  const [r, g, b] = hslToRgb(h, s, l);
+  const lum = relativeLuminance(r, g, b);
+  if (lum > 0.5) {
+    return `${h} ${s}% 30%`;
+  }
+  return `0 0% 100%`;
+}
+
 interface PlayerLayoutProps {
   /** 主内容区（一般传入 <Outlet />） */
   children: ReactNode;
@@ -60,21 +95,26 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
   }, [theme, getEffectiveTheme]);
 
   // 注入用户自定义主色到 CSS variable --primary（globals.css 的默认值会被覆盖）。
-  // 同步根据主色亮度生成 --primary-foreground：保留原 H/S，只反向 L，
-  // 让 bg-primary 上的文字/图标使用"主色暗色版/亮色版"，避免纯黑白与底色割裂。
-  // 设置为空字符串时 removeProperty 让 globals.css 默认值生效。
+  // 同步根据主色「人眼感知亮度（WCAG 相对亮度）」生成 --primary-foreground：
+  //   - 偏亮主色（luminance > 0.5，如默认粉/黄/浅绿/天蓝）→ 同色相深字（L=30），
+  //     保留色调可辨且对比度高
+  //   - 偏暗主色（luminance ≤ 0.5，如深红/深蓝/深紫）→ 纯白字，
+  //     对比最大化，避免同色相亮字在深底上仍然不够清晰
+  //
+  // 不沿用旧版 HSL.L 阈值：黄色 HSL(60,100%,50%) 的 L=50 但实际感知很亮，
+  // 旧逻辑会误判为「深色主色」给白字 → 黄底白字看不见。
+  // WCAG luminance 公式考虑了人眼对红/绿/蓝的不同敏感度（绿权重最高、蓝最低）。
   useEffect(() => {
     const root = document.documentElement;
     if (primaryColor) {
       root.style.setProperty('--primary', primaryColor);
       const m = primaryColor.trim().match(/^([0-9.]+)\s+([0-9.]+)%\s+([0-9.]+)%$/);
       if (m) {
-        const h = m[1];
-        const s = m[2];
+        const h = parseFloat(m[1]);
+        const s = parseFloat(m[2]);
         const l = parseFloat(m[3]);
-        // 阈值 60% 经验值：偏亮主色用深同色相（L=30，可辨色调而非视觉近黑）作前景；偏暗主色用极亮版（L=96）。
-        const lFg = l >= 60 ? 30 : 96;
-        root.style.setProperty('--primary-foreground', `${h} ${s}% ${lFg}%`);
+        const fg = computePrimaryForeground(h, s, l);
+        root.style.setProperty('--primary-foreground', fg);
       } else {
         root.style.removeProperty('--primary-foreground');
       }
