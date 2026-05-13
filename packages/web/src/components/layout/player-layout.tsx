@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { getPlatformBridge, usePlayerProfileStore } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { TopBar } from './top-bar';
@@ -80,10 +80,13 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
   const theme = usePlayerProfileStore((s) => s.theme);
   const getEffectiveTheme = usePlayerProfileStore((s) => s.getEffectiveTheme);
   const primaryColor = usePlayerProfileStore((s) => s.primaryColor);
+  // 跟踪当前实际主题（auto 模式下随系统切换）：primaryColor effect 需要它做 dark 适配
+  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>(() => getEffectiveTheme());
 
   useEffect(() => {
     const apply = () => {
       const effective = getEffectiveTheme();
+      setEffectiveTheme(effective);
       document.documentElement.classList.toggle('dark', effective === 'dark');
     };
     apply();
@@ -104,20 +107,40 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
   // 不沿用旧版 HSL.L 阈值：黄色 HSL(60,100%,50%) 的 L=50 但实际感知很亮，
   // 旧逻辑会误判为「深色主色」给白字 → 黄底白字看不见。
   // WCAG luminance 公式考虑了人眼对红/绿/蓝的不同敏感度（绿权重最高、蓝最低）。
+  //
+  // dark 主题适配：用户自定义主色若过暗（luminance < 0.3），dark 模式下 text-primary
+  // 在深底上看不清。检测后保持 H/S，把 L 提到 65（亮色版）注入；light 模式不动。
+  // 这会同时影响 bg-primary（按钮背景），但 dark 主题下亮色按钮反而更显眼，符合 dark UI 直觉。
   useEffect(() => {
     const root = document.documentElement;
     if (primaryColor) {
-      root.style.setProperty('--primary', primaryColor);
-      // --ring 同步主色：focus 高光跟随用户自定义色，避免一直停留在 globals.css 默认粉
-      root.style.setProperty('--ring', primaryColor);
       const m = primaryColor.trim().match(/^([0-9.]+)\s+([0-9.]+)%\s+([0-9.]+)%$/);
       if (m) {
         const h = parseFloat(m[1]);
         const s = parseFloat(m[2]);
         const l = parseFloat(m[3]);
-        const fg = computePrimaryForeground(h, s, l);
+        // dark 主题 + 主色偏暗 → 提亮到 L=65（保 H/S）；其他情况保持原值
+        let actualPrimary = primaryColor;
+        if (effectiveTheme === 'dark') {
+          const [r, g, b] = hslToRgb(h, s, l);
+          if (relativeLuminance(r, g, b) < 0.3) {
+            actualPrimary = `${h} ${s}% 65%`;
+          }
+        }
+        root.style.setProperty('--primary', actualPrimary);
+        // --ring 同步主色：focus 高光跟随用户自定义色，避免一直停留在 globals.css 默认粉
+        root.style.setProperty('--ring', actualPrimary);
+        // foreground 按 actualPrimary 实际显示色重算（提亮后的色相也要新算前景色）
+        const m2 = actualPrimary.trim().match(/^([0-9.]+)\s+([0-9.]+)%\s+([0-9.]+)%$/)!;
+        const fg = computePrimaryForeground(
+          parseFloat(m2[1]),
+          parseFloat(m2[2]),
+          parseFloat(m2[3]),
+        );
         root.style.setProperty('--primary-foreground', fg);
       } else {
+        root.style.setProperty('--primary', primaryColor);
+        root.style.setProperty('--ring', primaryColor);
         root.style.removeProperty('--primary-foreground');
       }
     } else {
@@ -125,7 +148,7 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
       root.style.removeProperty('--ring');
       root.style.removeProperty('--primary-foreground');
     }
-  }, [primaryColor]);
+  }, [primaryColor, effectiveTheme]);
 
   const showMacTrafficLightArea = useMemo(() => detectMacTrafficLightArea(), []);
   const gridRows = showMacTrafficLightArea

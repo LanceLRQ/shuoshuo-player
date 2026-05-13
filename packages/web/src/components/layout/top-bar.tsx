@@ -252,8 +252,10 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
       </div>
 
       {/* 右段：标题 + 版本号 + 现有操作；左 + 顶边框 + 左上圆弧自闭合；
-          panel 色（light=白 / dark=亮一点黑），与下方 main / footer 同色形成内容区 */}
-      <div className="flex h-full flex-1 items-center gap-2 rounded-tl-xl border-l border-t bg-background px-4 dark:bg-muted">
+          panel 色（light=白 / dark=亮一点黑），与下方 main / footer 同色形成内容区
+          mt-2 让容器边框/圆弧整体下偏 8px（视觉上更分离）；
+          [&>*]:-mt-2 给所有直接子元素反向补偿 8px，让标题 + 图标行回到与左段（logo）相同的水平基线 */}
+      <div className="mt-2 flex h-full flex-1 items-center gap-2 rounded-tl-xl border-l border-t bg-background px-4 dark:bg-muted [&>*]:-mt-2">
         <span className="font-semibold tracking-tight">说说播放器</span>
         <span className="text-xs text-muted-foreground">v{APP_VERSION}</span>
         {IS_BETA_VERSION && (
