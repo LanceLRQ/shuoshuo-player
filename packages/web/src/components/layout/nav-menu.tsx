@@ -73,7 +73,7 @@ export function NavMenu({ menuOpen }: NavMenuProps) {
   return (
     <aside
       className={cn(
-        'h-full shrink-0 border-r bg-muted transition-[width] duration-300 dark:bg-background',
+        'h-full shrink-0 bg-muted transition-[width] duration-300 dark:bg-background',
         menuOpen ? 'w-64' : 'w-16',
       )}
       aria-label="侧边导航"

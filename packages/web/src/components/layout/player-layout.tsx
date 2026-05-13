@@ -104,7 +104,7 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
       {/* Row 2: 中间行，flex 左右布局 NavMenu + main；min-h-0 让 flex 子缩到容器内 */}
       <div className="flex min-h-0 overflow-hidden">
         <NavMenu menuOpen={menuOpen} />
-        <main className="min-w-0 flex-1 overflow-y-auto bg-background dark:bg-muted">
+        <main className="min-w-0 border-l flex-1 overflow-y-auto bg-background dark:bg-muted">
           {/* 不在此处加 padding：让歌词面板等沉浸式视图能贴合 main 边缘；
               普通页面在 RootLayout 自行包 px-6 py-4 */}
           <div className="h-full">{children}</div>
