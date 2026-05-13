@@ -27,7 +27,11 @@ const Slider = React.forwardRef<
       )}
     >
       <SliderPrimitive.Range
-        className={cn('absolute bg-primary', orientation === 'horizontal' ? 'h-full' : 'w-full')}
+        // rounded-r-full：已播放部分右端做半圆收尾，与 Track 左侧圆角呼应，视觉更柔和
+        className={cn(
+          'absolute rounded-r-full bg-primary',
+          orientation === 'horizontal' ? 'h-full' : 'w-full',
+        )}
       />
     </SliderPrimitive.Track>
     <SliderPrimitive.Thumb className="-mt-0.5 block h-4 w-4 rounded-full bg-primary shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
