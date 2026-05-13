@@ -232,6 +232,10 @@ jobs:
 
             > 1.x 区间为 **Beta 版本**，2.0+ 为稳定版。当前版本可能存在已知缺陷，欢迎反馈。
 
+            ### 版本说明
+
+            <!-- TODO：手动补充本版本主要变更（feat / fix / break change） -->
+
             ### 国内镜像下载
 
             访问 GitHub 慢的用户可从镜像下载（与本页 asset 字节一致，由 Cloudflare CDN 分发）：
@@ -252,15 +256,3 @@ jobs:
             **未签名说明**：Beta 阶段桌面端未做代码签名/公证，首次启动会触发系统警告：
             - **macOS**：双击 `.dmg` 安装后，在 Launchpad 右键 .app → 打开 → 弹窗中再次点击"打开"
             - **Windows**：双击 `.exe` 或 `.msi` → SmartScreen 拦截 → "更多信息" → "仍要运行"
-
-            ### 完整性校验
-
-            每个 `.zip` 同目录附带 `.sha256` 校验文件：
-
-            ```bash
-            shasum -a 256 -c shuoshuo-player-extension-${{ github.ref_name }}.zip.sha256
-            ```
-
-            ### 变更摘要
-
-            <!-- TODO：手动补充本版本主要变更（feat / fix / break change） -->
