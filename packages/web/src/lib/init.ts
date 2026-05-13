@@ -6,6 +6,8 @@ import {
   useUpdateCheckerStore,
 } from '@shuoshuo-player/shared';
 import { createPlatformBridge } from './platform';
+import { detectV1Snapshot } from './v1-migration';
+import { useV1MigrationStore } from '@/stores/v1-migration-store';
 
 /**
  * 应用初始化：在 createRoot.render() 之前调用，store 状态需先于 UI 渲染恢复。
@@ -21,6 +23,19 @@ import { createPlatformBridge } from './platform';
  */
 export async function initializeApp(): Promise<void> {
   setPlatformBridge(createPlatformBridge());
+
+  // 仅 Chrome 扩展场景：检测 chrome.storage.local 中是否残留 v1 旧数据。
+  // 命中则把数据塞入 useV1MigrationStore，由 App.tsx 顶层的 <MigrationGate /> 弹出引导弹层。
+  // 失败 try/catch 兜底，绝不阻塞主初始化流程。
+  try {
+    const snapshot = await detectV1Snapshot();
+    if (snapshot) {
+      useV1MigrationStore.getState().setPending(snapshot.raw, snapshot.parsed);
+    }
+  } catch (err) {
+    if (__DEV_LOG__) console.debug('[v1-migration] detect failed', err);
+  }
+
   await bootstrapPersistence();
   // 启动时拉一次 wbi 密钥；不等待（nav 接口异步加载，避免阻塞 UI 渲染）
   void triggerWbiRefresh().catch((err) => {

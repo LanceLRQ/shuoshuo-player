@@ -14,6 +14,7 @@ import { AddToFavDialog } from '@/components/dialogs/add-to-fav-dialog';
 import { PagesPickerDialog } from '@/components/dialogs/pages-picker-dialog';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { RiskControlDialog } from '@/components/dialogs/risk-control-dialog';
+import { MigrationGate } from '@/components/migration/migration-gate';
 import { useUIShell } from '@/stores/ui-shell';
 
 // 路由懒加载：每个页面单独 chunk（详见 vite.config manualChunks）
@@ -131,9 +132,12 @@ export default function App() {
 
   if (!isInited) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+      <>
+        <div className="flex h-screen w-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+        <MigrationGate />
+      </>
     );
   }
 
@@ -143,6 +147,7 @@ export default function App() {
         <BilibiliLoginRequired />
         <ToasterProvider />
         <UpdateNotifier />
+        <MigrationGate />
       </>
     );
   }
@@ -152,6 +157,7 @@ export default function App() {
       <RouterProvider router={router} />
       <ToasterProvider />
       <UpdateNotifier />
+      <MigrationGate />
     </>
   );
 }

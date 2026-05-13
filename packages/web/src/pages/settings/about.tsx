@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
 import { useUIShell } from '@/stores/ui-shell';
+import { V1DevSeederCard } from '@/components/migration/v1-dev-seeder-card';
 
 const OFFICIAL_RELEASE_URL = 'https://shuoshuo.sikong.ren/player';
 const GITHUB_URL = 'https://github.com/LanceLRQ/shuoshuo-player';
@@ -385,6 +386,9 @@ export function AboutSettings() {
           </p>
         </CardContent>
       </Card>
+
+      {/* 开发者工具：v1 → v2 迁移测试（仅 dev:extension 构建可见，prod 构建 DCE） */}
+      {__DEV_LOG__ && <V1DevSeederCard />}
     </div>
   );
 }
