@@ -120,9 +120,11 @@ describe('F2: initializeApp', () => {
     await init.initializeApp();
 
     expect(shared.getCloudApiBaseUrl()).toBe('https://my.api.example/v1');
-    // storage.get 总计 4 次：
-    // - bootstrapPersistence 并行：ssp_v2_cloud_api_base_url + ssp_v2_player_data（2 次）
-    // - detectV1Snapshot 串行：v1_migration_dismissed 标志 + 7 个 v1 key（2 次）
+    // storage.get 共 4 次（每次都是单批 get）：
+    // 1) bootstrapPersistence: 读 ssp_v2_cloud_api_base_url
+    // 2) bootstrapPersistence: 读 ssp_v2_player_data（与 1 并行调度）
+    // 3) detectV1Snapshot: 读 ssp_v2_v1_migration_dismissed（dismiss 检查）
+    // 4) detectV1Snapshot: 一次读完 V1_PERSIST_KEYS 的 7 个 key
     expect(chromeMock.storage.local.get).toHaveBeenCalledTimes(4);
   });
 

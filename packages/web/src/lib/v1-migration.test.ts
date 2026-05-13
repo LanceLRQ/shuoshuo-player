@@ -281,6 +281,28 @@ describe('dismissV1Migration', () => {
     expect(mock.storage.local.set).not.toHaveBeenCalled();
     expect(mock.storage.local.remove).not.toHaveBeenCalled();
   });
+
+  it('set 失败时 v1 数据保留：remove 不被调用，下次 detect 仍能返回 snapshot', async () => {
+    setPlatformBridge(createBridge('chrome-extension'));
+    const { mock, store } = createChromeMock({
+      fav_list: { list: [{ id: 'keep', name: 'k', type: 0, bv_ids: [], create_time: 0 }] },
+      lyrics: { lyricMaps: { BV1: { content: 'x' } } },
+    });
+    // 让 set 抛错（如 storage 配额满）
+    (mock.storage.local.set as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('QUOTA_EXCEEDED'),
+    );
+    (globalThis as any).chrome = mock;
+
+    await expect(dismissV1Migration()).rejects.toThrow(/QUOTA_EXCEEDED/);
+
+    // 关键不变量：set 抛错后 remove 必须未被调用，v1 数据完整保留
+    expect(mock.storage.local.remove).not.toHaveBeenCalled();
+    expect(store.has('fav_list')).toBe(true);
+    expect(store.has('lyrics')).toBe(true);
+    // dismissed 标志也未写入（用户可重试或重启再决策）
+    expect(store.has(V1_DISMISS_KEY)).toBe(false);
+  });
 });
 
 describe('seedV1FromExportJson（dev 工具）', () => {

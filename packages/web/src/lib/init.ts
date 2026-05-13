@@ -26,14 +26,15 @@ export async function initializeApp(): Promise<void> {
 
   // 仅 Chrome 扩展场景：检测 chrome.storage.local 中是否残留 v1 旧数据。
   // 命中则把数据塞入 useV1MigrationStore，由 App.tsx 顶层的 <MigrationGate /> 弹出引导弹层。
-  // 失败 try/catch 兜底，绝不阻塞主初始化流程。
+  // 失败 try/catch 兜底，绝不阻塞主初始化流程；
+  // 用 console.warn 而非 console.debug 让 prod 环境也保留可见线索（便于用户截图反馈）。
   try {
     const snapshot = await detectV1Snapshot();
     if (snapshot) {
       useV1MigrationStore.getState().setPending(snapshot.raw, snapshot.parsed);
     }
   } catch (err) {
-    if (__DEV_LOG__) console.debug('[v1-migration] detect failed', err);
+    console.warn('[v1-migration] detect failed', err);
   }
 
   await bootstrapPersistence();

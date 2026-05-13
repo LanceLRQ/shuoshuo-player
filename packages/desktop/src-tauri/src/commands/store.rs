@@ -4,8 +4,8 @@
 // - 仅允许 ["ssp_v2_player_data", "ssp_v2_cloud_api_base_url"] 写入；任何其他 key 命中 Err
 // - 持久化到 tauri-plugin-store 默认数据目录下的 store.json
 // - 每次写入立即 save()，避免应用退出时丢失（节流由前端 createPersistMiddleware 负责）
-// - key 名带 ssp_v2_ 命名空间前缀，与前端 SSP_V2_NAMESPACE 常量手动同步
-//   （packages/shared/src/constants/index.ts）；改动时务必同步两边
+// - key 名带 ssp_v2_ 命名空间前缀；与前端 SSP_V2_NAMESPACE 常量手动同步，
+//   改动时务必前后端一并修改（grep `ssp_v2_player_data` 定位所有引用点）
 
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::StoreExt;

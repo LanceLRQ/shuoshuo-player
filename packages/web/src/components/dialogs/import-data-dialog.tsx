@@ -133,9 +133,8 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
             <span className="text-muted-foreground">视频</span>
             <span className="font-medium">{summary.videoCount}</span>
           </span>
-          {/* 箭头单独走 ml-auto → 被推到「左侧统计块和右侧版本块之间的中点」 */}
+          {/* 双 ml-auto 三段均分：箭头被推到中点，版本号块继续推到最右 */}
           <ArrowRight className="ml-auto h-3.5 w-3.5 text-muted-foreground" aria-label="迁移到" />
-          {/* 版本号块再走一个 ml-auto → 继续推到最右；两个 ml-auto 共同形成三段均分布局 */}
           <span className="ml-auto flex items-center gap-1.5 text-muted-foreground">
             <span>v{APP_VERSION}</span>
             {IS_BETA_VERSION && (
