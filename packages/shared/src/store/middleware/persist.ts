@@ -15,22 +15,60 @@ import { useFavListStore } from '../fav-list';
 import { usePlayerProfileStore } from '../player-profile';
 import { useLyricsStore } from '../lyrics';
 import { useCloudServiceStore } from '../cloud-service';
-import { useMusicUrlCacheStore } from '../music-url-cache';
+import { useMusicUrlCacheStore, type MusicUrlCacheEntry } from '../music-url-cache';
 import { useUpdateCheckerStore } from '../update-checker';
+import { useFavoritesStore } from '../favorites';
+import { useVideoPagePrefStore } from '../video-page-pref';
+import { hasPageSuffix, trackIdToBvid } from '../../utils/track-id';
+import type { FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
+import { DEFAULT_FLOATING_LYRICS } from '../../types';
 import type {
   PersistedBilibiliUserVideosShape,
   PersistedBilibiliVideosShape,
   PersistedCloudServiceShape,
   PersistedFavListShape,
+  PersistedFavoritesShape,
   PersistedLyricsShape,
   PersistedMusicUrlCacheShape,
   PersistedPlayerProfileShape,
   PersistedPlayingListShape,
   PersistedUpdateCheckerShape,
+  PersistedVideoPagePrefShape,
 } from '../persisted-types';
 
 /** 持久化数据的根 key */
 export const PERSIST_DATA_KEY = 'player_data';
+
+/**
+ * §2 不变量防御（E3）：清洗 VideoListCacheEntry.video_list 中的 bvid 字段，
+ * 若含 ':p<n>' 后缀（旧脏数据 / 错误手改），strip 回纯 bvid 形式。
+ *
+ * Fast path：先 O(N) `some` 扫描，无脏值时直接返回原 entry 引用，避免无效分配。
+ */
+function cleanVideoListEntry<T extends VideoListCacheEntry>(entry: T): T {
+  if (!entry?.video_list?.length) return entry;
+  if (!entry.video_list.some((it) => hasPageSuffix(it?.bvid))) return entry;
+  const cleanedList = entry.video_list.map((it) =>
+    hasPageSuffix(it?.bvid) ? { bvid: trackIdToBvid(it.bvid), created: it.created } : it,
+  );
+  return { ...entry, video_list: cleanedList };
+}
+
+function cleanInfosShape(infos: Record<string, VideoListCacheEntry>): typeof infos {
+  const out: Record<string, VideoListCacheEntry> = {};
+  for (const [mid, entry] of Object.entries(infos)) {
+    out[mid] = cleanVideoListEntry(entry);
+  }
+  return out;
+}
+
+function cleanFavFoldersShape(folders: Record<string, FavFolderCacheEntry>): typeof folders {
+  const out: Record<string, FavFolderCacheEntry> = {};
+  for (const [id, entry] of Object.entries(folders)) {
+    out[id] = cleanVideoListEntry(entry);
+  }
+  return out;
+}
 
 /**
  * 简易尾沿节流：在窗口期内最后一次调用会在窗口结束时执行
@@ -105,7 +143,7 @@ interface StorePersistEntry {
 }
 
 /**
- * 7 个可持久化 store 的 hydrate / snapshot / subscribe 注册表
+ * 11 个可持久化 store 的 hydrate / snapshot / subscribe 注册表
  *
  * 形状契约由 PersistedXxxShape 维护；
  * - bili_user_videos 的 isLoading 必须强制重置为 false，否则恢复后停在加载态
@@ -135,11 +173,13 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     hydrate(raw) {
       const data = asRecord(raw) as PersistedBilibiliUserVideosShape | null;
       if (!data) return;
+      // §2 不变量（E3）：UPLOADER / BILI_FAV 的 video_list[].bvid 永远是纯 bvid。
+      // 旧持久化数据可能含脏字符串（如旧版/手改 import 注入了 :p<n>），hydrate 时 strip 防御。
       useBilibiliUserVideosStore.setState({
         isLoading: false,
-        infos: data.infos ?? {},
+        infos: cleanInfosShape(data.infos ?? {}),
         space: data.space ?? {},
-        favFolders: data.favFolders ?? {},
+        favFolders: cleanFavFoldersShape(data.favFolders ?? {}),
       });
     },
     snapshot() {
@@ -154,16 +194,17 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     hydrate(raw) {
       const data = asRecord(raw) as PersistedPlayingListShape | null;
       if (!data) return;
+      // B2 兼容：旧字段名 bvIds 与新字段名 trackIds 都接受，优先新字段
       usePlayingListStore.setState({
         favId: data.favId ?? '',
-        bvIds: data.bvIds ?? [],
+        trackIds: data.trackIds ?? data.bvIds ?? [],
         current: data.current ?? '',
         playNext: false,
       });
     },
     snapshot() {
       const s = usePlayingListStore.getState();
-      return { favId: s.favId, bvIds: s.bvIds, current: s.current };
+      return { favId: s.favId, trackIds: s.trackIds, current: s.current };
     },
     subscribe(cb) {
       return usePlayingListStore.subscribe(cb);
@@ -188,7 +229,12 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     hydrate(raw) {
       const data = asRecord(raw) as PersistedPlayerProfileShape | null;
       if (!data) return;
-      usePlayerProfileStore.setState(data);
+      // 老用户的 ui_profile 不含 floatingLyrics 字段，必须 spread DEFAULT 兜底，
+      // 否则渲染层访问 cfg.fontSize / cfg.textAlign 等会拿到 undefined 引发崩溃。
+      usePlayerProfileStore.setState({
+        ...data,
+        floatingLyrics: { ...DEFAULT_FLOATING_LYRICS, ...(data.floatingLyrics ?? {}) },
+      });
     },
     snapshot() {
       const s = usePlayerProfileStore.getState();
@@ -198,6 +244,8 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         autoPlay: s.autoPlay,
         loopMode: s.loopMode,
         primaryColor: s.primaryColor,
+        autoPlayNextPage: s.autoPlayNextPage,
+        floatingLyrics: s.floatingLyrics,
       };
     },
     subscribe(cb) {
@@ -237,7 +285,17 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     hydrate(raw) {
       const data = asRecord(raw) as PersistedMusicUrlCacheShape | null;
       if (!data) return;
-      useMusicUrlCacheStore.setState({ entries: data.entries ?? {} });
+      // 自 A5 起 cache key 形态为 `${bvid}:${cid}`，丢弃旧形态（不含 ':'），
+      // 防止旧持久化数据被错误命中（旧 value 有 cid 字段，新 value 无 cid）。
+      const clean: Record<string, MusicUrlCacheEntry> = {};
+      for (const [key, value] of Object.entries(data.entries ?? {})) {
+        if (!key.includes(':')) continue;
+        if (!value || typeof value !== 'object') continue;
+        const v = value as { playUrl?: unknown; last_update?: unknown };
+        if (typeof v.playUrl !== 'string' || typeof v.last_update !== 'number') continue;
+        clean[key] = { playUrl: v.playUrl, last_update: v.last_update };
+      }
+      useMusicUrlCacheStore.setState({ entries: clean });
     },
     snapshot() {
       return useMusicUrlCacheStore.getState().persistSnapshot();
@@ -263,6 +321,41 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     },
     subscribe(cb) {
       return useUpdateCheckerStore.subscribe(cb);
+    },
+  },
+  {
+    key: 'favorites',
+    hydrate(raw) {
+      const data = asRecord(raw) as PersistedFavoritesShape | null;
+      if (!data) return;
+      useFavoritesStore.setState({ entries: data.entries ?? {} });
+    },
+    snapshot() {
+      return { entries: useFavoritesStore.getState().entries };
+    },
+    subscribe(cb) {
+      return useFavoritesStore.subscribe(cb);
+    },
+  },
+  {
+    key: 'video_page_pref',
+    hydrate(raw) {
+      const data = asRecord(raw) as PersistedVideoPagePrefShape | null;
+      if (!data) return;
+      // 防御性过滤：忽略 page <= 1 / 非整数的脏值
+      const clean: Record<string, number> = {};
+      for (const [bvid, page] of Object.entries(data.defaultPage ?? {})) {
+        if (typeof page === 'number' && Number.isInteger(page) && page >= 2) {
+          clean[bvid] = page;
+        }
+      }
+      useVideoPagePrefStore.setState({ defaultPage: clean });
+    },
+    snapshot() {
+      return { defaultPage: useVideoPagePrefStore.getState().defaultPage };
+    },
+    subscribe(cb) {
+      return useVideoPagePrefStore.subscribe(cb);
     },
   },
 ];

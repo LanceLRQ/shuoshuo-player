@@ -6,7 +6,10 @@ import {
   usePlayingListStore,
   useUIStore,
   FavListType,
+  MASTER_UP_INFO,
 } from '@shuoshuo-player/shared';
+
+const MASTER_MID = String(MASTER_UP_INFO.mid);
 import { useUIShell } from '@/stores/ui-shell';
 import { FavCard } from './fav-card';
 
@@ -44,7 +47,7 @@ function reset() {
   });
   usePlayingListStore.setState({
     favId: '',
-    bvIds: [],
+    trackIds: [],
     current: '',
     playNext: false,
   });
@@ -98,7 +101,7 @@ describe('FavCard', () => {
 
     const state = usePlayingListStore.getState();
     expect(state.favId).toBe('fav-x');
-    expect(state.bvIds).toEqual(['BV1', 'BV2']);
+    expect(state.trackIds).toEqual(['BV1', 'BV2']);
     expect(state.current).toBe('BV1');
     expect(state.playNext).toBe(true);
   });
@@ -139,15 +142,49 @@ describe('FavCard', () => {
     expect(screen.getByText(/创建于/)).toBeInTheDocument();
   });
 
-  it('UPLOADER 24h 未更新 + store 有 video_list → 自动 readUserVideos(default)', () => {
+  it('master UPLOADER 24h 未更新 + store 有 video_list → 自动 readUserVideos(default)', () => {
     const readUserVideos = vi.fn(async () => {});
     const readUserSpaceInfo = vi.fn(async () => {});
     useBilibiliUserVideosStore.setState({
       readUserVideos,
       readUserSpaceInfo,
       infos: {
-        '999': {
+        [MASTER_MID]: {
           update_time: 0,
+          video_list: [
+            { bvid: 'BV1', created: 0 },
+            { bvid: 'BV2', created: 0 },
+          ],
+          count: 2,
+          update_type: 'default',
+        },
+      },
+      space: {},
+      favFolders: {},
+      isLoading: false,
+    });
+
+    renderCard({
+      favId: 'main',
+      fav: makeFav({
+        type: FavListType.UPLOADER,
+        mid: MASTER_MID,
+        update_time: 0, // 远古时间，触发 24h 阈值
+      }),
+    });
+
+    expect(readUserVideos).toHaveBeenCalledWith(MASTER_MID, 'default');
+    expect(readUserSpaceInfo).toHaveBeenCalledWith(MASTER_MID);
+  });
+
+  it('非 master UPLOADER（其他 UP 主歌单）即使 24h 未更新也不自动 update', () => {
+    const readUserVideos = vi.fn(async () => {});
+    useBilibiliUserVideosStore.setState({
+      readUserVideos,
+      readUserSpaceInfo: vi.fn(async () => {}),
+      infos: {
+        '999': {
+          update_time: 0, // 远古时间，但 mid 非 master，不应触发
           video_list: [
             { bvid: 'BV1', created: 0 },
             { bvid: 'BV2', created: 0 },
@@ -166,15 +203,45 @@ describe('FavCard', () => {
       fav: makeFav({
         type: FavListType.UPLOADER,
         mid: '999',
-        update_time: 0, // 远古时间，触发 24h 阈值
+        update_time: 0,
       }),
     });
 
-    expect(readUserVideos).toHaveBeenCalledWith('999', 'default');
-    expect(readUserSpaceInfo).toHaveBeenCalledWith('999');
+    expect(readUserVideos).not.toHaveBeenCalled();
   });
 
-  it('UPLOADER store 中没有 video_list → 不自动 update（避免新建即拉取）', () => {
+  it('BILI_FAV 即使 24h 未更新也不自动 update（仅 master 自动）', () => {
+    const readUserFavFolderVideos = vi.fn(async () => {});
+    useBilibiliUserVideosStore.setState({
+      readUserVideos: vi.fn(async () => {}),
+      readUserSpaceInfo: vi.fn(async () => {}),
+      readUserFavFolderVideos,
+      infos: {},
+      space: {},
+      favFolders: {
+        '123': {
+          update_time: 0,
+          video_list: [{ bvid: 'BV1', created: 0 }],
+          count: 1,
+          update_type: 'default',
+          info: {},
+        } as never,
+      },
+      isLoading: false,
+    });
+
+    renderCard({
+      favId: 'fav-b',
+      fav: makeFav({
+        type: FavListType.BILI_FAV,
+        biliFavFolderId: '123',
+      }),
+    });
+
+    expect(readUserFavFolderVideos).not.toHaveBeenCalled();
+  });
+
+  it('master UPLOADER store 中没有 video_list → 不自动 update（避免新建即拉取）', () => {
     const readUserVideos = vi.fn(async () => {});
     useBilibiliUserVideosStore.setState({
       readUserVideos,
@@ -186,10 +253,10 @@ describe('FavCard', () => {
     });
 
     renderCard({
-      favId: 'fav-u',
+      favId: 'main',
       fav: makeFav({
         type: FavListType.UPLOADER,
-        mid: '999',
+        mid: MASTER_MID,
       }),
     });
 
@@ -226,7 +293,7 @@ describe('FavCard', () => {
 
     const state = usePlayingListStore.getState();
     expect(state.favId).toBe('fav-u');
-    expect(state.bvIds).toEqual(['BV_UP_A', 'BV_UP_B']);
+    expect(state.trackIds).toEqual(['BV_UP_A', 'BV_UP_B']);
     expect(state.current).toBe('BV_UP_A');
     expect(state.playNext).toBe(true);
   });
@@ -273,7 +340,7 @@ describe('FavCard', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /播放/ }));
-    expect(usePlayingListStore.getState().bvIds).toEqual(['BV_FAV_X']);
+    expect(usePlayingListStore.getState().trackIds).toEqual(['BV_FAV_X']);
   });
 
   it('main 歌单：deletable=false（删除菜单项不渲染）', () => {

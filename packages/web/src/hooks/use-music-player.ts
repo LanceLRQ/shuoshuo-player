@@ -7,8 +7,11 @@ import {
   usePlayerProfileStore,
   useLyricsStore,
   useUIStore,
+  useVideoPagePrefStore,
   fetchMusicUrl,
   invalidateMusicUrlCache,
+  parseTrackId,
+  buildTrackId,
   urlPrefixFixed,
   LyricApi,
   NoticeType,
@@ -121,13 +124,18 @@ async function probeAudioUrl(url: string, bvid: string): Promise<void> {
 export function useMusicPlayer(): PlayerState & PlayerControls {
   const howlRef = useRef<Howl | null>(null);
   const rafRef = useRef<number | null>(null);
-  const lastClearedBvRef = useRef<string>('');
+  // 按 TrackId（bvid 或 bvid:p<n>）比对，避免同 bvid 切 P 时不清 playNext
+  const lastClearedTrackRef = useRef<string>('');
   // mediaSession.setPositionState 用 ref 读最新进度，避免高频 setProgress 让 effect 反复重建定时器
   const progressRef = useRef(0);
-  // initHowl 自递归（onloaderror 重试时调用最新版本）通过 ref 解耦，避免 useCallback 循环依赖
-  const initHowlRef = useRef<((video: BilibiliVideo, attempt?: number) => Promise<void>) | null>(
-    null,
-  );
+  // initHowl 自递归（onloaderror 重试时调用最新版本 / handleEnd 分 P 连播调下一 P）通过 ref 解耦
+  const initHowlRef = useRef<
+    ((video: BilibiliVideo, page: number, attempt?: number) => Promise<void>) | null
+  >(null);
+  // 并发哨兵：快速切歌时旧的 fetchMusicUrl 仍可能 resolve，凭 gen 比对丢弃所有 stale 路径
+  const initGenRef = useRef(0);
+  // 当前实际播放的 P（与 store.current 解耦：分 P 连播时只动 ref 不动 store，避免污染用户视角的 TrackId）
+  const playingPageRef = useRef(1);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -139,12 +147,20 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   progressRef.current = progress;
 
   const biliMid = useBilibiliUserStore((s) => s.current?.mid);
-  const currentBvId = usePlayingListStore((s) => s.current);
+  const currentTrackId = usePlayingListStore((s) => s.current);
   const playNext = usePlayingListStore((s) => s.playNext);
   const clearPlayNext = usePlayingListStore((s) => s.clearPlayNext);
   const updateCurrentPlaying = usePlayingListStore((s) => s.updateCurrentPlaying);
   const getNextIndex = usePlayingListStore((s) => s.getNextIndex);
   const getPrevIndex = usePlayingListStore((s) => s.getPrevIndex);
+
+  // TrackId 解析：parsed 为 null 视为脏数据，回落到把整个 currentTrackId 当 bvid（兼容历史）
+  const parsedTrack = useMemo(
+    () => (currentTrackId ? parseTrackId(currentTrackId) : null),
+    [currentTrackId],
+  );
+  const currentBvId = parsedTrack?.bvid ?? currentTrackId;
+  const explicitPage = parsedTrack?.page;
 
   const videoEntities = useBilibiliVideosStore((s) => s.entities);
   const currentVideo = currentBvId ? (videoEntities[currentBvId] ?? null) : null;
@@ -152,6 +168,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   const volume = usePlayerProfileStore((s) => s.volume);
   const autoPlay = usePlayerProfileStore((s) => s.autoPlay);
   const loopMode = usePlayerProfileStore((s) => s.loopMode);
+  const autoPlayNextPage = usePlayerProfileStore((s) => s.autoPlayNextPage);
   const setVolumeStore = usePlayerProfileStore((s) => s.setVolume);
   const setLoopMode = usePlayerProfileStore((s) => s.setLoopMode);
 
@@ -197,12 +214,39 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       howlRef.current.play();
       return;
     }
+
+    // 分 P 连播判定（B5）：满足全部条件才切下一 P，否则原 goNext()
+    // 1. autoPlayNextPage=true（用户在设置中开启了实验性连播）
+    // 2. 当前 TrackId 是纯 bvid（非显式 :p<n>，显式条目永远走 next）
+    // 3. currentVideo 是多 P 投稿（videos > 1）
+    // 4. 当前实际播放 P 未到末尾（playingPage < videos）
+    const totalP = currentVideo?.videos ?? 1;
+    const curP = playingPageRef.current;
+    if (
+      autoPlayNextPage &&
+      explicitPage === undefined &&
+      currentVideo &&
+      totalP > 1 &&
+      curP < totalP
+    ) {
+      void initHowlRef.current?.(currentVideo, curP + 1);
+      return;
+    }
+
     goNext();
-  }, [loopMode, goNext]);
+  }, [loopMode, goNext, autoPlayNextPage, explicitPage, currentVideo]);
 
   // 初始化 Howl 实例
   const initHowl = useCallback(
-    async (video: BilibiliVideo, attempt: number = 0) => {
+    async (video: BilibiliVideo, page: number, attempt: number = 0) => {
+      // 占用一个新 generation，作为本次调用的身份标识
+      // 所有异步回调（await 后、Howl 构造、onload、onloaderror）都对照 gen，stale 路径直接丢弃
+      const gen = ++initGenRef.current;
+      // 同步更新"实际播放的 P"，供 onend 分 P 连播 / mediaSession 等使用
+      playingPageRef.current = page;
+      // 推送到 runtime store，让外部订阅方（如 PlayingQueue / SPlayer P 选择器）看到当前 P
+      usePlayerRuntimeStore.setState({ playingPage: page });
+
       // 释放旧实例
       if (howlRef.current) {
         howlRef.current.stop();
@@ -215,39 +259,50 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       setIsLoading(true);
 
       // mediaSession 元数据：MediaMetadata 在某些 WebView / jsdom 环境下未提供，做能力探测
-      // 仅 attempt=0 时刷新（重试不需要重置元数据）
+      // 仅 attempt=0 时刷新（重试不需要重置元数据）。多 P 投稿在标题加 P 后缀，便于锁屏识别
       if (
         attempt === 0 &&
         'mediaSession' in navigator &&
         typeof MediaMetadata !== 'undefined' &&
         video.title
       ) {
+        const isMultiPart = (video.videos ?? 1) > 1;
+        const partTitle = isMultiPart ? video.pages?.[page - 1]?.part : undefined;
+        const displayTitle = isMultiPart
+          ? `${video.title}（P${page}${partTitle ? ` - ${partTitle}` : ''}）`
+          : video.title;
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: video.title,
+          title: displayTitle,
           artist: video.author,
           artwork: video.pic ? [{ src: urlPrefixFixed(video.pic) }] : undefined,
         });
       }
 
       // 提取最终错误用于失败后分类 toast；onRetry 期间显示 INFO toast 反馈重试进度
-      const url = await fetchMusicUrl(video.bvid, biliMid, attempt, {
-        onRetry: ({ retryCount, maxRetries }) => {
-          sendNotice({
-            type: NoticeType.INFO,
-            message: `B 站接口暂时不通，正在重试 (${retryCount}/${maxRetries})...`,
-            duration: 2000,
-          });
+      const url = await fetchMusicUrl(
+        video.bvid,
+        biliMid,
+        attempt,
+        {
+          onRetry: ({ retryCount, maxRetries }) => {
+            sendNotice({
+              type: NoticeType.INFO,
+              message: `B 站接口暂时不通，正在重试 (${retryCount}/${maxRetries})...`,
+              duration: 2000,
+            });
+          },
+          onFinalError: (err) => {
+            // 风控已有全局对话框引导用户去主站验证，无需再弹 toast 避免双重提示
+            if (err.kind === 'risk-control') return;
+            sendNotice({
+              type: NoticeType.ERROR,
+              message: buildFetchMusicUrlErrorToast(err),
+              duration: 6000,
+            });
+          },
         },
-        onFinalError: (err) => {
-          // 风控已有全局对话框引导用户去主站验证，无需再弹 toast 避免双重提示
-          if (err.kind === 'risk-control') return;
-          sendNotice({
-            type: NoticeType.ERROR,
-            message: buildFetchMusicUrlErrorToast(err),
-            duration: 6000,
-          });
-        },
-      });
+        page,
+      );
       if (__DEV_LOG__) {
         console.debug(
           '[BILI-API] initHowl got url:',
@@ -257,6 +312,14 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
           'url=',
           url || '<EMPTY>',
         );
+      }
+      // Stale 校验（最关键的拦截点）：await 期间用户已切歌，丢弃此次结果
+      // 不调 setIsLoading(false)：新调用已接管 loading 状态，避免视觉跳动
+      if (gen !== initGenRef.current) {
+        if (__DEV_LOG__) {
+          console.debug('[BILI-API] initHowl stale (post-fetch), drop:', video.bvid, 'gen=', gen);
+        }
+        return;
       }
       if (!url) {
         setIsLoading(false);
@@ -273,11 +336,30 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
         html5: true,
         volume,
         onload: () => {
+          // 该实例属于已过期的初始化（用户已切歌）→ 立即销毁，不调 play()
+          if (gen !== initGenRef.current) {
+            try {
+              howl.stop();
+              howl.unload();
+            } catch {
+              /* 忽略：unload 期间可能抛错，无害 */
+            }
+            return;
+          }
           setIsLoading(false);
           setDuration(howl.duration());
           if (autoPlay) howl.play();
         },
         onloaderror: (id, err) => {
+          // stale：用户已切歌，旧 Howl 的加载错误不应触发降级重试
+          if (gen !== initGenRef.current) {
+            try {
+              howl.unload();
+            } catch {
+              /* 忽略 */
+            }
+            return;
+          }
           // 取 howl 内部 audio element 的 MediaError 详情：err 仅是 howler 抽象数字（4=src not supported），
           // 真实失败原因由浏览器写在 audioEl.error.{code, message}
           let mediaErrInfo: { code: number; message: string } | null = null;
@@ -336,8 +418,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
               message: `音频加载失败，降级重试 (${attempt + 1}/${AUDIO_FALLBACK_MAX_ATTEMPT})`,
               duration: 2000,
             });
-            // 通过 ref 调最新的 initHowl，避免捕获旧版本闭包
-            void initHowlRef.current?.(video, attempt + 1);
+            // 通过 ref 调最新的 initHowl，避免捕获旧版本闭包；保持 page 不变
+            void initHowlRef.current?.(video, page, attempt + 1);
             return;
           }
 
@@ -350,35 +432,67 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
           });
         },
         onplay: () => {
+          // 兜底（onload 已拦截 99% 路径）：stale 实例不应推动 isPlaying / 清 playNext
+          if (gen !== initGenRef.current) {
+            try {
+              howl.stop();
+              howl.unload();
+            } catch {
+              /* 忽略 */
+            }
+            return;
+          }
           setIsPlaying(true);
           setIsPausing(false);
           startRaf();
-          // 防止重复清除（同一首歌多次 onplay 触发）
-          if (lastClearedBvRef.current !== video.bvid) {
+          // 防止重复清除（同一 trackId 多次 onplay 触发）
+          // 用 buildTrackId(bvid, page) 比对，确保同 bvid 切 P 时仍能正确清 playNext
+          const trackKey = buildTrackId(video.bvid, page);
+          if (lastClearedTrackRef.current !== trackKey) {
             clearPlayNext();
-            lastClearedBvRef.current = video.bvid;
+            lastClearedTrackRef.current = trackKey;
           }
         },
         onpause: () => {
+          if (gen !== initGenRef.current) return;
           setIsPlaying(false);
           setIsPausing(true);
           stopRaf();
         },
         onstop: () => {
+          if (gen !== initGenRef.current) return;
           setIsPlaying(false);
           setIsPausing(false);
           setProgress(0);
           stopRaf();
         },
         onseek: () => {
+          if (gen !== initGenRef.current) return;
           const cur = howl.seek();
           if (typeof cur === 'number') setProgress(cur);
         },
-        onend: handleEnd,
+        // stale 的 onend 绝不能触发 goNext，否则会越过用户的切歌意图
+        onend: () => {
+          if (gen !== initGenRef.current) return;
+          handleEnd();
+        },
         onplayerror: () => {
+          if (gen !== initGenRef.current) return;
           howl.once('unlock', () => howl.play());
         },
       });
+
+      // 极端 race：构造期间又被切歌（同步路径几乎不可能，但 Howl 构造内部有微任务）
+      // 兜底丢弃，避免装到 howlRef 后又被新实例覆盖造成"双 howl 内存中并存"
+      if (gen !== initGenRef.current) {
+        try {
+          howl.stop();
+          howl.unload();
+        } catch {
+          /* 忽略 */
+        }
+        return;
+      }
       howlRef.current = howl;
       // 立即播放（首次 onplay 触发后清除 playNext）
       howl.play();
@@ -391,11 +505,13 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     initHowlRef.current = initHowl;
   }, [initHowl]);
 
-  // 监听 playNext 信号 + currentVideo 变化
+  // 监听 playNext 信号 + currentTrackId / currentVideo 变化
+  // deps 加 currentTrackId 是为了让"同 bvid 切 P"（例如 BV1 → BV1:p3）也触发 effect 重跑
   useEffect(() => {
     if (!playNext) return;
     if (!currentVideo) {
-      // 当前曲目被删除，停止并清除信号
+      // 当前曲目被删除：自增 gen 让任何 pending initHowl 进入 stale，避免它继续构造孤儿 Howl
+      initGenRef.current++;
       if (howlRef.current) {
         howlRef.current.stop();
         howlRef.current.unload();
@@ -404,13 +520,17 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       setIsPlaying(false);
       setIsPausing(false);
       stopRaf();
-      lastClearedBvRef.current = '';
+      lastClearedTrackRef.current = '';
       clearPlayNext();
       return;
     }
+    // 决定起始 P：显式 :p<n> 优先，其次 video-page-pref store 的 defaultPage，最后 P1。
+    // 通过 getState() 读取偏好（非订阅），避免用户偏好变化触发当前曲目重新加载。
+    const bvid = currentVideo.bvid;
+    const startPage = explicitPage ?? useVideoPagePrefStore.getState().getDefaultPage(bvid) ?? 1;
     setHasLyricFetchTry(false);
-    initHowl(currentVideo);
-  }, [playNext, currentVideo, initHowl, clearPlayNext, stopRaf]);
+    void initHowl(currentVideo, startPage);
+  }, [playNext, currentTrackId, currentVideo, explicitPage, initHowl, clearPlayNext, stopRaf]);
 
   // 音量变化同步到 Howl
   useEffect(() => {
@@ -448,6 +568,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   // 卸载时释放
   useEffect(() => {
     return () => {
+      // 自增 gen：让卸载后才 resolve 的 pending fetchMusicUrl 不再构造 Howl
+      initGenRef.current++;
       stopRaf();
       if (howlRef.current) {
         howlRef.current.stop();
@@ -463,7 +585,10 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     if (!currentVideo) return;
     const howl = howlRef.current;
     if (!howl) {
-      initHowl(currentVideo);
+      // 没有 Howl 实例：从用户当前 TrackId / 默认 P 起播
+      const bvid = currentVideo.bvid;
+      const startPage = explicitPage ?? useVideoPagePrefStore.getState().getDefaultPage(bvid) ?? 1;
+      void initHowl(currentVideo, startPage);
       return;
     }
     if (howl.playing()) {
@@ -471,7 +596,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     } else {
       howl.play();
     }
-  }, [isLoading, currentVideo, initHowl]);
+  }, [isLoading, currentVideo, explicitPage, initHowl]);
 
   const seek = useCallback((seconds: number) => {
     const howl = howlRef.current;
@@ -572,6 +697,21 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     // 把 seek 函数引用注册到 store，供 LyricViewer 等订阅方双击歌词跳转使用
     usePlayerRuntimeStore.setState({ seek });
   }, [seek]);
+
+  // 注册 switchToPage：让 PlayingQueue 等外部组件可请求切到当前投稿的指定 P
+  // 不动 usePlayingListStore.current（保持用户视角 TrackId 稳定），仅重建 Howl
+  useEffect(() => {
+    const switchToPage = (page: number) => {
+      if (!currentVideo) return;
+      const totalP = currentVideo.videos ?? 1;
+      const target = Math.max(1, Math.min(totalP, Math.floor(page)));
+      void initHowl(currentVideo, target);
+    };
+    usePlayerRuntimeStore.setState({ switchToPage });
+    return () => {
+      usePlayerRuntimeStore.setState({ switchToPage: undefined });
+    };
+  }, [currentVideo, initHowl]);
 
   // 进度同步到 setPositionState（每秒采样 progressRef，避免 RAF 60Hz setProgress 让 effect 反复重建定时器）
   useEffect(() => {

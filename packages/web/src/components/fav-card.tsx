@@ -15,14 +15,17 @@ import {
   useBilibiliUserVideosStore,
   useBilibiliVideosStore,
   useFavListStore,
+  useFavoritesStore,
   usePlayingListStore,
   useUIStore,
   formatNumber10K,
   urlPrefixFixed,
   bilibiliThumbUrl,
+  selectSortedBvids,
   timeStampNow,
   FavListType,
   NoticeType,
+  MASTER_UP_INFO,
   VIDEO_LIST_REFRESH_THRESHOLD,
   type FavListItem,
 } from '@shuoshuo-player/shared';
@@ -81,6 +84,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
 
   const setPlaylist = usePlayingListStore((s) => s.setPlaylist);
   const removeFavList = useFavListStore((s) => s.removeFavList);
+  const favoritesEntries = useFavoritesStore((s) => s.entries);
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openFavEdit = useUIShell((s) => s.openFavEdit);
   const openAddSong = useUIShell((s) => s.openAddSong);
@@ -89,6 +93,12 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
   const isCustom = fav.type === FavListType.CUSTOM;
   const isUploader = fav.type === FavListType.UPLOADER;
   const isBiliFav = fav.type === FavListType.BILI_FAV;
+  // 系统级「我的收藏」：避免与用户自建 CUSTOM 歌单混淆，统一关闭"自定义"徽标 / 创建时间 / 自定义头像
+  const isSystemFavorites = favId === 'favorites';
+  // master UP 主歌单（主数据源）：自动更新仅对其生效
+  const isMasterUploader = isUploader && fav.mid === String(MASTER_UP_INFO.mid);
+  // 紧凑模式：UPLOADER 保留 banner（头像 + 统计 + 简介），其他类型压缩为约两行高度
+  const isCompact = !isUploader;
   const deletable = favId !== 'main';
 
   const folderInfo = (favFolder?.info ?? {}) as { cover?: string };
@@ -103,6 +113,11 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
    * BILI_FAV 一直是空数组——这是导致"主歌单顶部播放按钮永远 disabled"的根因
    */
   const effectiveBvIds = useMemo<string[]>(() => {
+    // 系统级「我的收藏」：bv_ids 真实数据在 useFavoritesStore.entries（虚拟项 bv_ids 是空数组）
+    // 播放顺序与收藏页默认排序一致：最新收藏在前（desc）
+    if (isSystemFavorites) {
+      return selectSortedBvids(favoritesEntries, 'desc');
+    }
     if (isUploader) {
       return userVideoEntry?.video_list.map((it) => it.bvid) ?? [];
     }
@@ -110,7 +125,15 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       return favFolder?.video_list.map((it) => it.bvid) ?? [];
     }
     return fav.bv_ids;
-  }, [isUploader, isBiliFav, userVideoEntry, favFolder, fav.bv_ids]);
+  }, [
+    isSystemFavorites,
+    favoritesEntries,
+    isUploader,
+    isBiliFav,
+    userVideoEntry,
+    favFolder,
+    fav.bv_ids,
+  ]);
 
   // 防重入由 store action 入口保证（见 bilibili-user-videos.ts），useCallback 不再依赖 isLoading
   // 让引用稳定，下方 useEffect 才能放心把 updateList 列入 deps
@@ -134,18 +157,17 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
     ],
   );
 
-  // 24h 自动更新检测：仅 UPLOADER / BILI_FAV，且 store 已有 video 数据时（避免新建即拉取）
+  // 24h 自动更新检测：仅 master UP 主歌单（主数据源），其他 UP 主 / B 站收藏夹由用户手动触发更新
+  // 历史问题：原条件覆盖所有 UPLOADER + BILI_FAV，进入任意他人歌单即弹"正在加载投稿列表"，打断用户
   // lastUpdate 取 store 实时值而非 props.fav.update_time —— 后者对 MAIN_FAV_ITEM 写死 0 会永久过期
   const hasVideos = effectiveBvIds.length > 0;
-  const lastUpdate = isUploader
-    ? (userVideoEntry?.update_time ?? 0)
-    : (favFolder?.update_time ?? 0);
+  const masterLastUpdate = userVideoEntry?.update_time ?? 0;
   useEffect(() => {
-    if (!isUploader && !isBiliFav) return;
+    if (!isMasterUploader) return;
     if (!hasVideos) return;
-    if (lastUpdate + VIDEO_LIST_REFRESH_THRESHOLD >= timeStampNow()) return;
+    if (masterLastUpdate + VIDEO_LIST_REFRESH_THRESHOLD >= timeStampNow()) return;
     updateList('default');
-  }, [isUploader, isBiliFav, hasVideos, lastUpdate, updateList]);
+  }, [isMasterUploader, hasVideos, masterLastUpdate, updateList]);
 
   const handlePlay = useCallback(() => {
     if (effectiveBvIds.length === 0) {
@@ -180,9 +202,27 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
   });
 
   const avatar = useMemo(() => {
+    // 紧凑模式（非 UPLOADER）：头像缩到 h-12，避免占用一整行 banner 高度
+    const sizeCls = isCompact ? 'h-12 w-12' : 'h-20 w-20';
+    if (isSystemFavorites) {
+      // 与左侧栏「我的收藏」NavRow 视觉对齐：黄色 Star
+      return (
+        <div
+          className={cn(
+            'flex items-center justify-center rounded-full border-2 border-background bg-yellow-50 shadow dark:bg-yellow-500/10',
+            sizeCls,
+          )}
+          aria-label="我的收藏"
+        >
+          <Star
+            className={cn('fill-yellow-500 text-yellow-500', isCompact ? 'h-6 w-6' : 'h-10 w-10')}
+          />
+        </div>
+      );
+    }
     if (space?.face) {
       return (
-        <Avatar className="h-20 w-20 border-2 border-background shadow">
+        <Avatar className={cn('border-2 border-background shadow', sizeCls)}>
           <AvatarImage src={urlPrefixFixed(space.face)} alt={space.name} />
           <AvatarFallback>{space.name?.[0]}</AvatarFallback>
         </Avatar>
@@ -190,7 +230,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
     }
     if (folderInfo.cover) {
       return (
-        <Avatar className="h-20 w-20 border-2 border-background shadow">
+        <Avatar className={cn('border-2 border-background shadow', sizeCls)}>
           <AvatarImage src={urlPrefixFixed(folderInfo.cover)} alt={fav.name} />
           <AvatarFallback>{fav.name?.[0]}</AvatarFallback>
         </Avatar>
@@ -203,7 +243,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       const initial = fav.name ? [...fav.name][0] : '?';
       if (firstVideoCover) {
         return (
-          <Avatar className="h-20 w-20 rounded-md border-2 border-background shadow">
+          <Avatar className={cn('rounded-md border-2 border-background shadow', sizeCls)}>
             <AvatarImage src={bilibiliThumbUrl(firstVideoCover, 200, 200)} alt={fav.name} />
             <AvatarFallback className="rounded-md">{initial}</AvatarFallback>
           </Avatar>
@@ -212,7 +252,11 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       const hue = stringToHue(fav.id || fav.name || 'fav');
       return (
         <div
-          className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-background text-3xl font-semibold text-white shadow"
+          className={cn(
+            'flex items-center justify-center rounded-full border-2 border-background font-semibold text-white shadow',
+            sizeCls,
+            isCompact ? 'text-base' : 'text-3xl',
+          )}
           style={{
             backgroundImage: `linear-gradient(135deg, hsl(${hue} 70% 60%), hsl(${(hue + 60) % 360} 70% 48%))`,
           }}
@@ -223,13 +267,23 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       );
     }
     return (
-      <Avatar className="h-20 w-20 border-2 border-background shadow">
+      <Avatar className={cn('border-2 border-background shadow', sizeCls)}>
         <AvatarFallback>
-          <Music className="h-10 w-10 text-muted-foreground" />
+          <Music className={cn('text-muted-foreground', isCompact ? 'h-6 w-6' : 'h-10 w-10')} />
         </AvatarFallback>
       </Avatar>
     );
-  }, [space, folderInfo, fav.name, fav.id, isCustom, isBiliFav, firstVideoCover]);
+  }, [
+    space,
+    folderInfo,
+    fav.name,
+    fav.id,
+    isCustom,
+    isBiliFav,
+    isSystemFavorites,
+    isCompact,
+    firstVideoCover,
+  ]);
 
   const bgStyle = space?.top_photo
     ? {
@@ -247,8 +301,8 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
       )}
       style={bgStyle}
     >
-      <div className="p-6">
-        <div className="flex items-start gap-4">
+      <div className={cn(isCompact ? 'p-3' : 'p-6')}>
+        <div className={cn('flex gap-4', isSystemFavorites ? 'items-center' : 'items-start')}>
           {avatar}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -257,17 +311,27 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
               >
                 {space?.name ?? fav.name}
               </h3>
-              <Badge variant="secondary">{getTypeLabel(fav.type)}</Badge>
+              {!isSystemFavorites && <Badge variant="secondary">{getTypeLabel(fav.type)}</Badge>}
+              <span
+                className={cn(
+                  'shrink-0 text-xs text-muted-foreground',
+                  space?.top_photo && 'text-white/80',
+                )}
+              >
+                共 {effectiveBvIds.length} 首
+              </span>
             </div>
-            <p
-              className={cn(
-                'mt-1 truncate text-sm text-muted-foreground',
-                space?.top_photo && 'text-white/80',
-              )}
-            >
-              {space?.sign ??
-                `创建于 ${dayjs(fav.create_time * 1000).format('YYYY 年 MM 月 DD 日 HH:mm')}`}
-            </p>
+            {!isSystemFavorites && (
+              <p
+                className={cn(
+                  'mt-1 truncate text-sm text-muted-foreground',
+                  space?.top_photo && 'text-white/80',
+                )}
+              >
+                {space?.sign ??
+                  `创建于 ${dayjs(fav.create_time * 1000).format('YYYY 年 MM 月 DD 日 HH:mm')}`}
+              </p>
+            )}
             {space?.stats && (
               <div
                 className={cn(
@@ -288,47 +352,50 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
               <PlayCircle className="mr-2 h-4 w-4" />
               播放
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[180px]">
-                {isCustom && (
-                  <DropdownMenuItem onSelect={() => openAddSong(favId)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    添加歌曲
-                  </DropdownMenuItem>
-                )}
-                {(isUploader || isBiliFav) && (
-                  <>
-                    <DropdownMenuItem onSelect={() => updateList('default')} disabled={isLoading}>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      更新前 30
+            {/* 系统级「我的收藏」无编辑/删除/添加等操作，隐藏更多菜单 */}
+            {!isSystemFavorites && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[180px]">
+                  {isCustom && (
+                    <DropdownMenuItem onSelect={() => openAddSong(favId)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      添加歌曲
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => updateList('fully')} disabled={isLoading}>
-                      <Star className="mr-2 h-4 w-4" />
-                      更新整个列表
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuItem onSelect={() => openFavEdit(favId)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  编辑歌单
-                </DropdownMenuItem>
-                {deletable && (
-                  <DropdownMenuItem
-                    onSelect={handleDelete}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    删除歌单
+                  )}
+                  {(isUploader || isBiliFav) && (
+                    <>
+                      <DropdownMenuItem onSelect={() => updateList('default')} disabled={isLoading}>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        更新前 30
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => updateList('fully')} disabled={isLoading}>
+                        <Star className="mr-2 h-4 w-4" />
+                        更新整个列表
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem onSelect={() => openFavEdit(favId)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    编辑歌单
                   </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {deletable && (
+                    <DropdownMenuItem
+                      onSelect={handleDelete}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      删除歌单
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </div>

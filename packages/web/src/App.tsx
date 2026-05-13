@@ -11,6 +11,7 @@ import { BilibiliLoginRequired } from '@/components/bilibili-login-required';
 import { FavEditDialog } from '@/components/dialogs/fav-edit-dialog';
 import { AddSongDialog } from '@/components/dialogs/add-song-dialog';
 import { AddToFavDialog } from '@/components/dialogs/add-to-fav-dialog';
+import { PagesPickerDialog } from '@/components/dialogs/pages-picker-dialog';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { RiskControlDialog } from '@/components/dialogs/risk-control-dialog';
 import { useUIShell } from '@/stores/ui-shell';
@@ -71,6 +72,7 @@ function RootLayout() {
           <FavEditDialog />
           <AddSongDialog />
           <AddToFavDialog />
+          <PagesPickerDialog />
           <ConfirmDialog />
           <RiskControlDialog />
         </>

@@ -17,6 +17,7 @@ import { useLyricsStore } from '../lyrics';
 import { usePlayerProfileStore } from '../player-profile';
 import { usePlayingListStore } from '../playing-list';
 import { useCloudServiceStore } from '../cloud-service';
+import { DEFAULT_FLOATING_LYRICS } from '../../types';
 
 function makeAdapter(): StorageAdapter & { _store: Map<string, string> } {
   const store = new Map<string, string>();
@@ -123,7 +124,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
       space: {},
       favFolders: {},
     });
-    usePlayingListStore.setState({ favId: '', bvIds: [], current: '', playNext: false });
+    usePlayingListStore.setState({ favId: '', trackIds: [], current: '', playNext: false });
     useFavListStore.setState({ list: [] });
     usePlayerProfileStore.setState({
       theme: 'auto',
@@ -141,7 +142,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     return entry;
   }
 
-  it('注册表覆盖 9 个 PERSIST_KEYS', () => {
+  it('注册表覆盖 11 个 PERSIST_KEYS', () => {
     const keys = STORE_PERSIST_REGISTRY.map((e) => e.key).sort();
     expect(keys).toEqual(
       [
@@ -154,6 +155,8 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
         'cloud_service',
         'music_url_cache',
         'update_checker',
+        'favorites',
+        'video_page_pref',
       ].sort(),
     );
   });
@@ -175,10 +178,77 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     expect(useBilibiliUserVideosStore.getState().infos['1']).toBeDefined();
   });
 
-  it('playing_list hydrate playNext 始终重置为 false', () => {
+  it('bili_user_videos hydrate strip 旧脏数据中的 :p<n> 后缀（E3）', () => {
+    getEntry('bili_user_videos').hydrate({
+      isLoading: false,
+      infos: {
+        '7': {
+          update_time: 100,
+          count: 2,
+          update_type: '',
+          video_list: [
+            { bvid: 'BV1Test:p2', created: 1 } as never,
+            { bvid: 'BV2Test', created: 2 } as never,
+          ],
+        },
+      },
+      favFolders: {
+        '99': {
+          update_time: 100,
+          count: 1,
+          update_type: '',
+          info: {},
+          video_list: [{ bvid: 'BV3Dirty:p5', created: 3 } as never],
+        } as never,
+      },
+    });
+    const infos = useBilibiliUserVideosStore.getState().infos;
+    expect(infos['7']?.video_list[0]?.bvid).toBe('BV1Test');
+    expect(infos['7']?.video_list[1]?.bvid).toBe('BV2Test');
+    const favFolders = useBilibiliUserVideosStore.getState().favFolders;
+    expect(favFolders['99']?.video_list[0]?.bvid).toBe('BV3Dirty');
+  });
+
+  it('bili_user_videos hydrate 干净数据保持引用不变（无浪费分配）', () => {
+    const cleanList = [{ bvid: 'BV1Clean', created: 1 }];
+    const cleanEntry = {
+      update_time: 100,
+      count: 1,
+      update_type: '' as const,
+      video_list: cleanList,
+    };
+    getEntry('bili_user_videos').hydrate({
+      isLoading: false,
+      infos: { '7': cleanEntry },
+    });
+    // cleanVideoListEntry 检测无脏值时直接返回原 entry 引用
+    expect(useBilibiliUserVideosStore.getState().infos['7']?.video_list).toBe(cleanList);
+  });
+
+  it('playing_list hydrate playNext 始终重置为 false（兼容旧 bvIds 字段名）', () => {
     getEntry('playing_list').hydrate({ favId: 'a', bvIds: ['BV1'], current: 'BV1' });
     expect(usePlayingListStore.getState().playNext).toBe(false);
-    expect(usePlayingListStore.getState().bvIds).toEqual(['BV1']);
+    expect(usePlayingListStore.getState().trackIds).toEqual(['BV1']);
+  });
+
+  it('playing_list hydrate 新字段 trackIds（B2 起）', () => {
+    getEntry('playing_list').hydrate({
+      favId: 'a',
+      trackIds: ['BV1', 'BV2:p3'],
+      current: 'BV2:p3',
+    });
+    expect(usePlayingListStore.getState().trackIds).toEqual(['BV1', 'BV2:p3']);
+    expect(usePlayingListStore.getState().current).toBe('BV2:p3');
+  });
+
+  it('playing_list hydrate trackIds 与 bvIds 同时存在时优先 trackIds', () => {
+    getEntry('playing_list').hydrate({
+      favId: 'a',
+      bvIds: ['LEGACY'],
+      trackIds: ['NEW'],
+      current: 'NEW',
+    });
+    expect(usePlayingListStore.getState().trackIds).toEqual(['NEW']);
   });
 
   it('fav_list hydrate 缺失字段兜底空数组', () => {
@@ -192,10 +262,63 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     expect(usePlayerProfileStore.getState().volume).toBe(0.3);
   });
 
+  it('ui_profile hydrate 无 floatingLyrics 字段时兜底为 DEFAULT_FLOATING_LYRICS', () => {
+    // 重置悬浮歌词字段，模拟"老用户没有此字段"的初始 store 状态
+    usePlayerProfileStore.setState({ floatingLyrics: { ...DEFAULT_FLOATING_LYRICS } });
+    // 老快照（B4 之前）不带 floatingLyrics
+    getEntry('ui_profile').hydrate({ theme: 'dark' });
+    expect(usePlayerProfileStore.getState().floatingLyrics).toEqual(DEFAULT_FLOATING_LYRICS);
+  });
+
+  it('ui_profile hydrate 部分 floatingLyrics 字段时与 DEFAULT 合并', () => {
+    getEntry('ui_profile').hydrate({
+      theme: 'dark',
+      floatingLyrics: { fontSize: 20, fontWeight: 'bold' },
+    });
+    const cfg = usePlayerProfileStore.getState().floatingLyrics;
+    expect(cfg.fontSize).toBe(20);
+    expect(cfg.fontWeight).toBe('bold');
+    // 未提供字段走 default
+    expect(cfg.textAlign).toBe(DEFAULT_FLOATING_LYRICS.textAlign);
+    expect(cfg.enabled).toBe(DEFAULT_FLOATING_LYRICS.enabled);
+    expect(cfg.bgOpacity).toBe(DEFAULT_FLOATING_LYRICS.bgOpacity);
+  });
+
+  it('ui_profile snapshot 包含 floatingLyrics 字段', () => {
+    usePlayerProfileStore.setState({
+      floatingLyrics: { ...DEFAULT_FLOATING_LYRICS, fontSize: 22, textAlign: 'left' },
+    });
+    const snap = getEntry('ui_profile').snapshot() as {
+      floatingLyrics?: { fontSize: number; textAlign: string };
+    };
+    expect(snap.floatingLyrics).toBeDefined();
+    expect(snap.floatingLyrics?.fontSize).toBe(22);
+    expect(snap.floatingLyrics?.textAlign).toBe('left');
+  });
+
   it('lyrics hydrate', () => {
     const lyricMaps = { BV1: { bvid: 'BV1', offset: 0, lrc: '' } };
     getEntry('lyrics').hydrate({ lyricMaps });
     expect(useLyricsStore.getState().lyricMaps.BV1).toBeDefined();
+  });
+
+  it('favorites hydrate / snapshot 往返一致', async () => {
+    const { useFavoritesStore } = await import('../favorites');
+    useFavoritesStore.setState({ entries: {} });
+
+    const data = { entries: { BV1: 100, BV2: 200 } };
+    getEntry('favorites').hydrate(data);
+    expect(useFavoritesStore.getState().entries).toEqual({ BV1: 100, BV2: 200 });
+
+    const snap = getEntry('favorites').snapshot() as typeof data;
+    expect(snap.entries).toEqual({ BV1: 100, BV2: 200 });
+  });
+
+  it('favorites hydrate 缺失 entries 字段兜底空对象', async () => {
+    const { useFavoritesStore } = await import('../favorites');
+    useFavoritesStore.setState({ entries: { BVx: 999 } });
+    getEntry('favorites').hydrate({});
+    expect(useFavoritesStore.getState().entries).toEqual({});
   });
 
   it('cloud_service hydrate session（缺失 session 时不抛错）', () => {
@@ -231,7 +354,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     expect(cb).not.toHaveBeenCalled();
   });
 
-  it('collectPersistableSnapshot 聚合所有 7 个 store 当前状态', () => {
+  it('collectPersistableSnapshot 聚合所有 11 个 store 当前状态', () => {
     useFavListStore.setState({
       list: [{ id: 'a', name: 'A', type: 'CUSTOM' as never, bv_ids: [] } as never],
     });

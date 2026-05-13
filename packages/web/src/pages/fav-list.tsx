@@ -2,17 +2,28 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import Fuse from 'fuse.js';
-import { Search, X, AlertCircle, FolderOpen } from 'lucide-react';
+import {
+  Search,
+  X,
+  AlertCircle,
+  FolderOpen,
+  ArrowDownNarrowWide,
+  ArrowUpNarrowWide,
+} from 'lucide-react';
 import {
   MASTER_UP_INFO,
   FavListType,
   useBilibiliUserVideosStore,
   useBilibiliVideosStore,
   useFavListStore,
+  useFavoritesStore,
   useUIStore,
+  selectSortedBvids,
+  parseTrackId,
   NoticeType,
   type BilibiliVideo,
   type FavListItem,
+  type FavoritesOrder,
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { VideoItem } from '@/components/video-item';
@@ -21,6 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 const MAIN_FAV_ID = 'main';
+const FAVORITES_FAV_ID = 'favorites';
 const MASTER_MID = String(MASTER_UP_INFO.mid);
 const ROW_HEIGHT = 108;
 
@@ -35,15 +47,28 @@ const MAIN_FAV_ITEM: FavListItem = {
   update_time: 0,
 };
 
+/** 系统级「我的收藏」虚拟条目：复用 CUSTOM 渲染路径，bv_ids 由 favorites store 派生 */
+const FAVORITES_FAV_ITEM: FavListItem = {
+  id: FAVORITES_FAV_ID,
+  name: '我的收藏',
+  type: FavListType.CUSTOM,
+  bv_ids: [],
+  create_time: 0,
+  update_time: 0,
+};
+
 export function FavListPage() {
   const params = useParams<{ id: string }>();
   const favId = params.id ?? MAIN_FAV_ID;
 
   const [searchKey, setSearchKey] = useState('');
+  const [favoritesOrder, setFavoritesOrder] = useState<FavoritesOrder>('desc');
   const parentRef = useRef<HTMLDivElement>(null);
 
   const favList = useFavListStore((s) => s.list);
   const removeFavVideo = useFavListStore((s) => s.removeFavVideo);
+
+  const favoritesEntries = useFavoritesStore((s) => s.entries);
 
   const userVideoInfos = useBilibiliUserVideosStore((s) => s.infos);
   const favFolderInfos = useBilibiliUserVideosStore((s) => s.favFolders);
@@ -57,43 +82,69 @@ export function FavListPage() {
     setSearchKey('');
   }, [favId]);
 
+  const isFavoritesPage = favId === FAVORITES_FAV_ID;
+
   const favListInfo = useMemo<FavListItem | null>(() => {
     if (favId === MAIN_FAV_ID) return MAIN_FAV_ITEM;
+    if (favId === FAVORITES_FAV_ID) return FAVORITES_FAV_ITEM;
     return favList.find((f) => f.id === favId) ?? null;
   }, [favId, favList]);
 
   const isTypeCustom = favListInfo?.type === FavListType.CUSTOM;
 
-  // 根据类型计算视频列表
-  const favVideoList = useMemo<BilibiliVideo[]>(() => {
+  /**
+   * 歌单条目元组：trackId + 解析出的 bvid/explicitPage + 关联 video entity
+   *
+   * CUSTOM / favorites 的 trackId 可能含 :p<n>，store 按 bvid 索引 entity，
+   * 因此需 parseTrackId 拆出 bvid 查表后保留 explicitPage 给 VideoItem 渲染角标。
+   * UPLOADER / BILI_FAV 的条目永远是纯 bvid（写入侧已校验拦截）。
+   */
+  type FavRow = { trackId: string; video: BilibiliVideo; explicitPage?: number };
+  const favVideoList = useMemo<FavRow[]>(() => {
     if (!favListInfo) return [];
+    const mapTrackId = (trackId: string): FavRow | null => {
+      const parsed = parseTrackId(trackId);
+      const bvid = parsed?.bvid ?? trackId;
+      const video = videoEntities[bvid];
+      if (!video) return null;
+      return { trackId, video, explicitPage: parsed?.page };
+    };
+    if (isFavoritesPage) {
+      return selectSortedBvids(favoritesEntries, favoritesOrder)
+        .map(mapTrackId)
+        .filter((r): r is FavRow => r !== null);
+    }
     if (favListInfo.type === FavListType.UPLOADER) {
-      const mid = favListInfo.mid ?? '';
-      const entry = userVideoInfos[mid];
+      const entry = userVideoInfos[favListInfo.mid ?? ''];
       if (!entry) return [];
       return entry.video_list
-        .map((it) => videoEntities[it.bvid])
-        .filter((v): v is BilibiliVideo => Boolean(v));
+        .map((it) => mapTrackId(it.bvid))
+        .filter((r): r is FavRow => r !== null);
     }
     if (favListInfo.type === FavListType.BILI_FAV) {
-      const folderId = favListInfo.biliFavFolderId ?? '';
-      const entry = favFolderInfos[folderId];
+      const entry = favFolderInfos[favListInfo.biliFavFolderId ?? ''];
       if (!entry) return [];
       return entry.video_list
-        .map((it) => videoEntities[it.bvid])
-        .filter((v): v is BilibiliVideo => Boolean(v));
+        .map((it) => mapTrackId(it.bvid))
+        .filter((r): r is FavRow => r !== null);
     }
-    // CUSTOM
-    return favListInfo.bv_ids
-      .map((bvid) => videoEntities[bvid])
-      .filter((v): v is BilibiliVideo => Boolean(v));
-  }, [favListInfo, userVideoInfos, favFolderInfos, videoEntities]);
+    return favListInfo.bv_ids.map(mapTrackId).filter((r): r is FavRow => r !== null);
+  }, [
+    favListInfo,
+    isFavoritesPage,
+    favoritesEntries,
+    favoritesOrder,
+    userVideoInfos,
+    favFolderInfos,
+    videoEntities,
+  ]);
 
   // Fuse.js 多字段搜索（v1 仅 title；v2 扩为 title/author/sub_title/description）
+  // 注：keys 走嵌套字段 video.title，与新 FavRow 形态对齐
   const fuse = useMemo(
     () =>
       new Fuse(favVideoList, {
-        keys: ['title', 'author', 'sub_title', 'description'],
+        keys: ['video.title', 'video.author', 'video.sub_title', 'video.description'],
         threshold: 0.3,
         ignoreLocation: true,
       }),
@@ -113,14 +164,19 @@ export function FavListPage() {
     overscan: 5,
   });
 
-  const handleRemoveSong = (bvid: string) => {
+  const handleRemoveSong = (trackId: string) => {
     if (!isTypeCustom) return;
+    const isFav = isFavoritesPage;
     openConfirm({
-      title: '移除歌曲',
-      description: '确定从歌单中移除这首歌吗？',
+      title: isFav ? '取消收藏' : '移除歌曲',
+      description: isFav ? '确定从我的收藏中移除这首歌吗？' : '确定从歌单中移除这首歌吗？',
       destructive: true,
       onConfirm: () => {
-        removeFavVideo(favId, bvid);
+        if (isFav) {
+          useFavoritesStore.getState().remove(trackId);
+        } else {
+          removeFavVideo(favId, trackId);
+        }
         sendNotice({ type: NoticeType.SUCCESS, message: '已移除', duration: 2000 });
       },
     });
@@ -162,9 +218,27 @@ export function FavListPage() {
               </Button>
             )}
           </div>
-          <span className="text-xs text-muted-foreground">
-            {filteredVideos.length} / {favVideoList.length}
-          </span>
+          {isFavoritesPage && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 gap-1"
+              onClick={() => setFavoritesOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+            >
+              {favoritesOrder === 'desc' ? (
+                <ArrowDownNarrowWide className="h-3.5 w-3.5" />
+              ) : (
+                <ArrowUpNarrowWide className="h-3.5 w-3.5" />
+              )}
+              {favoritesOrder === 'desc' ? '最新收藏在前' : '最早收藏在前'}
+            </Button>
+          )}
+          {/* 总数已在 FavCard 标题旁显示，这里只在搜索时显示命中情况 */}
+          {searchKey && (
+            <span className="text-xs text-muted-foreground">
+              命中 {filteredVideos.length} / {favVideoList.length}
+            </span>
+          )}
         </div>
       )}
 
@@ -197,7 +271,7 @@ export function FavListPage() {
             }}
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
-              const video = filteredVideos[virtualRow.index];
+              const row = filteredVideos[virtualRow.index];
               return (
                 <div
                   key={virtualRow.key}
@@ -213,12 +287,13 @@ export function FavListPage() {
                 >
                   <div className="px-2 py-1">
                     <VideoItem
-                      video={video}
+                      video={row.video}
+                      explicitPage={row.explicitPage}
                       favId={favId}
                       fullCreateTime
                       showAuthor={isTypeCustom}
                       showRemoveBtn={isTypeCustom}
-                      onRemove={handleRemoveSong}
+                      onRemove={() => handleRemoveSong(row.trackId)}
                     />
                   </div>
                 </div>

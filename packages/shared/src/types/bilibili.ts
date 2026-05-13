@@ -12,6 +12,18 @@ export interface BilibiliUserInfo {
   };
 }
 
+/** B 站视频分 P 元数据（view 接口 pages[] 子集） */
+export interface BilibiliVideoPage {
+  /** 该 P 的 cid（取流必传） */
+  cid: number;
+  /** 该 P 的序号，从 1 开始 */
+  page: number;
+  /** 该 P 的标题 */
+  part: string;
+  /** 该 P 的时长，单位秒 */
+  duration: number;
+}
+
 /** B 站视频实体 */
 export interface BilibiliVideo {
   aid: number;
@@ -27,7 +39,12 @@ export interface BilibiliVideo {
   author: string;
   description: string;
   mid?: number;
+  /** 视频 1P 的 cid（便于不查 pages 的快速场景使用） */
   cid?: number;
+  /** 分 P 总数；缺失视为 1 */
+  videos?: number;
+  /** 分 P 列表（view 模式入库时填充；列表 / 收藏夹模式可能缺失） */
+  pages?: BilibiliVideoPage[];
 }
 
 /** UP 主空间信息（/x/space/wbi/acc/info 响应字段拾取） */

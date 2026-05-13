@@ -146,4 +146,48 @@ describe('NavMenu', () => {
     renderNav(false);
     expect(screen.queryByText('我的歌单')).not.toBeInTheDocument();
   });
+
+  it('展示"我的收藏"链接，指向 /fav/favorites', () => {
+    renderNav(true);
+    const link = screen.getByRole('link', { name: /我的收藏/ });
+    expect(link).toBeInTheDocument();
+    // MemoryRouter 下 href 为 /fav/favorites；HashRouter 下为 #/fav/favorites。统一用 contains
+    expect(link.getAttribute('href')).toMatch(/\/fav\/favorites$/);
+  });
+
+  it('master 歌单（说说Crystal）在 DOM 中位于"我的歌单"分类标题之前', () => {
+    renderNav(true);
+    const masterLink = screen.getByRole('link', { name: /说说Crystal/ });
+    const myFavLabel = screen.getByText('我的歌单');
+    const pos = masterLink.compareDocumentPosition(myFavLabel);
+    // master 在 myFavLabel 之前 → myFavLabel 是 master 的 FOLLOWING
+    expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('"我的收藏"在 DOM 中位于"我的歌单"分类标题之后、用户自定义歌单之前', () => {
+    useFavListStore.setState({
+      list: [
+        {
+          id: 'c1',
+          name: '我的精选',
+          type: FavListType.CUSTOM,
+          bv_ids: [],
+          create_time: 0,
+          update_time: 0,
+        } as never,
+      ],
+    });
+    renderNav(true);
+    const myFavLabel = screen.getByText('我的歌单');
+    const favoritesLink = screen.getByRole('link', { name: /我的收藏/ });
+    const customLink = screen.getByRole('link', { name: /我的精选/ });
+    // 标题 → 我的收藏：标题在前
+    expect(
+      myFavLabel.compareDocumentPosition(favoritesLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // 我的收藏 → 自定义：收藏在前
+    expect(
+      favoritesLink.compareDocumentPosition(customLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });

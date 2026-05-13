@@ -4,8 +4,10 @@ import { getPlatformBridge } from '../platform';
 import { useRiskControlStore } from '../store/risk-control';
 import { useMusicUrlCacheStore } from '../store/music-url-cache';
 import { useBilibiliVideosStore } from '../store/bilibili-videos';
+import { pickVideosFields } from './bilibili';
 import { timeStampNow } from './format';
 import { logger } from './logger';
+import { buildTrackId } from './track-id';
 import type { DashAudioStream } from '../types';
 import type { VideoViewInfo } from '../api/bilibili/video';
 
@@ -28,10 +30,29 @@ function applyAudioUrlTransformer(url: string): string {
 /** 模拟点击节流：bvid → 上次发送时间（秒） */
 const musicPlayClickTime: Record<string, number> = {};
 /**
- * 同 bvid 并发请求复用同一个 Promise（避免 React strict mode useEffect 双触发或
+ * 同 (bvid, page) 并发请求复用同一个 Promise（避免 React strict mode useEffect 双触发或
  * 上下游 effect 重复调用时，第二次抢到 cached.loading=true 后早返回 '' → goNext 误跳下一首）
  */
 const inflightRequests: Record<string, Promise<string>> = {};
+
+/**
+ * 同 bvid 的 view 接口并发去重（不分 P）：
+ * 同 bvid 不同 P 的并发 fetchMusicUrl 在 view 仍进行中时共享同一个 Promise，
+ * 避免 view 被双调；首次完成后 pages 已入库，后续 P 通过 resolveCachedCid 命中 store。
+ */
+const viewInflightByBvid: Record<string, Promise<unknown>> = {};
+
+function coalesceViewCall(bvId: string): Promise<unknown> {
+  const existing = viewInflightByBvid[bvId];
+  if (existing) return existing;
+  const p = (VideoApi.getVideoViewInfo({ params: { bvid: bvId } }) as Promise<unknown>).finally(
+    () => {
+      delete viewInflightByBvid[bvId];
+    },
+  );
+  viewInflightByBvid[bvId] = p;
+  return p;
+}
 
 /* ========== 错误分类（供调用方决定 toast 文案 / 是否风控对话框） ========== */
 
@@ -195,19 +216,29 @@ function pickPlayableUrl(audioInfo: DashAudioStream | undefined): string {
 }
 
 /**
- * 从已知来源解析 cid，避免 fetchMusicUrl 中重复调 view 接口
+ * 从 bili_videos store 解析指定 page 的 cid，避免 fetchMusicUrl 中重复调 view 接口
  *
- * 优先级：
- * 1. URL 缓存中已存的 cid（上次成功 fetch 时回填）
- * 2. bili_videos store 中 view 模式入库的视频 entity（mapViewItem 拾取的 cid）
+ * 自 A5 起 URL 缓存 key 升级为 `bvid:cid`，缓存不再独立保存 cid；
+ * 因此 cid 解析的唯一来源是 bili_videos store 中 view 模式入库的视频 entity。
  *
- * 取不到（如收藏夹来源 / 历史数据）则返回 undefined，调用方需 fallback 到 view 接口
+ * 优先级（B1 起按 page 解析）：
+ * 1. entity.pages[page-1].cid（A4 之后 view 接口已回填完整 pages）
+ * 2. entity.cid（仅 page=1 时使用 — 是 1P 的便捷字段）
+ *
+ * 取不到（如收藏夹来源 / 历史数据 / 跨 P 但 pages 未入库）则返回 undefined，
+ * 调用方需 fallback 到 view 接口。
  */
-function resolveCachedCid(bvid: string): number | undefined {
-  const fromUrlCache = useMusicUrlCacheStore.getState().entries[bvid]?.cid;
-  if (typeof fromUrlCache === 'number' && fromUrlCache > 0) return fromUrlCache;
-  const fromVideoStore = useBilibiliVideosStore.getState().entities[bvid]?.cid;
-  if (typeof fromVideoStore === 'number' && fromVideoStore > 0) return fromVideoStore;
+function resolveCachedCid(bvid: string, page: number = 1): number | undefined {
+  const entity = useBilibiliVideosStore.getState().entities[bvid];
+  if (!entity) return undefined;
+  const pageEntry = entity.pages?.[page - 1];
+  if (pageEntry && typeof pageEntry.cid === 'number' && pageEntry.cid > 0) {
+    return pageEntry.cid;
+  }
+  // 仅 page=1 可以 fallback 到 entity.cid（顶层 cid 是 1P 的 cid）
+  if (page === 1 && typeof entity.cid === 'number' && entity.cid > 0) {
+    return entity.cid;
+  }
   return undefined;
 }
 
@@ -221,32 +252,60 @@ async function attemptFetchMusicUrl(
   currentUserMid: string | number | undefined,
   attempt: number,
   retryCount: number,
+  page: number,
 ): Promise<
   | { url: string; cid: number; aid?: number; descType?: string | number }
   | { error: FetchMusicUrlError }
 > {
   try {
-    // 优先从已知来源拿 cid（URL 缓存 / bili_videos store），命中则跳过 view 接口
-    let cid = resolveCachedCid(bvId);
+    // 优先从 bili_videos store 拿指定 page 的 cid，命中则跳过 view 接口
+    let cid = resolveCachedCid(bvId, page);
     let aid: number | undefined;
     let descType: string | number | undefined;
 
     if (typeof cid !== 'number') {
-      const viewInfo = (await VideoApi.getVideoViewInfo({
-        params: { bvid: bvId },
-      })) as VideoViewInfo & { cid?: number; aid?: number };
+      // 同 bvid 不同 P 并发：若第一次 view 仍在进行，复用其 Promise 避免 view 被双调；
+      // 首次完成后 pages 已入库，等后的请求通过 resolveCachedCid 命中 store。
+      const viewInfo = (await coalesceViewCall(bvId)) as VideoViewInfo & {
+        cid?: number;
+        aid?: number;
+        pages?: Array<{ cid: number; page: number }>;
+      };
 
       logger.debug('[BILI-API]', 'viewInfo ok', {
         bvid: bvId,
         cid: viewInfo?.cid,
         aid: viewInfo?.aid,
+        videos: (viewInfo as { videos?: number })?.videos,
+        requestPage: page,
       });
 
-      cid = viewInfo?.cid ?? 0;
       aid = viewInfo?.aid;
       descType = viewInfo?.desc_v2?.[0]?.type;
+
+      // 回填 pages/videos 到 bili_videos store：后续切 P 直接拿 cid，省 view 调用。
+      // 强制用请求 bvId 作为 entity key（覆盖 viewInfo.bvid），生产场景两者一致；
+      // 接口异常或 mock 不一致时也能保证入库到正确位置。
+      if (viewInfo && (typeof viewInfo.cid === 'number' || Array.isArray(viewInfo.pages))) {
+        useBilibiliVideosStore
+          .getState()
+          .upsertMany(
+            pickVideosFields({ ...viewInfo, bvid: bvId } as unknown as { bvid: string }, 'view'),
+          );
+      }
+
+      // 取目标 page 的 cid：优先 viewInfo.pages、回退 entity 已入库的 pages、再回退顶层 cid
+      const pickedFromPages =
+        viewInfo?.pages?.find((p) => p.page === page)?.cid ?? resolveCachedCid(bvId, page);
+      if (typeof pickedFromPages === 'number') {
+        cid = pickedFromPages;
+      } else if (page === 1) {
+        cid = viewInfo?.cid ?? 0;
+      } else {
+        cid = 0;
+      }
     } else {
-      logger.debug('[BILI-API]', 'fetchMusicUrl cid hit (skip view)', { bvid: bvId, cid });
+      logger.debug('[BILI-API]', 'fetchMusicUrl cid hit (skip view)', { bvid: bvId, cid, page });
     }
 
     const playInfo = await VideoApi.getVideoPlayurl({
@@ -341,29 +400,42 @@ export async function fetchMusicUrl(
   currentUserMid?: string | number,
   attempt: number = 0,
   options?: FetchMusicUrlOptions,
+  page?: number,
 ): Promise<string> {
-  logger.debug('[BILI-API]', 'fetchMusicUrl enter', { bvid: bvId, attempt });
+  // 防御：page 必须为 >= 1 的整数，否则 fallback 到 1（不抛错以简化调用方）
+  const effectivePage = typeof page === 'number' && Number.isInteger(page) && page >= 1 ? page : 1;
+
+  logger.debug('[BILI-API]', 'fetchMusicUrl enter', { bvid: bvId, attempt, page: effectivePage });
 
   // attempt > 0：bypass 缓存 / inflight；下一档音质需要全新一次 playInfo 请求 + 重新选 audio.id
   const useSharedSlot = attempt === 0;
+  // inflight slot key：bvid + page。同一 bvid 的不同 P 是独立请求，不能复用 promise。
+  // 复用 TrackId 工具构造，避免分散硬编码 `:p` 字面量
+  const inflightKey = buildTrackId(bvId, effectivePage);
 
   if (useSharedSlot) {
-    // 命中已有 inflight 请求：所有并发调用共享同一个 Promise，避免 race
-    const existing = inflightRequests[bvId];
+    // 命中已有 inflight 请求：相同 (bvid, page) 的并发调用共享 Promise，避免 race
+    const existing = inflightRequests[inflightKey];
     if (existing) {
-      logger.debug('[BILI-API]', 'fetchMusicUrl inflight hit', { bvid: bvId });
+      logger.debug('[BILI-API]', 'fetchMusicUrl inflight hit', { bvid: bvId, page: effectivePage });
       return existing;
     }
 
-    // 命中 TTL 内的持久化 URL 缓存：直接 return（重启后同样有效）
-    const urlCacheStore = useMusicUrlCacheStore.getState();
-    const cachedEntry = urlCacheStore.getValid(bvId);
-    if (cachedEntry?.playUrl) {
-      logger.debug('[BILI-API]', 'fetchMusicUrl cache hit', {
-        bvid: bvId,
-        playUrl: cachedEntry.playUrl.slice(0, 80) + '...',
-      });
-      return applyAudioUrlTransformer(cachedEntry.playUrl);
+    // 命中 TTL 内的持久化 URL 缓存：直接 return（重启后同样有效）。
+    // 自 A5 起 cache key 升级为 `bvid:cid`，需先从 bili_videos store 拿到 cid 才能查；
+    // 拿不到（首次播放）时跳过 cache 直接走 attemptFetchMusicUrl 内部 view → upsert 流程。
+    const knownCid = resolveCachedCid(bvId, effectivePage);
+    if (typeof knownCid === 'number') {
+      const cachedEntry = useMusicUrlCacheStore.getState().getValid(bvId, knownCid);
+      if (cachedEntry?.playUrl) {
+        logger.debug('[BILI-API]', 'fetchMusicUrl cache hit', {
+          bvid: bvId,
+          cid: knownCid,
+          page: effectivePage,
+          playUrl: cachedEntry.playUrl.slice(0, 80) + '...',
+        });
+        return applyAudioUrlTransformer(cachedEntry.playUrl);
+      }
     }
   }
 
@@ -389,7 +461,13 @@ export async function fetchMusicUrl(
           await new Promise<void>((r) => setTimeout(r, backoff));
         }
 
-        const result = await attemptFetchMusicUrl(bvId, currentUserMid, attempt, retryCount);
+        const result = await attemptFetchMusicUrl(
+          bvId,
+          currentUserMid,
+          attempt,
+          retryCount,
+          effectivePage,
+        );
         if ('error' in result) {
           lastError = result.error;
           logger.warn('[BILI-API]', 'fetchMusicUrl attempt failed', {
@@ -424,8 +502,9 @@ export async function fetchMusicUrl(
           return '';
         }
 
-        // 写入持久化 URL 缓存：携带 cid 以便重启 / TTL 过期后下次仍可跳过 view
-        useMusicUrlCacheStore.getState().upsert(bvId, { playUrl, cid });
+        // 写入持久化 URL 缓存：key = `${bvId}:${cid}`，重启 / TTL 内可秒命中。
+        // cid 信息由 view 接口入库到 bili_videos store（resolveCachedCid 下次直接拿到）
+        useMusicUrlCacheStore.getState().upsert(bvId, cid, { playUrl });
 
         logger.debug('[BILI-API]', 'fetchMusicUrl resolved', {
           bvid: bvId,
@@ -433,16 +512,17 @@ export async function fetchMusicUrl(
           playUrl: playUrl.slice(0, 80) + '...',
         });
 
-        // 异步发起模拟点击（节流 600s）。aid / type 在 cid 命中跳过 view 时不可知，
-        // 此时以 0 / '1' 兜底（B 站接口允许 aid=0 但点击成功率低，可接受）
+        // 异步发起模拟点击（节流 600s，按 bvid:page 分桶）。
+        // aid / type 在 cid 命中跳过 view 时不可知，以 0 / '1' 兜底。
+        const clickKey = inflightKey;
         setTimeout(() => {
           const now = timeStampNow();
-          if ((musicPlayClickTime[bvId] ?? 0) + CLICK_STAT_THROTTLE > now) return;
+          if ((musicPlayClickTime[clickKey] ?? 0) + CLICK_STAT_THROTTLE > now) return;
           const type = descType ?? '1';
           VideoApi.doClickStat({
             params: {
               w_aid: aid,
-              w_part: 1,
+              w_part: effectivePage,
               w_ftime: now,
               w_stime: now,
               w_type: type,
@@ -451,7 +531,7 @@ export async function fetchMusicUrl(
               aid,
               cid,
               bvid: bvId,
-              part: '1',
+              part: String(effectivePage),
               ftime: now,
               stime: now,
               mid: currentUserMid,
@@ -460,7 +540,7 @@ export async function fetchMusicUrl(
             },
           })
             .then(() => {
-              musicPlayClickTime[bvId] = timeStampNow();
+              musicPlayClickTime[clickKey] = timeStampNow();
             })
             .catch((e) => {
               logger.debug('[BILI-API]', 'doClickStat failed', e);
@@ -483,22 +563,27 @@ export async function fetchMusicUrl(
       return '';
     } finally {
       // attempt > 0 没有写入 inflight slot，跳过 delete 避免误删 attempt=0 的并发请求
-      if (useSharedSlot) delete inflightRequests[bvId];
+      if (useSharedSlot) delete inflightRequests[inflightKey];
     }
   })();
 
-  if (useSharedSlot) inflightRequests[bvId] = promise;
+  if (useSharedSlot) inflightRequests[inflightKey] = promise;
   return promise;
 }
 
 /**
- * 清除指定 bvid 的播放 URL 缓存（用于风控重试场景）。
+ * 清除指定 bvid 的播放 URL 缓存与 inflight（用于风控重试场景）。
  * 不传 bvid 则清空全部缓存与 inflight。
+ *
+ * 多 P 投稿：清空该 bvid 下所有 P 的缓存与 inflight slot（前缀匹配 `${bvid}:p`）。
  */
 export function invalidateMusicUrlCache(bvId?: string): void {
   useMusicUrlCacheStore.getState().invalidate(bvId);
   if (bvId) {
-    delete inflightRequests[bvId];
+    // inflightKey 形如 bvid 或 bvid:p<n>（见 buildTrackId）。前缀匹配清掉所有 P 的 slot。
+    for (const key of Object.keys(inflightRequests)) {
+      if (key === bvId || key.startsWith(`${bvId}:`)) delete inflightRequests[key];
+    }
     return;
   }
   Object.keys(inflightRequests).forEach((k) => delete inflightRequests[k]);

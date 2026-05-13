@@ -46,7 +46,7 @@ function reset() {
     isLoading: false,
   });
   useBilibiliVideosStore.setState({ ids: [], entities: {} });
-  usePlayingListStore.setState({ favId: '', bvIds: [], current: '', playNext: false });
+  usePlayingListStore.setState({ favId: '', trackIds: [], current: '', playNext: false });
 }
 
 function makeVideoEntries(count: number) {
@@ -170,7 +170,7 @@ describe('HomePage', () => {
 
     const state = usePlayingListStore.getState();
     expect(state.favId).toBe('main');
-    expect(state.bvIds).toHaveLength(10);
+    expect(state.trackIds).toHaveLength(10);
     // 第 2 个 slide 对应第 2 个 video
     expect(state.current).toBe('BV0000000002');
     expect(state.playNext).toBe(true);

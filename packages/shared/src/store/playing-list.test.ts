@@ -6,23 +6,23 @@
 import { usePlayingListStore } from './playing-list';
 
 function reset() {
-  usePlayingListStore.setState({ favId: '', bvIds: [], current: '', playNext: false });
+  usePlayingListStore.setState({ favId: '', trackIds: [], current: '', playNext: false });
 }
 
 describe('usePlayingListStore', () => {
   beforeEach(reset);
 
   describe('addSingle', () => {
-    it('追加新 bvid 到末尾', () => {
+    it('追加新 trackId 到末尾', () => {
       usePlayingListStore.getState().addSingle('BV1');
-      expect(usePlayingListStore.getState().bvIds).toEqual(['BV1']);
+      expect(usePlayingListStore.getState().trackIds).toEqual(['BV1']);
       expect(usePlayingListStore.getState().playNext).toBe(false);
     });
 
-    it('已存在的 bvid 不重复追加', () => {
-      usePlayingListStore.setState({ bvIds: ['BV1'] });
+    it('已存在的 trackId 不重复追加', () => {
+      usePlayingListStore.setState({ trackIds: ['BV1'] });
       usePlayingListStore.getState().addSingle('BV1');
-      expect(usePlayingListStore.getState().bvIds).toEqual(['BV1']);
+      expect(usePlayingListStore.getState().trackIds).toEqual(['BV1']);
     });
 
     it('playNow=true 同步设置 current 与 playNext', () => {
@@ -34,11 +34,11 @@ describe('usePlayingListStore', () => {
   });
 
   describe('setPlaylist', () => {
-    it('设置完整播放列表，current 默认为首个 bvid', () => {
+    it('设置完整播放列表，current 默认为首个 trackId', () => {
       usePlayingListStore.getState().setPlaylist('main', ['A', 'B', 'C']);
       const s = usePlayingListStore.getState();
       expect(s.favId).toBe('main');
-      expect(s.bvIds).toEqual(['A', 'B', 'C']);
+      expect(s.trackIds).toEqual(['A', 'B', 'C']);
       expect(s.current).toBe('A');
       expect(s.playNext).toBe(false);
     });
@@ -58,35 +58,35 @@ describe('usePlayingListStore', () => {
 
   describe('removeItem', () => {
     it('删除非当前曲目：只移除，不切歌', () => {
-      usePlayingListStore.setState({ bvIds: ['A', 'B', 'C'], current: 'A' });
+      usePlayingListStore.setState({ trackIds: ['A', 'B', 'C'], current: 'A' });
       usePlayingListStore.getState().removeItem('B');
       const s = usePlayingListStore.getState();
-      expect(s.bvIds).toEqual(['A', 'C']);
+      expect(s.trackIds).toEqual(['A', 'C']);
       expect(s.current).toBe('A');
       expect(s.playNext).toBe(false);
     });
 
     it('删除当前曲目：自动切到原位置（位置不变取下一个）', () => {
-      usePlayingListStore.setState({ bvIds: ['A', 'B', 'C'], current: 'B' });
+      usePlayingListStore.setState({ trackIds: ['A', 'B', 'C'], current: 'B' });
       usePlayingListStore.getState().removeItem('B');
       const s = usePlayingListStore.getState();
-      expect(s.bvIds).toEqual(['A', 'C']);
+      expect(s.trackIds).toEqual(['A', 'C']);
       expect(s.current).toBe('C');
       expect(s.playNext).toBe(true);
     });
 
     it('删除最后一首当前曲目：current fallback 到末尾', () => {
-      usePlayingListStore.setState({ bvIds: ['A', 'B'], current: 'B' });
+      usePlayingListStore.setState({ trackIds: ['A', 'B'], current: 'B' });
       usePlayingListStore.getState().removeItem('B');
       const s = usePlayingListStore.getState();
       expect(s.current).toBe('A');
     });
 
     it('删空列表：current 为空字符串', () => {
-      usePlayingListStore.setState({ bvIds: ['A'], current: 'A' });
+      usePlayingListStore.setState({ trackIds: ['A'], current: 'A' });
       usePlayingListStore.getState().removeItem('A');
       const s = usePlayingListStore.getState();
-      expect(s.bvIds).toEqual([]);
+      expect(s.trackIds).toEqual([]);
       expect(s.current).toBe('');
     });
   });
@@ -95,14 +95,14 @@ describe('usePlayingListStore', () => {
     it('清空所有字段', () => {
       usePlayingListStore.setState({
         favId: 'm',
-        bvIds: ['A'],
+        trackIds: ['A'],
         current: 'A',
         playNext: true,
       });
       usePlayingListStore.getState().clearPlaylist();
       expect(usePlayingListStore.getState()).toMatchObject({
         favId: '',
-        bvIds: [],
+        trackIds: [],
         current: '',
         playNext: false,
       });
@@ -111,7 +111,7 @@ describe('usePlayingListStore', () => {
 
   describe('updateCurrentPlaying', () => {
     beforeEach(() => {
-      usePlayingListStore.setState({ bvIds: ['A', 'B', 'C'], current: 'A' });
+      usePlayingListStore.setState({ trackIds: ['A', 'B', 'C'], current: 'A' });
     });
 
     it('切到指定 index 并触发 playNext', () => {
@@ -145,7 +145,7 @@ describe('usePlayingListStore', () => {
 
   describe('getNextIndex', () => {
     beforeEach(() => {
-      usePlayingListStore.setState({ bvIds: ['A', 'B', 'C'], current: 'B' });
+      usePlayingListStore.setState({ trackIds: ['A', 'B', 'C'], current: 'B' });
     });
 
     it('loop 模式：循环到下一首', () => {
@@ -168,14 +168,14 @@ describe('usePlayingListStore', () => {
     });
 
     it('空列表：返回 -1', () => {
-      usePlayingListStore.setState({ bvIds: [], current: '' });
+      usePlayingListStore.setState({ trackIds: [], current: '' });
       expect(usePlayingListStore.getState().getNextIndex('loop')).toBe(-1);
     });
   });
 
   describe('getPrevIndex', () => {
     beforeEach(() => {
-      usePlayingListStore.setState({ bvIds: ['A', 'B', 'C'], current: 'B' });
+      usePlayingListStore.setState({ trackIds: ['A', 'B', 'C'], current: 'B' });
     });
 
     it('loop 模式：上一首', () => {
@@ -188,7 +188,7 @@ describe('usePlayingListStore', () => {
     });
 
     it('空列表：返回 -1', () => {
-      usePlayingListStore.setState({ bvIds: [], current: '' });
+      usePlayingListStore.setState({ trackIds: [], current: '' });
       expect(usePlayingListStore.getState().getPrevIndex('loop')).toBe(-1);
     });
   });

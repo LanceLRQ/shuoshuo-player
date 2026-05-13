@@ -5,6 +5,9 @@ import { timeStampNow } from '../utils/format';
 /**
  * 持久化的播放 URL 缓存条目（裁剪版）
  *
+ * key 形态：`${bvid}:${cid}`（自 A5 起；旧版 `bvid` 单值在 hydrate 时被丢弃）。
+ * cid 上提到 key 后，value 不再保存重复信息。
+ *
  * 仅保留下次 fetchMusicUrl 命中所需的最小字段，不持久化 viewInfo / playInfo
  * 完整结构（体积可能 5-20KB/首），避免重度听众累计写入 player_data 造成膨胀。
  */
@@ -13,20 +16,25 @@ export interface MusicUrlCacheEntry {
   playUrl: string;
   /** 写入时间戳（unix 秒）；与 MUSIC_URL_CACHE_TTL 比对决定是否过期 */
   last_update: number;
-  /** 视频单 P 的 cid；若已知则下次 fetchMusicUrl 可直接调 playurl，跳过 view */
-  cid?: number;
+}
+
+/** 组装缓存 key：`${bvid}:${cid}` */
+export function makeCacheKey(bvid: string, cid: number): string {
+  return `${bvid}:${cid}`;
 }
 
 interface MusicUrlCacheState {
   entries: Record<string, MusicUrlCacheEntry>;
 
   /** 命中且未过期则返回；否则返回 undefined（不主动删除过期项，由 persistSnapshot 统一清扫） */
-  getValid: (bvid: string) => MusicUrlCacheEntry | undefined;
+  getValid: (bvid: string, cid: number) => MusicUrlCacheEntry | undefined;
   /** 写入或更新一条缓存（含 last_update 自动赋值） */
-  upsert: (bvid: string, entry: Omit<MusicUrlCacheEntry, 'last_update'>) => void;
-  /** 仅更新已有条目的 cid（view 调用回填用，不影响 last_update / playUrl 状态） */
-  upsertCidOnly: (bvid: string, cid: number) => void;
-  /** 单条 / 全部失效（与 invalidateMusicUrlCache 入参对齐） */
+  upsert: (bvid: string, cid: number, entry: Omit<MusicUrlCacheEntry, 'last_update'>) => void;
+  /**
+   * 失效：
+   * - 无参：清空全部
+   * - 仅传 bvid：清空该 bvid 下所有 P（前缀匹配 `${bvid}:`）
+   */
   invalidate: (bvid?: string) => void;
   /** 持久化前清扫已过期条目，避免长跑后 entries 单调增长 */
   persistSnapshot: () => Pick<MusicUrlCacheState, 'entries'>;
@@ -35,34 +43,25 @@ interface MusicUrlCacheState {
 export const useMusicUrlCacheStore = create<MusicUrlCacheState>((set, get) => ({
   entries: {},
 
-  getValid: (bvid) => {
-    const e = get().entries[bvid];
+  getValid: (bvid, cid) => {
+    const key = makeCacheKey(bvid, cid);
+    const e = get().entries[key];
     if (!e || !e.playUrl) return undefined;
     if (e.last_update + MUSIC_URL_CACHE_TTL <= timeStampNow()) return undefined;
     return e;
   },
 
-  upsert: (bvid, payload) => {
+  upsert: (bvid, cid, payload) => {
+    const key = makeCacheKey(bvid, cid);
     set((state) => ({
       entries: {
         ...state.entries,
-        [bvid]: {
+        [key]: {
           playUrl: payload.playUrl,
-          cid: payload.cid,
           last_update: timeStampNow(),
         },
       },
     }));
-  },
-
-  upsertCidOnly: (bvid, cid) => {
-    set((state) => {
-      const old = state.entries[bvid];
-      // 没有现成条目就不写：避免拉一个 playUrl='' 的孤儿项被 getValid 当成 hit
-      if (!old) return state;
-      if (old.cid === cid) return state;
-      return { entries: { ...state.entries, [bvid]: { ...old, cid } } };
-    });
   },
 
   invalidate: (bvid) => {
@@ -71,9 +70,17 @@ export const useMusicUrlCacheStore = create<MusicUrlCacheState>((set, get) => ({
       return;
     }
     set((state) => {
-      if (!state.entries[bvid]) return state;
-      const next = { ...state.entries };
-      delete next[bvid];
+      const prefix = `${bvid}:`;
+      let changed = false;
+      const next: Record<string, MusicUrlCacheEntry> = {};
+      for (const [k, v] of Object.entries(state.entries)) {
+        if (k.startsWith(prefix)) {
+          changed = true;
+          continue;
+        }
+        next[k] = v;
+      }
+      if (!changed) return state;
       return { entries: next };
     });
   },
@@ -81,9 +88,10 @@ export const useMusicUrlCacheStore = create<MusicUrlCacheState>((set, get) => ({
   persistSnapshot: () => {
     const now = timeStampNow();
     const next: Record<string, MusicUrlCacheEntry> = {};
-    for (const [bvid, e] of Object.entries(get().entries)) {
-      // 持久化前剔除已过期的 entry：避免重启后 entries 单调累积
-      if (e.last_update + MUSIC_URL_CACHE_TTL > now) next[bvid] = e;
+    for (const [key, e] of Object.entries(get().entries)) {
+      // 持久化前剔除已过期 / 旧形态（不含 ':'）的 entry
+      if (!key.includes(':')) continue;
+      if (e.last_update + MUSIC_URL_CACHE_TTL > now) next[key] = e;
     }
     return { entries: next };
   },

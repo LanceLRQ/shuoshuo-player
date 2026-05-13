@@ -149,29 +149,7 @@ describe('A7: fetchMusicUrl 音质降级链', () => {
     expect(mockedPlay).toHaveBeenCalledTimes(2);
   });
 
-  it('cid 已存在 URL 缓存中：跳过 view 接口，直接调 playurl', async () => {
-    // 预置一条命中 cid 但 playUrl 已无效（last_update 设为 0 让 getValid 返回 undefined）的条目
-    useMusicUrlCacheStore.setState({
-      entries: {
-        BV_CID_CACHE: { playUrl: '', cid: 4242, last_update: 0 },
-      },
-    });
-    mockedPlay.mockResolvedValueOnce({
-      dash: { audio: [audioStream(AUDIO_QUALITY.HIGH)] },
-    });
-
-    await fetchMusicUrl('BV_CID_CACHE', 1);
-
-    // view 必须没被调；playurl 接口收到的 cid 来自 store
-    expect(mockedView).not.toHaveBeenCalled();
-    expect(mockedPlay).toHaveBeenCalledTimes(1);
-    const callParams = (mockedPlay.mock.calls[0]?.[0] ?? {}) as {
-      params?: { cid?: number };
-    };
-    expect(callParams.params?.cid).toBe(4242);
-  });
-
-  it('cid 已存在 bili_videos store 中（mapViewItem 拾取）：同样跳过 view', async () => {
+  it('cid 已存在 bili_videos store 中（mapViewItem 拾取）：跳过 view', async () => {
     useBilibiliVideosStore.setState({
       ids: ['BV_VS_CACHE'],
       entities: {
@@ -205,7 +183,7 @@ describe('A7: fetchMusicUrl 音质降级链', () => {
     expect(callParams.params?.cid).toBe(9999);
   });
 
-  it('成功后写入持久化 URL 缓存，且包含 cid', async () => {
+  it('成功后写入持久化 URL 缓存（key=bvid:cid，value 不再含 cid）', async () => {
     mockedView.mockResolvedValueOnce({ aid: 1, cid: 200, bvid: 'BV_PERSIST', desc_v2: [] });
     mockedPlay.mockResolvedValueOnce({
       dash: { audio: [audioStream(AUDIO_QUALITY.HIGH, 'https://cdn.example.com/ok.m4s')] },
@@ -213,10 +191,11 @@ describe('A7: fetchMusicUrl 音质降级链', () => {
 
     await fetchMusicUrl('BV_PERSIST', 1);
 
-    const entry = useMusicUrlCacheStore.getState().entries['BV_PERSIST'];
+    const entry = useMusicUrlCacheStore.getState().entries['BV_PERSIST:200'];
     expect(entry?.playUrl).toBe('https://cdn.example.com/ok.m4s');
-    expect(entry?.cid).toBe(200);
     expect(entry?.last_update).toBeGreaterThan(0);
+    // 旧 key 形态（仅 bvid）不应存在
+    expect(useMusicUrlCacheStore.getState().entries['BV_PERSIST']).toBeUndefined();
   });
 
   it('view→playurl 之间无人为 jitter 延迟（<= 50ms）', async () => {
@@ -231,5 +210,158 @@ describe('A7: fetchMusicUrl 音质降级链', () => {
 
     // v1 早期版本会插入 200-500ms 随机延迟；当前实现移除后两次 mock API 总和应远低于 50ms
     expect(elapsed).toBeLessThan(50);
+  });
+});
+
+describe('B1: fetchMusicUrl page 参数（分 P 支持）', () => {
+  beforeEach(() => {
+    mockedView.mockReset();
+    mockedPlay.mockReset();
+    mockedClick.mockReset().mockResolvedValue({});
+    useMusicUrlCacheStore.setState({ entries: {} });
+    useBilibiliVideosStore.setState({ ids: [], entities: {} });
+  });
+
+  it('多 P 投稿请求 page=2：playurl 拿到第 2 P 的 cid', async () => {
+    mockedView.mockResolvedValueOnce({
+      aid: 100,
+      cid: 1000,
+      bvid: 'BV_MULTI',
+      desc_v2: [],
+      videos: 3,
+      pages: [
+        { cid: 1000, page: 1, part: 'P1', duration: 60 },
+        { cid: 1001, page: 2, part: 'P2', duration: 90 },
+        { cid: 1002, page: 3, part: 'P3', duration: 30 },
+      ],
+    });
+    mockedPlay.mockResolvedValueOnce({
+      dash: { audio: [audioStream(AUDIO_QUALITY.HIGH)] },
+    });
+
+    await fetchMusicUrl('BV_MULTI', 1, 0, undefined, 2);
+
+    const callParams = (mockedPlay.mock.calls[0]?.[0] ?? {}) as { params?: { cid?: number } };
+    expect(callParams.params?.cid).toBe(1001);
+    // 写入 cache 时 key 为 bvid:cid（不是 bvid）
+    expect(useMusicUrlCacheStore.getState().entries['BV_MULTI:1001']?.playUrl).toBeTruthy();
+  });
+
+  it('多 P 投稿请求 page=3：直接从 store.pages 拿 cid，跳过 view', async () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV_HAS_PAGES'],
+      entities: {
+        BV_HAS_PAGES: {
+          aid: 1,
+          bvid: 'BV_HAS_PAGES',
+          created: 0,
+          length: '',
+          pic: '',
+          is_union_video: false,
+          title: '',
+          sub_title: '',
+          play: 0,
+          comment: 0,
+          author: '',
+          description: '',
+          videos: 3,
+          pages: [
+            { cid: 2000, page: 1, part: '', duration: 0 },
+            { cid: 2001, page: 2, part: '', duration: 0 },
+            { cid: 2002, page: 3, part: '', duration: 0 },
+          ],
+        },
+      },
+    });
+    mockedPlay.mockResolvedValueOnce({
+      dash: { audio: [audioStream(AUDIO_QUALITY.HIGH)] },
+    });
+
+    await fetchMusicUrl('BV_HAS_PAGES', 1, 0, undefined, 3);
+
+    expect(mockedView).not.toHaveBeenCalled();
+    const callParams = (mockedPlay.mock.calls[0]?.[0] ?? {}) as { params?: { cid?: number } };
+    expect(callParams.params?.cid).toBe(2002);
+  });
+
+  it('同 bvid 不同 page 的 cache 互不覆盖', async () => {
+    mockedView.mockResolvedValue({
+      aid: 1,
+      cid: 5000,
+      bvid: 'BV_ISO',
+      desc_v2: [],
+      videos: 2,
+      pages: [
+        { cid: 5000, page: 1, part: '', duration: 0 },
+        { cid: 5001, page: 2, part: '', duration: 0 },
+      ],
+    });
+    mockedPlay
+      .mockResolvedValueOnce({
+        dash: { audio: [audioStream(AUDIO_QUALITY.HIGH, 'https://cdn/p1.m4s')] },
+      })
+      .mockResolvedValueOnce({
+        dash: { audio: [audioStream(AUDIO_QUALITY.HIGH, 'https://cdn/p2.m4s')] },
+      });
+
+    const u1 = await fetchMusicUrl('BV_ISO', 1, 0, undefined, 1);
+    const u2 = await fetchMusicUrl('BV_ISO', 1, 0, undefined, 2);
+
+    expect(u1).toBe('https://cdn/p1.m4s');
+    expect(u2).toBe('https://cdn/p2.m4s');
+    expect(useMusicUrlCacheStore.getState().entries['BV_ISO:5000']?.playUrl).toBe(
+      'https://cdn/p1.m4s',
+    );
+    expect(useMusicUrlCacheStore.getState().entries['BV_ISO:5001']?.playUrl).toBe(
+      'https://cdn/p2.m4s',
+    );
+  });
+
+  it('page 非法（0 / 负数 / 非整数）→ 视为 1', async () => {
+    mockedView.mockResolvedValueOnce({
+      aid: 1,
+      cid: 999,
+      bvid: 'BV_BAD_PAGE',
+      desc_v2: [],
+    });
+    mockedPlay.mockResolvedValueOnce({
+      dash: { audio: [audioStream(AUDIO_QUALITY.HIGH)] },
+    });
+
+    await fetchMusicUrl('BV_BAD_PAGE', 1, 0, undefined, 0);
+
+    const callParams = (mockedPlay.mock.calls[0]?.[0] ?? {}) as { params?: { cid?: number } };
+    expect(callParams.params?.cid).toBe(999);
+  });
+
+  it('clickStat 上报 part 为 effective page', async () => {
+    vi.useFakeTimers();
+    mockedView.mockResolvedValueOnce({
+      aid: 7,
+      cid: 70,
+      bvid: 'BV_CLICK',
+      desc_v2: [],
+      videos: 2,
+      pages: [
+        { cid: 70, page: 1, part: '', duration: 0 },
+        { cid: 71, page: 2, part: '', duration: 0 },
+      ],
+    });
+    mockedPlay.mockResolvedValueOnce({
+      dash: { audio: [audioStream(AUDIO_QUALITY.HIGH)] },
+    });
+
+    await fetchMusicUrl('BV_CLICK', 999, 0, undefined, 2);
+    // 触发 setTimeout 内的 clickStat
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(mockedClick).toHaveBeenCalled();
+    const clickArgs = (mockedClick.mock.calls[0]?.[0] ?? {}) as {
+      params?: { w_part?: number };
+      data?: { part?: string };
+    };
+    expect(clickArgs.params?.w_part).toBe(2);
+    expect(clickArgs.data?.part).toBe('2');
+    vi.useRealTimers();
   });
 });

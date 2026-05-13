@@ -4,6 +4,7 @@ import {
   useBilibiliUserVideosStore,
   useBilibiliVideosStore,
   useFavListStore,
+  useFavoritesStore,
   useUIStore,
   FavListType,
 } from '@shuoshuo-player/shared';
@@ -47,6 +48,7 @@ function reset() {
   });
   useBilibiliVideosStore.setState({ ids: [], entities: {} });
   useUIStore.setState({ notices: [] });
+  useFavoritesStore.setState({ entries: {} });
 }
 
 function makeFav(overrides: Record<string, unknown> = {}) {
@@ -170,6 +172,58 @@ describe('FavListPage', () => {
 
     renderAt('u1');
     expect(screen.getByTestId('fav-card')).toBeInTheDocument();
+  });
+
+  it('favorites favId：空 favorites → 显示"歌单是空的"', () => {
+    renderAt('favorites');
+    expect(screen.getByText(/歌单是空的/)).toBeInTheDocument();
+    expect(screen.getByTestId('fav-card')).toHaveAttribute('data-favid', 'favorites');
+  });
+
+  it('favorites favId：3 条按时间倒序排列', () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1', 'BV2', 'BV3'],
+      entities: {
+        BV1: { bvid: 'BV1', title: 'A' } as never,
+        BV2: { bvid: 'BV2', title: 'B' } as never,
+        BV3: { bvid: 'BV3', title: 'C' } as never,
+      },
+    });
+    useFavoritesStore.setState({ entries: { BV1: 100, BV2: 300, BV3: 200 } });
+
+    renderAt('favorites');
+    // 显示排序按钮（默认 desc）
+    expect(screen.getByRole('button', { name: /最新收藏在前/ })).toBeInTheDocument();
+  });
+
+  it('favorites favId：点击 toggle 切换到正序', () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1', 'BV2'],
+      entities: {
+        BV1: { bvid: 'BV1', title: 'A' } as never,
+        BV2: { bvid: 'BV2', title: 'B' } as never,
+      },
+    });
+    useFavoritesStore.setState({ entries: { BV1: 100, BV2: 200 } });
+
+    renderAt('favorites');
+    const toggleBtn = screen.getByRole('button', { name: /最新收藏在前/ });
+    act(() => {
+      fireEvent.click(toggleBtn);
+    });
+    expect(screen.getByRole('button', { name: /最早收藏在前/ })).toBeInTheDocument();
+  });
+
+  it('favorites favId：FavCard 接收 type=CUSTOM 的虚拟项', () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1'],
+      entities: { BV1: { bvid: 'BV1', title: 'A' } as never },
+    });
+    useFavoritesStore.setState({ entries: { BV1: 100 } });
+
+    renderAt('favorites');
+    // 虚拟 FavListItem 名称为「我的收藏」
+    expect(screen.getByTestId('fav-card')).toHaveTextContent('我的收藏');
   });
 
   it('BILI_FAV 歌单：从 favFolders 读取列表', () => {

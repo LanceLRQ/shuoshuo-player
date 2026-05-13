@@ -16,6 +16,7 @@ import { FavListType, type BilibiliVideo, type FavListItem, type LyricEntry } fr
 import type {
   PersistedBilibiliVideosShape,
   PersistedFavListShape,
+  PersistedFavoritesShape,
   PersistedLyricsShape,
 } from '../store/persisted-types';
 
@@ -30,6 +31,8 @@ export interface ImportPayload {
   lyrics: PersistedLyricsShape;
   /** 视频元数据缓存：自定义歌单(type=0)的曲目展示依赖该字段从 bvid 反查标题/封面 */
   bili_videos: PersistedBilibiliVideosShape;
+  /** 系统级「我的收藏」：bvid → 收藏时间戳；v1 文件无此字段时为空对象 */
+  favorites: PersistedFavoritesShape;
 }
 
 export interface ImportSummary {
@@ -40,6 +43,8 @@ export interface ImportSummary {
   lyricCount: number;
   /** bili_videos.entities 的 key 数（视频元数据条数） */
   videoCount: number;
+  /** favorites.entries 的 key 数（我的收藏条目总数） */
+  favoriteCount: number;
 }
 
 export interface ParsedImport extends ImportSummary {
@@ -141,21 +146,34 @@ export function parseImportData(input: unknown): ParsedImport | null {
     : Object.keys(entities);
   const videoCount = Object.keys(entities).length;
 
+  // 提取 favorites.entries（v1 文件无此字段，自然兜底空对象；非有限正数 ts 过滤）
+  const favoritesRaw = isPlainObject(input.favorites) ? input.favorites : {};
+  const entriesRaw = isPlainObject(favoritesRaw.entries) ? favoritesRaw.entries : {};
+  const favoriteEntries: Record<string, number> = {};
+  for (const [bvid, ts] of Object.entries(entriesRaw)) {
+    if (typeof ts === 'number' && Number.isFinite(ts) && ts >= 0) {
+      favoriteEntries[bvid] = ts;
+    }
+  }
+  const favoriteCount = Object.keys(favoriteEntries).length;
+
   return {
     version,
     favList,
     lyricCount,
     videoCount,
+    favoriteCount,
     payload: {
       fav_list: { list: favList },
       lyrics: { lyricMaps },
       bili_videos: { entities, ids },
+      favorites: { entries: favoriteEntries },
     },
   };
 }
 
 /**
- * 按合并模式构造写回 storage 的 fav_list / lyrics / bili_videos
+ * 按合并模式构造写回 storage 的 fav_list / lyrics / bili_videos / favorites
  *
  * - mode='skip'：勾选项中已存在同 id 的歌单 → 跳过（保护现有）；新 id → 追加
  * - mode='replace'：勾选项中 type=0 的同 id → 用导入版本覆盖；新 id → 追加
@@ -164,13 +182,15 @@ export function parseImportData(input: unknown): ParsedImport | null {
  * 1. 永远不删除 current 中"导入文件没出现"的项
  * 2. fav_list 中 type=1/2（B 站收藏夹/UP 主）即使在 replace 模式下也始终 append-only，
  *    因为 v1 / 旧导出的 bv_ids 不可信，覆盖会洗掉用户在 v2 已手动刷新过的内容
+ * 3. favorites 永远 union；同 bvid 取 Math.min(ts)，保留"首次喜欢"的时间戳；
+ *    不区分 mode（避免误删用户收藏，硬约束）
  *
  * selectedFavIds：仅作用于 fav_list；undefined 时视为全选。
  * lyrics：始终全量按 mode 合并（无 UI 勾选；replace 用导入覆盖同 bvid，skip 仅追加新 bvid）。
  * bili_videos：永远走"取并集，已有不动"语义（视频元数据缓存，不区分模式）；
  *   自定义歌单(type=0)依赖该字段从 bvid 反查标题/封面，不导入会导致 UI 显示空列表。
  *
- * 注意：本函数仅返回 fav_list / lyrics / bili_videos 三个 key 的新值；调用方负责将其他
+ * 注意：本函数仅返回 fav_list / lyrics / bili_videos / favorites 四个 key 的新值；调用方负责将其他
  * EXPORT_KEYS（playing_list / ui_profile / bili_user_videos）与 cloud_service / music_url_cache
  * 等"不导入项"原样保留。
  */
@@ -179,6 +199,7 @@ export function buildMerged(
     fav_list?: PersistedFavListShape;
     lyrics?: PersistedLyricsShape;
     bili_videos?: PersistedBilibiliVideosShape;
+    favorites?: PersistedFavoritesShape;
   },
   imported: ImportPayload,
   mode: MergeMode,
@@ -187,6 +208,7 @@ export function buildMerged(
   fav_list: PersistedFavListShape;
   lyrics: PersistedLyricsShape;
   bili_videos: PersistedBilibiliVideosShape;
+  favorites: PersistedFavoritesShape;
 } {
   const currentFavList = current.fav_list?.list ?? [];
   const currentLyricMaps = current.lyrics?.lyricMaps ?? {};
@@ -244,9 +266,21 @@ export function buildMerged(
     }
   }
 
+  // favorites 合并：union + Math.min(ts)
+  // - 已有不动，导入新 bvid 追加
+  // - 同 bvid 双方都存在时取较早的 ts（"首次喜欢"语义）
+  // - 不区分 mode：用户收藏不应被覆盖删除
+  const currentFavorites = current.favorites?.entries ?? {};
+  const importedFavorites = imported.favorites.entries ?? {};
+  const mergedFavorites: Record<string, number> = { ...currentFavorites };
+  for (const [bvid, ts] of Object.entries(importedFavorites)) {
+    mergedFavorites[bvid] = bvid in mergedFavorites ? Math.min(mergedFavorites[bvid], ts) : ts;
+  }
+
   return {
     fav_list: { list: mergedFavList },
     lyrics: { lyricMaps: mergedLyricMaps },
     bili_videos: { entities: mergedEntities, ids: mergedIds },
+    favorites: { entries: mergedFavorites },
   };
 }

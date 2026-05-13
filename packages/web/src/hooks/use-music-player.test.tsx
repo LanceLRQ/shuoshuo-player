@@ -17,9 +17,11 @@ import {
   usePlayerProfileStore,
   useLyricsStore,
   useUIStore,
+  useVideoPagePrefStore,
   fetchMusicUrl,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
+import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 
 // === Mock fetchMusicUrl 与 LyricApi（避免真实 axios 请求） ===
 vi.mock('@shuoshuo-player/shared', async () => {
@@ -127,7 +129,7 @@ function resetStores() {
   });
   usePlayingListStore.setState({
     favId: 'main',
-    bvIds: [TEST_VIDEO.bvid],
+    trackIds: [TEST_VIDEO.bvid],
     current: TEST_VIDEO.bvid,
     playNext: false,
   });
@@ -397,7 +399,7 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     });
     usePlayingListStore.setState({
       favId: 'main',
-      bvIds: ['BV1Test00001', 'BV1Test00002'],
+      trackIds: ['BV1Test00001', 'BV1Test00002'],
       current: 'BV1Test00001',
       playNext: false,
     });
@@ -481,6 +483,101 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(usePlayingListStore.getState().playNext).toBe(false);
     expect(result.current.isPlaying).toBe(false);
   });
+
+  // === 双音频并发 bug 回归：快速切歌时旧请求 resolve 不应创建孤儿 Howl 自动播放 ===
+  it('快速切歌竞态：旧 fetchMusicUrl 晚到（gen stale）→ 不创建第二个 Howl 实例', async () => {
+    // 第二个视频
+    const VIDEO_B: BilibiliVideo = { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Song B' };
+    useBilibiliVideosStore.setState({
+      ids: [TEST_VIDEO.bvid, VIDEO_B.bvid],
+      entities: { [TEST_VIDEO.bvid]: TEST_VIDEO, [VIDEO_B.bvid]: VIDEO_B },
+    });
+
+    // 让第一次 fetchMusicUrl 永不 resolve（模拟慢网络），第二次正常 resolve
+    let resolveA: ((url: string) => void) | null = null;
+    vi.mocked(fetchMusicUrl)
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveA = resolve;
+          }),
+      )
+      .mockImplementationOnce(async () => 'https://test.example/B.m4s');
+
+    renderHook(() => useMusicPlayer());
+
+    // 1) 触发 A 的播放，initHowl 进入 await（fetchMusicUrl A 未 resolve）
+    await act(async () => {
+      usePlayingListStore.setState({ current: TEST_VIDEO.bvid, playNext: true });
+    });
+    // A 尚未创建 Howl，因为 fetchMusicUrl pending
+    expect(howlerState.HowlMock).not.toHaveBeenCalled();
+
+    // 2) 用户快速切到 B：gen++，新 initHowl 进入，B 立即返回 URL → 构造 Howl-B
+    await act(async () => {
+      usePlayingListStore.setState({ current: VIDEO_B.bvid, playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(1));
+    const howlBPlayCount = howlerState.lastInstance!.play.mock.calls.length;
+
+    // 3) 现在 A 的 fetchMusicUrl 终于 resolve → 应被 gen 哨兵拦截，不构造第二个 Howl
+    await act(async () => {
+      resolveA?.('https://test.example/A.m4s');
+      // 让 microtask 排空
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // 关键断言：Howl 构造次数仍为 1（只有 B），A 没有产生孤儿实例
+    expect(howlerState.HowlMock).toHaveBeenCalledTimes(1);
+    // B 的 play 次数没变（不会被 A 路径触发额外 play）
+    expect(howlerState.lastInstance!.play.mock.calls.length).toBe(howlBPlayCount);
+  });
+
+  it('快速切歌竞态：旧 Howl 的 onload 触发时（已 stale）不应调 play()', async () => {
+    const VIDEO_B: BilibiliVideo = { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Song B' };
+    useBilibiliVideosStore.setState({
+      ids: [TEST_VIDEO.bvid, VIDEO_B.bvid],
+      entities: { [TEST_VIDEO.bvid]: TEST_VIDEO, [VIDEO_B.bvid]: VIDEO_B },
+    });
+
+    // 两次都立即返回 URL，但我们手动控制何时触发 onload
+    vi.mocked(fetchMusicUrl)
+      .mockImplementationOnce(async () => 'https://test.example/A.m4s')
+      .mockImplementationOnce(async () => 'https://test.example/B.m4s');
+
+    renderHook(() => useMusicPlayer());
+
+    // 1) 播放 A，Howl-A 创建（构造时同步 play() 一次），但暂不触发 onload
+    await act(async () => {
+      usePlayingListStore.setState({ current: TEST_VIDEO.bvid, playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(1));
+    const cbA = howlerState.lastCb;
+    const instanceA = howlerState.lastInstance!;
+
+    // 2) 切到 B：Howl-B 创建（gen++）
+    await act(async () => {
+      usePlayingListStore.setState({ current: VIDEO_B.bvid, playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(2));
+    const instanceB = howlerState.lastInstance!;
+    const playACountBefore = instanceA.play.mock.calls.length;
+    const stopACountBefore = instanceA.stop.mock.calls.length;
+
+    // 3) A 的 onload 现在才触发（旧 Howl 的回调晚到）→ 哨兵应拦截：不调 A.play()，应调 A.stop()/A.unload()
+    act(() => {
+      cbA.onload?.();
+    });
+
+    // A.play() 调用次数没变（onload 内的 if (autoPlay) howl.play() 未执行）
+    expect(instanceA.play.mock.calls.length).toBe(playACountBefore);
+    // 哨兵主动销毁 A
+    expect(instanceA.stop.mock.calls.length).toBeGreaterThan(stopACountBefore);
+    expect(instanceA.unload).toHaveBeenCalled();
+    // B 实例不受影响
+    expect(instanceB).toBe(howlerState.lastInstance);
+  });
 });
 
 describe('H1: useMusicPlayer 媒体会话 API 接入', () => {
@@ -555,7 +652,7 @@ describe('H1: useMusicPlayer 媒体会话 API 接入', () => {
     });
     usePlayingListStore.setState({
       favId: 'main',
-      bvIds: ['BV1Test00001', 'BV1Test00002'],
+      trackIds: ['BV1Test00001', 'BV1Test00002'],
       current: 'BV1Test00001',
       playNext: false,
     });
@@ -631,5 +728,421 @@ describe('H1: useMusicPlayer 媒体会话 API 接入', () => {
     expect(handlers.get('previoustrack')).toBeNull();
     expect(handlers.get('seekto')).toBeNull();
     expect(handlers.get('stop')).toBeNull();
+  });
+});
+
+describe('B5: 多 P 投稿分 P 连播 / 显式 :p<n> 行为', () => {
+  beforeEach(() => {
+    howlerState.HowlMock.mockClear();
+    howlerState.lastCb = {};
+    howlerState.lastInstance = null as never;
+    howlerState.isPlayingMock = false;
+    howlerState.seekValueMock = 0;
+    howlerState.durationMock = 30;
+    resetStores();
+    useVideoPagePrefStore.setState({ defaultPage: {} });
+    vi.mocked(fetchMusicUrl).mockReset();
+    vi.mocked(fetchMusicUrl).mockResolvedValue('https://test.example/audio.m4s');
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn(() => 1),
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const MULTI_VIDEO: BilibiliVideo = {
+    ...TEST_VIDEO,
+    bvid: 'BV1Multi00001',
+    videos: 3,
+    pages: [
+      { cid: 100, page: 1, part: 'P1', duration: 60 },
+      { cid: 101, page: 2, part: 'P2', duration: 90 },
+      { cid: 102, page: 3, part: 'P3', duration: 30 },
+    ],
+  };
+
+  function setupMulti(currentTrackId: string) {
+    useBilibiliVideosStore.setState({
+      ids: [MULTI_VIDEO.bvid, 'BV1Next00001'],
+      entities: {
+        [MULTI_VIDEO.bvid]: MULTI_VIDEO,
+        BV1Next00001: { ...TEST_VIDEO, bvid: 'BV1Next00001', title: 'Next Song' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'main',
+      trackIds: [MULTI_VIDEO.bvid, 'BV1Next00001'],
+      current: currentTrackId,
+      playNext: false,
+    });
+  }
+
+  it('autoPlayNextPage=true + 纯 bvid + 多 P + 未到末尾 → onend 切下一 P（不动 store.current）', async () => {
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: true,
+    });
+    setupMulti(MULTI_VIDEO.bvid);
+
+    renderHook(() => useMusicPlayer());
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    expect(vi.mocked(fetchMusicUrl).mock.calls[0]?.[4]).toBe(1);
+
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    // 触发 onend：P1 结束 → 应切到 P2，store.current 不变（仍是纯 bvid）
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+    await waitFor(() =>
+      expect(vi.mocked(fetchMusicUrl).mock.calls.some((c) => c[4] === 2)).toBe(true),
+    );
+    expect(usePlayingListStore.getState().current).toBe(MULTI_VIDEO.bvid);
+  });
+
+  it('autoPlayNextPage=false → 多 P 投稿 onend 也直接切下一首', async () => {
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: false,
+    });
+    setupMulti(MULTI_VIDEO.bvid);
+
+    renderHook(() => useMusicPlayer());
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+
+    expect(usePlayingListStore.getState().current).toBe('BV1Next00001');
+  });
+
+  it('显式 :p<n> TrackId 即使 autoPlayNextPage=true 也走 next（不连播）', async () => {
+    // 模拟"自定义歌单"场景：trackIds 含显式 :p<n> 条目（与 §2 列表语义边界一致）
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: true,
+    });
+    const explicitTrack = `${MULTI_VIDEO.bvid}:p2`;
+    useBilibiliVideosStore.setState({
+      ids: [MULTI_VIDEO.bvid, 'BV1Next00001'],
+      entities: {
+        [MULTI_VIDEO.bvid]: MULTI_VIDEO,
+        BV1Next00001: { ...TEST_VIDEO, bvid: 'BV1Next00001', title: 'Next Song' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'custom',
+      trackIds: [explicitTrack, 'BV1Next00001'],
+      current: explicitTrack,
+      playNext: false,
+    });
+
+    renderHook(() => useMusicPlayer());
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    // fetchMusicUrl 起始 P 应为 2（显式）
+    expect(vi.mocked(fetchMusicUrl).mock.calls[0]?.[4]).toBe(2);
+
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+
+    // 显式 :p2 条目 onend 直接走 next() → 队列下一首
+    expect(usePlayingListStore.getState().current).toBe('BV1Next00001');
+  });
+
+  it('autoPlayNextPage=true + 末尾 P → onend 切下一首（不再尝试 P4）', async () => {
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: true,
+    });
+    setupMulti(MULTI_VIDEO.bvid);
+    // 预置默认 P 为最后一 P
+    useVideoPagePrefStore.setState({ defaultPage: { [MULTI_VIDEO.bvid]: 3 } });
+
+    renderHook(() => useMusicPlayer());
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    // 起始 P=3（从 defaultPage 读取）
+    expect(vi.mocked(fetchMusicUrl).mock.calls[0]?.[4]).toBe(3);
+
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+
+    // 已经是最后 P → 切到队列下一首
+    expect(usePlayingListStore.getState().current).toBe('BV1Next00001');
+  });
+
+  it('单 P 投稿 autoPlayNextPage=true 也不走分 P 连播', async () => {
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: true,
+    });
+    useBilibiliVideosStore.setState({
+      ids: [TEST_VIDEO.bvid, 'BV1Next00001'],
+      entities: {
+        [TEST_VIDEO.bvid]: TEST_VIDEO,
+        BV1Next00001: { ...TEST_VIDEO, bvid: 'BV1Next00001', title: 'Next' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'main',
+      trackIds: [TEST_VIDEO.bvid, 'BV1Next00001'],
+      current: TEST_VIDEO.bvid,
+      playNext: false,
+    });
+
+    renderHook(() => useMusicPlayer());
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+
+    expect(usePlayingListStore.getState().current).toBe('BV1Next00001');
+  });
+
+  it('defaultPage 偏好：纯 bvid 起播按 defaultPage 选择初始 P', async () => {
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: false,
+    });
+    setupMulti(MULTI_VIDEO.bvid);
+    useVideoPagePrefStore.setState({ defaultPage: { [MULTI_VIDEO.bvid]: 2 } });
+
+    renderHook(() => useMusicPlayer());
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+
+    expect(vi.mocked(fetchMusicUrl).mock.calls[0]?.[4]).toBe(2);
+  });
+});
+
+describe('F4: 连续切 P 链 + 用户手动 switchToPage', () => {
+  beforeEach(() => {
+    howlerState.HowlMock.mockClear();
+    howlerState.lastCb = {};
+    howlerState.lastInstance = null as never;
+    howlerState.isPlayingMock = false;
+    howlerState.seekValueMock = 0;
+    howlerState.durationMock = 30;
+    resetStores();
+    useVideoPagePrefStore.setState({ defaultPage: {} });
+    vi.mocked(fetchMusicUrl).mockReset();
+    vi.mocked(fetchMusicUrl).mockResolvedValue('https://test.example/audio.m4s');
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn(() => 1),
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const MULTI: BilibiliVideo = {
+    aid: 1,
+    bvid: 'BV1ChainP00001',
+    created: 0,
+    length: '',
+    pic: '',
+    is_union_video: false,
+    title: 'Chain Multi',
+    sub_title: '',
+    play: 0,
+    comment: 0,
+    author: '',
+    description: '',
+    videos: 3,
+    pages: [
+      { cid: 100, page: 1, part: 'P1', duration: 10 },
+      { cid: 101, page: 2, part: 'P2', duration: 10 },
+      { cid: 102, page: 3, part: 'P3', duration: 10 },
+    ],
+  };
+
+  function setup(currentTrackId: string, nextBv = 'BV1ChainNext') {
+    useBilibiliVideosStore.setState({
+      ids: [MULTI.bvid, nextBv],
+      entities: {
+        [MULTI.bvid]: MULTI,
+        [nextBv]: { ...TEST_VIDEO, bvid: nextBv, title: 'After Chain' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'main',
+      trackIds: [MULTI.bvid, nextBv],
+      current: currentTrackId,
+      playNext: false,
+    });
+  }
+
+  it('autoPlayNextPage=true：onend P1→P2→P3→队列下一首 (3 段链)', async () => {
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: true,
+    });
+    setup(MULTI.bvid);
+
+    renderHook(() => useMusicPlayer());
+
+    // P1 启动
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(fetchMusicUrl).mock.calls[0]?.[4]).toBe(1);
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    // P1 结束 → P2
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(fetchMusicUrl).mock.calls.at(-1)?.[4]).toBe(2);
+    // store.current 维持纯 bvid 不变
+    expect(usePlayingListStore.getState().current).toBe(MULTI.bvid);
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    // P2 结束 → P3
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(fetchMusicUrl).mock.calls.at(-1)?.[4]).toBe(3);
+    expect(usePlayingListStore.getState().current).toBe(MULTI.bvid);
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    // P3 结束（末尾 P）→ 切到队列下一首
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+    expect(usePlayingListStore.getState().current).toBe('BV1ChainNext');
+  });
+
+  it('用户手动 switchToPage(n) → 触发新的 fetchMusicUrl + Howler 重建', async () => {
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: false,
+    });
+    setup(MULTI.bvid);
+    renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(fetchMusicUrl).mock.calls[0]?.[4]).toBe(1);
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    // 模拟外部组件（PartSelector / PlayingQueue）调 switchToPage(2)
+    const switchToPage = usePlayerRuntimeStore.getState().switchToPage;
+    expect(switchToPage).toBeTypeOf('function');
+    await act(async () => {
+      switchToPage?.(2);
+    });
+
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(fetchMusicUrl).mock.calls.at(-1)?.[4]).toBe(2);
+    // playingPage 状态推送到 runtime store
+    expect(usePlayerRuntimeStore.getState().playingPage).toBe(2);
+    // store.current 不动（用户视角 TrackId 稳定）
+    expect(usePlayingListStore.getState().current).toBe(MULTI.bvid);
+  });
+
+  it('switchToPage 越界值被 clamp 到 [1, totalP]', async () => {
+    usePlayerProfileStore.setState({
+      volume: 0.5,
+      autoPlay: true,
+      loopMode: 'loop',
+      autoPlayNextPage: false,
+    });
+    setup(MULTI.bvid);
+    renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    // 越界上限：传 99 → clamp 到 3
+    const switchToPage = usePlayerRuntimeStore.getState().switchToPage;
+    await act(async () => {
+      switchToPage?.(99);
+    });
+    expect(usePlayerRuntimeStore.getState().playingPage).toBe(3);
+
+    // 越界下限：传 0 / 负数 → clamp 到 1
+    await act(async () => {
+      switchToPage?.(0);
+    });
+    expect(usePlayerRuntimeStore.getState().playingPage).toBe(1);
+
+    await act(async () => {
+      switchToPage?.(-5);
+    });
+    expect(usePlayerRuntimeStore.getState().playingPage).toBe(1);
   });
 });

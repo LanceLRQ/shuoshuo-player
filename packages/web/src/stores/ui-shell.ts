@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FavListType } from '@shuoshuo-player/shared';
+import type { BilibiliVideo, FavListType } from '@shuoshuo-player/shared';
 
 /** 新建模式下预填字段（仅 type/mid/name；编辑模式忽略） */
 export interface FavEditPrefill {
@@ -39,6 +39,12 @@ interface UIShellState {
   /** 批量添加多条到歌单（搜索发现页批量选择模式入口） */
   openAddToFavBatch: (bvids: string[], options?: { fromSearch?: boolean }) => void;
   closeAddToFav: () => void;
+
+  /** PagesPickerDialog：VideoItem 三点菜单触发，多选分 P 加入歌单 */
+  pagesPickerOpen: boolean;
+  pagesPickerVideo: BilibiliVideo | null;
+  openPagesPicker: (video: BilibiliVideo) => void;
+  closePagesPicker: () => void;
 
   /** 通用确认弹窗 */
   confirmOpen: boolean;
@@ -108,6 +114,11 @@ export const useUIShell = create<UIShellState>((set) => ({
       addToFavExcludeId: null,
       addToFavFromSearch: false,
     }),
+
+  pagesPickerOpen: false,
+  pagesPickerVideo: null,
+  openPagesPicker: (video) => set({ pagesPickerOpen: true, pagesPickerVideo: video }),
+  closePagesPicker: () => set({ pagesPickerOpen: false, pagesPickerVideo: null }),
 
   confirmOpen: false,
   confirmConfig: null,

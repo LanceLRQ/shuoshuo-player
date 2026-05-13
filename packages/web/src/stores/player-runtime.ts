@@ -16,9 +16,18 @@ interface PlayerRuntimeState {
   duration: number;
   /** 跳转到指定秒数。useMusicPlayer 主控 hook mount 时注册；未注册时为 undefined（noop） */
   seek?: (seconds: number) => void;
+  /** 当前实际播放的分 P（与 store.current TrackId 解耦的运行时状态；自 C3 起由 useMusicPlayer 同步） */
+  playingPage: number;
+  /**
+   * 切换到当前 bvid 的指定分 P（主控 hook 注册）。
+   * 调用方（PlayingQueue / SPlayer P 选择器）通过它请求重载音频流；
+   * 内部仅触发 Howl 重建，不动 usePlayingListStore.current（保持用户视角 TrackId 稳定）。
+   */
+  switchToPage?: (page: number) => void;
 }
 
 export const usePlayerRuntimeStore = create<PlayerRuntimeState>(() => ({
   progress: 0,
   duration: 0,
+  playingPage: 1,
 }));

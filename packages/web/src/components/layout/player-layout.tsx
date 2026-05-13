@@ -1,8 +1,25 @@
-import { useEffect, type ReactNode } from 'react';
-import { usePlayerProfileStore } from '@shuoshuo-player/shared';
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { getPlatformBridge, usePlayerProfileStore } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { TopBar } from './top-bar';
 import { NavMenu } from './nav-menu';
+
+/**
+ * macOS Tauri 桌面端启用 titleBarStyle: Overlay 后，应用顶部需要让出 28px
+ * 给系统 traffic light 按钮浮在 viewport 内。其他平台（Web / Chrome 扩展 /
+ * Windows Tauri / Linux Tauri）不需要该安全区。
+ *
+ * 判定时机为模块加载期一次性，PlatformBridge.type 在 init.ts 注入后稳定。
+ */
+function detectMacTrafficLightArea(): boolean {
+  try {
+    if (getPlatformBridge().type !== 'tauri') return false;
+  } catch {
+    return false;
+  }
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  return /mac os x/i.test(ua);
+}
 
 interface PlayerLayoutProps {
   /** 主内容区（一般传入 <Outlet />） */
@@ -67,15 +84,27 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
     }
   }, [primaryColor]);
 
+  const showMacTrafficLightArea = useMemo(() => detectMacTrafficLightArea(), []);
+  const gridRows = showMacTrafficLightArea
+    ? 'grid-rows-[1.75rem_3.5rem_1fr_5rem]'
+    : 'grid-rows-[3.5rem_1fr_5rem]';
+  const dragRegionStyle = { WebkitAppRegion: 'drag' } as CSSProperties;
+
   return (
-    <div className="grid h-screen grid-rows-[3.5rem_1fr_5rem] overflow-hidden bg-background text-foreground">
+    <div
+      className={`grid h-screen ${gridRows} overflow-hidden bg-muted text-foreground dark:bg-background`}
+    >
+      {/* macOS traffic light 安全区：仅 Tauri + macOS 时占用 row 0；
+          整条 28px 高，shell 色（与 NavMenu / 根背景同色），整体支持拖动 */}
+      {showMacTrafficLightArea && <div style={dragRegionStyle} aria-hidden />}
+
       {/* Row 1: TopBar (3.5rem = h-14) */}
       <TopBar menuOpen={menuOpen} onToggleMenu={toggleMenu} />
 
       {/* Row 2: 中间行，flex 左右布局 NavMenu + main；min-h-0 让 flex 子缩到容器内 */}
       <div className="flex min-h-0 overflow-hidden">
         <NavMenu menuOpen={menuOpen} />
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="min-w-0 border-l flex-1 overflow-y-auto bg-background dark:bg-muted">
           {/* 不在此处加 padding：让歌词面板等沉浸式视图能贴合 main 边缘；
               普通页面在 RootLayout 自行包 px-6 py-4 */}
           <div className="h-full">{children}</div>

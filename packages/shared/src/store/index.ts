@@ -11,6 +11,9 @@ export { useRiskControlStore } from './risk-control';
 export { useMusicUrlCacheStore } from './music-url-cache';
 export type { MusicUrlCacheEntry } from './music-url-cache';
 export { useUpdateCheckerStore } from './update-checker';
+export { useFavoritesStore, selectSortedBvids } from './favorites';
+export type { FavoritesOrder } from './favorites';
+export { useVideoPagePrefStore } from './video-page-pref';
 export type {
   NoticeItem,
   SendNoticePayload,
@@ -36,4 +39,6 @@ export type {
   PersistedCloudServiceShape,
   PersistedMusicUrlCacheShape,
   PersistedUpdateCheckerShape,
+  PersistedFavoritesShape,
+  PersistedVideoPagePrefShape,
 } from './persisted-types';
