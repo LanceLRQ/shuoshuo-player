@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Heart, Star, Video } from 'lucide-react';
+import { ArrowRight, Heart, Star, Video } from 'lucide-react';
 import { FavListType, type ImportSummary, type MergeMode } from '@shuoshuo-player/shared';
 import {
   Dialog,
@@ -102,7 +102,7 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onCancel())}>
-      <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-3 overflow-hidden">
+      <DialogContent className="flex max-h-[85vh] max-w-xl flex-col gap-3 overflow-hidden">
         <DialogHeader className="space-y-1">
           <DialogTitle>导入数据预览</DialogTitle>
           <DialogDescription className="text-xs">
@@ -133,8 +133,11 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
             <span className="text-muted-foreground">视频</span>
             <span className="font-medium">{summary.videoCount}</span>
           </span>
+          {/* 箭头单独走 ml-auto → 被推到「左侧统计块和右侧版本块之间的中点」 */}
+          <ArrowRight className="ml-auto h-3.5 w-3.5 text-muted-foreground" aria-label="迁移到" />
+          {/* 版本号块再走一个 ml-auto → 继续推到最右；两个 ml-auto 共同形成三段均分布局 */}
           <span className="ml-auto flex items-center gap-1.5 text-muted-foreground">
-            v{APP_VERSION}
+            <span>v{APP_VERSION}</span>
             {IS_BETA_VERSION && (
               <Badge
                 variant="secondary"

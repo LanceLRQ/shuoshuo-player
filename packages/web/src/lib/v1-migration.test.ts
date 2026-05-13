@@ -11,7 +11,7 @@
  *   4. fav_list 有数据 → 返回 snapshot（且 cloud_service 不进入 importInput）
  *   5. lyrics 有数据 → 返回 snapshot
  *   6. bili_videos.entities 有数据 → 返回 snapshot
- * - clearV1Storage：仅删 7 个 v1 key（不删 player_data / dismissed flag）
+ * - clearV1Storage：仅删 7 个 v1 key（不删 ssp_v2_player_data / dismissed flag）
  * - dismissV1Migration：先写 dismissed 后删 keys（顺序保证）
  */
 import {
@@ -215,13 +215,13 @@ describe('clearV1Storage', () => {
     }
   });
 
-  it('仅删 7 个 v1 key（不动 player_data / dismissed flag）', async () => {
+  it('仅删 7 个 v1 key（不动 ssp_v2_player_data / dismissed flag）', async () => {
     setPlatformBridge(createBridge('chrome-extension'));
     const { mock, store } = createChromeMock({
       fav_list: { list: [] },
       lyrics: { lyricMaps: {} },
       cloud_service: { session: {} },
-      player_data: '{"keep":"me"}',
+      ssp_v2_player_data: '{"keep":"me"}',
       [V1_DISMISS_KEY]: true,
     });
     (globalThis as any).chrome = mock;
@@ -229,7 +229,7 @@ describe('clearV1Storage', () => {
     expect(store.has('fav_list')).toBe(false);
     expect(store.has('lyrics')).toBe(false);
     expect(store.has('cloud_service')).toBe(false);
-    expect(store.has('player_data')).toBe(true);
+    expect(store.has('ssp_v2_player_data')).toBe(true);
     expect(store.has(V1_DISMISS_KEY)).toBe(true);
   });
 
@@ -299,11 +299,12 @@ describe('seedV1FromExportJson（dev 工具）', () => {
     }
   });
 
-  it('拣出 v1 已知 key 写入 storage + 清掉 v2 状态', async () => {
+  it('拣出 v1 已知 key 写入 storage + 仅清 dismissed flag（保留 v2 player_data）', async () => {
     setPlatformBridge(createBridge('chrome-extension'));
     const { mock, store } = createChromeMock({
-      // 旧 v2 状态：迁移完成后应该被清，让 reload 后弹层能弹
-      player_data: '{"old":"data"}',
+      // 已有 v2 数据：开发者反复测试时应被保留，迁移流程靠 buildMerged 合并语义处理
+      ssp_v2_player_data: '{"keep":"existing v2 settings"}',
+      // 旧 dismissed flag：必须清，否则迁移弹层不会弹（功能失效）
       [V1_DISMISS_KEY]: true,
     });
     (globalThis as any).chrome = mock;
@@ -317,13 +318,14 @@ describe('seedV1FromExportJson（dev 工具）', () => {
     });
 
     expect(result.writtenKeys.sort()).toEqual(['bili_videos', 'fav_list', 'lyrics']);
-    expect(result.clearedKeys).toEqual(['player_data', V1_DISMISS_KEY]);
+    expect(result.clearedKeys).toEqual([V1_DISMISS_KEY]);
     expect(store.has('fav_list')).toBe(true);
     expect(store.has('lyrics')).toBe(true);
     expect(store.has('bili_videos')).toBe(true);
     expect(store.has('favorites')).toBe(false);
     expect(store.has('version')).toBe(false);
-    expect(store.has('player_data')).toBe(false);
+    // 关键：v2 数据必须被保留，不再被 dev 工具误清
+    expect(store.get('ssp_v2_player_data')).toBe('{"keep":"existing v2 settings"}');
     expect(store.has(V1_DISMISS_KEY)).toBe(false);
   });
 
@@ -362,7 +364,7 @@ describe('resetAllStorage（dev 工具）', () => {
     setPlatformBridge(createBridge('chrome-extension'));
     // mock 端用 createChromeMock 的 .clear 没实现，单独补一下：
     const { mock, store } = createChromeMock({
-      player_data: '{}',
+      ssp_v2_player_data: '{}',
       fav_list: { list: [] },
       [V1_DISMISS_KEY]: true,
     });

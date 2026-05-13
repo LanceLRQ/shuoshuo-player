@@ -15,6 +15,7 @@ import {
   getPlatformBridge,
   parseImportData,
   objectToDownload,
+  SSP_V2_NAMESPACE,
   type ParsedImport,
 } from '@shuoshuo-player/shared';
 
@@ -29,8 +30,8 @@ export const V1_PERSIST_KEYS = [
   'cloud_service',
 ] as const;
 
-/** 永久放弃迁移的标志位 key（独立于 v1/v2 的业务 key） */
-export const V1_DISMISS_KEY = 'v1_migration_dismissed';
+/** 永久放弃迁移的标志位 key（带 v2 命名空间，与 v1 裸名隔离） */
+export const V1_DISMISS_KEY = `${SSP_V2_NAMESPACE}v1_migration_dismissed`;
 
 export interface V1Snapshot {
   /** chrome.storage.local 中读到的原始 7 个 key，供「下载备份」全量导出 */
@@ -139,7 +140,7 @@ const V1_SEED_KEYS = [
 export interface SeedV1Result {
   /** 实际写入 chrome.storage.local 的 v1 key 列表 */
   writtenKeys: string[];
-  /** 被一同清理的 v2 状态 key 列表（player_data + dismissed flag） */
+  /** 被一同清理的 v2 状态 key 列表（仅 dismissed flag） */
   clearedKeys: string[];
 }
 
@@ -149,7 +150,8 @@ export interface SeedV1Result {
  * 流程：
  * 1. 从 JSON 中拣出 V1_SEED_KEYS 的字段（其余字段如 v2 的 favorites / version 字段忽略）
  * 2. 直接以「对象」形式写入 chrome.storage.local（v1 风格，不 JSON.stringify）
- * 3. 清掉 v2 自身状态（player_data + V1_DISMISS_KEY），保证 reload 后迁移弹层能弹
+ * 3. 清掉 V1_DISMISS_KEY，保证 reload 后迁移弹层能弹（player_data 保留，
+ *    避免开发者反复测试时丢失已有 v2 设置；buildMerged 自带合并语义不会冲突）
  *
  * 仅扩展环境可用；prod 构建中调用方走 `__DEV_LOG__` 守卫，整段 DCE。
  *
@@ -178,8 +180,11 @@ export async function seedV1FromExportJson(
 
   await chrome.storage.local.set(toWrite);
 
-  // 清 v2 自身状态：避免 dismissed flag 残留导致 reload 后迁移弹层不弹
-  const clearedKeys = ['player_data', V1_DISMISS_KEY];
+  // 仅清 dismissed flag：上次「永久放弃」的标志若残留会导致迁移弹层不弹。
+  // 不动 PERSIST_DATA_KEY：保留开发者已有的 v2 设置（ui_profile 等），避免反复测试时
+  // 一上传就被清光；真实老用户场景下 player_data 本来就不存在，清不清结果一致。
+  // 走「立即导入」时 buildMerged 自带「合并而非替换」语义，也不会损失 v2 现有数据。
+  const clearedKeys = [V1_DISMISS_KEY];
   await chrome.storage.local.remove(clearedKeys);
 
   return { writtenKeys: Object.keys(toWrite), clearedKeys };

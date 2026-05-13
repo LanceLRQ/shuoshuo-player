@@ -36,7 +36,7 @@ export function V1DevSeederCard() {
         const result = await seedV1FromExportJson(json);
         sendNotice({
           type: NoticeType.SUCCESS,
-          message: `已写入 ${result.writtenKeys.length} 个 v1 key（${result.writtenKeys.join(', ')}），即将刷新触发迁移`,
+          message: `已写入 ${result.writtenKeys.length} 个 v1 key（${result.writtenKeys.join(', ')}），v2 现有设置已保留，即将刷新触发迁移`,
           duration: 2500,
         });
         setTimeout(() => window.location.reload(), 2500);
@@ -95,7 +95,8 @@ export function V1DevSeederCard() {
         <div className="space-y-2">
           <p className="text-muted-foreground">
             上传一份 v1 导出的 JSON，会反向写入 chrome.storage.local 的 v1 风格 key
-            模拟「老用户升级」场景，并清空 v2 状态触发迁移弹层。
+            模拟「老用户升级」场景，并清掉「永久放弃」标志触发迁移弹层。v2 现有设置（播放器配置 /
+            歌单等）会被保留，不会被覆盖。
           </p>
           <Button variant="outline" size="sm" onClick={handleSeedV1} disabled={seeding}>
             <Upload className="mr-2 h-4 w-4" />

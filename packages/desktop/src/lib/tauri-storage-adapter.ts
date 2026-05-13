@@ -14,7 +14,8 @@ import type { StorageAdapter } from '@shuoshuo-player/shared';
  * - setItem 接收前端 JSON.stringify 后的字符串，本类 JSON.parse 还原对象传给 Rust
  * - getItem 拿到 Rust 返回的 JsonValue，再 JSON.stringify 给前端
  *
- * 仅 ["player_data", "cloud_api_base_url"] 在 Rust 白名单内，其他 key 会被拒绝。
+ * 仅 ["ssp_v2_player_data", "ssp_v2_cloud_api_base_url"] 在 Rust 白名单内，其他 key 会被拒绝。
+ * 命名空间前缀 ssp_v2_ 与前端 SSP_V2_NAMESPACE 常量手动同步。
  */
 export class TauriStorageAdapter implements StorageAdapter {
   async getItem(key: string): Promise<string | null> {

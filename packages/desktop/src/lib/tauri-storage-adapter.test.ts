@@ -26,23 +26,23 @@ describe('TauriStorageAdapter', () => {
   describe('getItem', () => {
     it('返回 null 当 Rust 返回 null', async () => {
       mockInvoke.mockResolvedValueOnce(null);
-      expect(await adapter.getItem('player_data')).toBeNull();
-      expect(mockInvoke).toHaveBeenCalledWith('store_get', { key: 'player_data' });
+      expect(await adapter.getItem('ssp_v2_player_data')).toBeNull();
+      expect(mockInvoke).toHaveBeenCalledWith('store_get', { key: 'ssp_v2_player_data' });
     });
 
     it('返回 null 当 Rust 返回 undefined', async () => {
       mockInvoke.mockResolvedValueOnce(undefined);
-      expect(await adapter.getItem('player_data')).toBeNull();
+      expect(await adapter.getItem('ssp_v2_player_data')).toBeNull();
     });
 
     it('JsonValue 转 JSON 字符串', async () => {
       mockInvoke.mockResolvedValueOnce({ a: 1, b: ['x'] });
-      expect(await adapter.getItem('player_data')).toBe('{"a":1,"b":["x"]}');
+      expect(await adapter.getItem('ssp_v2_player_data')).toBe('{"a":1,"b":["x"]}');
     });
 
     it('字符串值原样返回（不再 stringify 加引号）', async () => {
       mockInvoke.mockResolvedValueOnce('https://my.api/v3');
-      expect(await adapter.getItem('cloud_api_base_url')).toBe('https://my.api/v3');
+      expect(await adapter.getItem('ssp_v2_cloud_api_base_url')).toBe('https://my.api/v3');
     });
 
     it('白名单错误透传', async () => {
@@ -54,27 +54,30 @@ describe('TauriStorageAdapter', () => {
   describe('setItem', () => {
     it('JSON 字符串反序列化后传 invoke', async () => {
       mockInvoke.mockResolvedValueOnce(undefined);
-      await adapter.setItem('player_data', JSON.stringify({ ui_profile: { theme: 'dark' } }));
+      await adapter.setItem(
+        'ssp_v2_player_data',
+        JSON.stringify({ ui_profile: { theme: 'dark' } }),
+      );
       expect(mockInvoke).toHaveBeenCalledWith('store_set', {
-        key: 'player_data',
+        key: 'ssp_v2_player_data',
         value: { ui_profile: { theme: 'dark' } },
       });
     });
 
     it('非 JSON 文本（如 baseURL 字面量）原样下发', async () => {
       mockInvoke.mockResolvedValueOnce(undefined);
-      await adapter.setItem('cloud_api_base_url', 'https://my.api/v3');
+      await adapter.setItem('ssp_v2_cloud_api_base_url', 'https://my.api/v3');
       expect(mockInvoke).toHaveBeenCalledWith('store_set', {
-        key: 'cloud_api_base_url',
+        key: 'ssp_v2_cloud_api_base_url',
         value: 'https://my.api/v3',
       });
     });
 
     it('空字符串原样下发', async () => {
       mockInvoke.mockResolvedValueOnce(undefined);
-      await adapter.setItem('cloud_api_base_url', '');
+      await adapter.setItem('ssp_v2_cloud_api_base_url', '');
       expect(mockInvoke).toHaveBeenCalledWith('store_set', {
-        key: 'cloud_api_base_url',
+        key: 'ssp_v2_cloud_api_base_url',
         value: '',
       });
     });
@@ -88,8 +91,8 @@ describe('TauriStorageAdapter', () => {
   describe('removeItem', () => {
     it('调用 store_remove', async () => {
       mockInvoke.mockResolvedValueOnce(undefined);
-      await adapter.removeItem('player_data');
-      expect(mockInvoke).toHaveBeenCalledWith('store_remove', { key: 'player_data' });
+      await adapter.removeItem('ssp_v2_player_data');
+      expect(mockInvoke).toHaveBeenCalledWith('store_remove', { key: 'ssp_v2_player_data' });
     });
 
     it('白名单错误透传', async () => {

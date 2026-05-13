@@ -89,10 +89,11 @@ pnpm --filter @shuoshuo-player/desktop tauri build    # 单独构建桌面端
 
 ### 状态管理与持久化
 
-- 持久化 root key：`player_data`，统一节流写入（PERSIST_THROTTLE_MS 默认 1000ms）
+- 持久化 root key：`ssp_v2_player_data`（带 `ssp_v2_` 命名空间前缀），统一节流写入（PERSIST_THROTTLE_MS 默认 1000ms）
 - 持久化 store 列表通过 `PERSIST_KEYS` 常量声明
 - 任何含 `isLoading` / 临时态的 store 都需提供 `persistSnapshot()` 钩子在持久化前清理瞬态字段
-- 云服务 API baseURL 持久化 key：`cloud_api_base_url`（独立于 player_data，启动时早于任何云服务调用读取）
+- 云服务 API baseURL 持久化 key：`ssp_v2_cloud_api_base_url`（独立于 player_data，启动时早于任何云服务调用读取）
+- v2 storage key 命名空间：所有 v2 自有 key 都以 `ssp_v2_` 前缀（常量 `SSP_V2_NAMESPACE`），与 v1 老 key（`fav_list` / `lyrics` 等裸名）彻底隔离；未来 v3 平行使用 `ssp_v3_`
 
 ### 云服务 API 对接
 

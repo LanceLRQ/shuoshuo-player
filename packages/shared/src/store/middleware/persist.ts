@@ -4,6 +4,7 @@ import {
   DEFAULT_CLOUD_API_BASE_URL,
   PERSIST_KEYS,
   PERSIST_THROTTLE_MS,
+  SSP_V2_NAMESPACE,
 } from '../../constants';
 import { setCloudApiBaseUrl } from '../../api';
 import { getPlatformBridge } from '../../platform';
@@ -36,8 +37,8 @@ import type {
   PersistedVideoPagePrefShape,
 } from '../persisted-types';
 
-/** 持久化数据的根 key */
-export const PERSIST_DATA_KEY = 'player_data';
+/** 持久化数据的根 key（带 v2 命名空间，与 v1 裸名 fav_list/lyrics 等彻底隔离） */
+export const PERSIST_DATA_KEY = `${SSP_V2_NAMESPACE}player_data`;
 
 /**
  * §2 不变量防御（E3）：清洗 VideoListCacheEntry.video_list 中的 bvid 字段，
