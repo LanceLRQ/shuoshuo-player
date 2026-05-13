@@ -33,6 +33,8 @@ export function ChoosingFlow({ parsed, onCancel, onCompleted }: ChoosingFlowProp
   const handleConfirm = async (mode: MergeMode, selectedFavIds: Set<string>) => {
     if (importing) return;
     setImporting(true);
+
+    // 第一步：合并并写回 v2 player_data（关键步骤，失败 = 数据未写入）
     try {
       const { storage } = getPlatformBridge();
       const raw = await storage.getItem(PERSIST_DATA_KEY);
@@ -57,20 +59,35 @@ export function ChoosingFlow({ parsed, onCancel, onCompleted }: ChoosingFlowProp
         favorites: merged.favorites,
       };
       await storage.setItem(PERSIST_DATA_KEY, JSON.stringify(next));
-      // 迁移成功 → 清理 v1 storage（避免下次启动再触发）
+    } catch (err) {
+      // 写数据失败 → 数据未持久化，直接报错让用户重试。重试不会产生重复（buildMerged 未生效）
+      console.debug('[v1-migration] write merged data failed', err);
+      sendNotice({ type: NoticeType.ERROR, message: '迁移失败，请重试', duration: 3000 });
+      setImporting(false);
+      return;
+    }
+
+    // 数据已成功写入 → 此后任何失败都不应让用户重试整个迁移（否则 buildMerged 会把已合并数据再合并一次造成歌单条目重复）
+    onCompleted();
+
+    // 第二步：清理 v1 storage（非关键）。失败时降级为「成功 + 清理失败」提示，仍 reload
+    try {
       await clearV1Storage();
-      onCompleted();
       sendNotice({
         type: NoticeType.SUCCESS,
         message: '旧数据迁移成功，即将刷新',
         duration: 1500,
       });
-      setTimeout(() => window.location.reload(), 1500);
     } catch (err) {
-      console.debug('[v1-migration] import failed', err);
-      sendNotice({ type: NoticeType.ERROR, message: '迁移失败，请重试', duration: 3000 });
-      setImporting(false);
+      console.debug('[v1-migration] clearV1Storage failed (data already migrated)', err);
+      sendNotice({
+        type: NoticeType.WARN,
+        message: '迁移已完成，但旧数据清理失败；下次启动可能仍会提示，到时选「永久放弃」即可',
+        duration: 4000,
+      });
     }
+
+    setTimeout(() => window.location.reload(), 1500);
   };
 
   return (

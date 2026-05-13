@@ -12,6 +12,7 @@ import {
   bilibiliService,
   cloudPure,
   cloudService,
+  __resetBilibiliRateLimitForTest,
 } from './client';
 import { DEFAULT_CLOUD_API_BASE_URL } from '../constants';
 
@@ -284,5 +285,95 @@ describe('setCloudHttpAdapter', () => {
     const adapter = vi.fn();
     setCloudHttpAdapter(adapter);
     expect(bilibiliService.defaults.adapter).not.toBe(adapter);
+  });
+});
+
+/**
+ * B 站请求限速测试：验证「连续/并发请求间隔 ≥ 100ms」核心不变量
+ *
+ * 用 mock adapter 拦截实际请求，记录每次进入 adapter 的时间戳。
+ * 限速发生在 request interceptor 中（adapter 之前），所以 adapter 触发时刻 = 限速放行时刻。
+ */
+describe('B 站请求限速', () => {
+  beforeEach(() => {
+    __resetBilibiliRateLimitForTest();
+  });
+
+  afterEach(() => {
+    setBilibiliHttpAdapter(null);
+    __resetBilibiliRateLimitForTest();
+  });
+
+  it('连续请求间隔 ≥ 100ms（串行）', async () => {
+    const timestamps: number[] = [];
+    const mockAdapter = vi.fn(async (config) => {
+      timestamps.push(Date.now());
+      return {
+        data: { code: 0, data: {} },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    });
+    setBilibiliHttpAdapter(mockAdapter);
+
+    await bilibiliService.get('/x/foo');
+    await bilibiliService.get('/x/foo');
+    await bilibiliService.get('/x/foo');
+
+    expect(timestamps).toHaveLength(3);
+    expect(timestamps[1] - timestamps[0]).toBeGreaterThanOrEqual(95); // 留 5ms 时钟容差
+    expect(timestamps[2] - timestamps[1]).toBeGreaterThanOrEqual(95);
+  });
+
+  it('并发请求被串行化（同时发出 3 个仍然两两间隔 ≥ 100ms）', async () => {
+    const timestamps: number[] = [];
+    const mockAdapter = vi.fn(async (config) => {
+      timestamps.push(Date.now());
+      return {
+        data: { code: 0, data: {} },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    });
+    setBilibiliHttpAdapter(mockAdapter);
+
+    // Promise.all 同时触发 3 个请求 —— 这是修复前会失败的关键场景
+    await Promise.all([
+      bilibiliService.get('/x/a'),
+      bilibiliService.get('/x/b'),
+      bilibiliService.get('/x/c'),
+    ]);
+
+    expect(timestamps).toHaveLength(3);
+    const sorted = [...timestamps].sort((a, b) => a - b);
+    expect(sorted[1] - sorted[0]).toBeGreaterThanOrEqual(95);
+    expect(sorted[2] - sorted[1]).toBeGreaterThanOrEqual(95);
+  });
+
+  it('间隔超过 100ms 后第二个请求立即放行（不再等待）', async () => {
+    const timestamps: number[] = [];
+    const mockAdapter = vi.fn(async (config) => {
+      timestamps.push(Date.now());
+      return {
+        data: { code: 0, data: {} },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    });
+    setBilibiliHttpAdapter(mockAdapter);
+
+    await bilibiliService.get('/x/a');
+    await new Promise((r) => setTimeout(r, 150)); // 主动等 150ms 让 cooldown 过去
+    const t0 = Date.now();
+    await bilibiliService.get('/x/b');
+
+    // 第二个请求几乎立即放行（< 30ms，留余量给事件循环 + adapter 调度）
+    expect(timestamps[1] - t0).toBeLessThan(30);
   });
 });

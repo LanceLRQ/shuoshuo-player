@@ -15,13 +15,19 @@ import { EXPORT_KEYS } from '../constants';
 import { FavListType, type BilibiliVideo, type FavListItem, type LyricEntry } from '../types';
 import { z } from 'zod';
 
+/**
+ * BV 号格式：以 BV 开头 + 字母数字（B 站官方 BV 号长度 12，但留宽容范围 8-30 兼容历史/边界数据）
+ * 严格校验防御：导入文件含恶意 bv_ids（空串、超长串、注入字符）会污染播放队列与 storage
+ */
+const BV_ID_PATTERN = /^BV[0-9A-Za-z]{8,30}$/;
+
 const FavListItemSchema = z.object({
   id: z.string().min(1),
   name: z.string(),
   type: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   mid: z.string().optional(),
   biliFavFolderId: z.string().optional(),
-  bv_ids: z.array(z.string()),
+  bv_ids: z.array(z.string().regex(BV_ID_PATTERN)),
   create_time: z.number(),
   update_time: z.number(),
 });
@@ -88,8 +94,11 @@ function normalizeV1FavItem(raw: Record<string, unknown>): FavListItem {
     type: raw.type as FavListType,
     mid: mid != null && mid !== '' ? String(mid) : undefined,
     biliFavFolderId: typeof biliFav === 'string' && biliFav !== '' ? biliFav : undefined,
+    // v1 路径同样按 BV 号格式过滤，与 v2 zod schema 行为一致；防御历史脏数据
     bv_ids: Array.isArray(raw.bv_ids)
-      ? raw.bv_ids.filter((x: unknown): x is string => typeof x === 'string')
+      ? raw.bv_ids.filter(
+          (x: unknown): x is string => typeof x === 'string' && BV_ID_PATTERN.test(x),
+        )
       : [],
     create_time: typeof ms === 'number' && ms > 1e12 ? Math.floor(ms / 1000) : Number(ms ?? 0) || 0,
     update_time: typeof mu === 'number' && mu > 1e12 ? Math.floor(mu / 1000) : Number(mu ?? 0) || 0,

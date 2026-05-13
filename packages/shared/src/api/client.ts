@@ -82,6 +82,32 @@ const MIN_BILI_REQUEST_INTERVAL_MS = 100;
 let lastBiliRequestTime = 0;
 
 /**
+ * 限速 promise 链：所有 B 站请求串行通过此链，避免并发场景下两个请求
+ * 同时读到旧 lastBiliRequestTime → 同时计算出小 gap → 同时 delay 完成 → 实际间隔为 0
+ * 的竞态。每个请求 await rateLimitChain.then(...)，自动排队。
+ */
+let rateLimitChain: Promise<void> = Promise.resolve();
+
+function rateLimitGate(): Promise<void> {
+  const next = rateLimitChain.then(async () => {
+    const gap = Date.now() - lastBiliRequestTime;
+    if (gap < MIN_BILI_REQUEST_INTERVAL_MS) {
+      await new Promise<void>((r) => setTimeout(r, MIN_BILI_REQUEST_INTERVAL_MS - gap));
+    }
+    lastBiliRequestTime = Date.now();
+  });
+  // 链上某次抛错不能阻塞后续：吞掉异常但保留 next 给本次调用方等待
+  rateLimitChain = next.catch(() => {});
+  return next;
+}
+
+/** 测试钩子：重置限速链，避免 vitest 测试间状态泄漏 */
+export function __resetBilibiliRateLimitForTest(): void {
+  rateLimitChain = Promise.resolve();
+  lastBiliRequestTime = 0;
+}
+
+/**
  * 注入自定义 axios adapter（仅 bilibiliService）
  *
  * 默认 null 表示走浏览器原生 fetch/XHR（Chrome 扩展 / Web 行为）；
@@ -130,13 +156,8 @@ bilibiliService.interceptors.response.use(
 bilibiliService.interceptors.request.use(async (config) => {
   const cfg = config as InternalRequestConfigWithWbi;
 
-  // 限速：保证连续请求间最小间隔，降低触发风控概率
-  const now = Date.now();
-  const gap = now - lastBiliRequestTime;
-  if (gap < MIN_BILI_REQUEST_INTERVAL_MS) {
-    await new Promise((r) => setTimeout(r, MIN_BILI_REQUEST_INTERVAL_MS - gap));
-  }
-  lastBiliRequestTime = Date.now();
+  // 限速：通过 rateLimitGate 串行排队，并发安全
+  await rateLimitGate();
   // 进入 wbi 接口前确保密钥新鲜（>20 分钟才真正调 nav，否则立即返回）
   if (cfg.__useWbi) {
     try {
