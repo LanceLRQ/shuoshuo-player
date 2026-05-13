@@ -108,6 +108,8 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
     const root = document.documentElement;
     if (primaryColor) {
       root.style.setProperty('--primary', primaryColor);
+      // --ring 同步主色：focus 高光跟随用户自定义色，避免一直停留在 globals.css 默认粉
+      root.style.setProperty('--ring', primaryColor);
       const m = primaryColor.trim().match(/^([0-9.]+)\s+([0-9.]+)%\s+([0-9.]+)%$/);
       if (m) {
         const h = parseFloat(m[1]);
@@ -120,6 +122,7 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
       }
     } else {
       root.style.removeProperty('--primary');
+      root.style.removeProperty('--ring');
       root.style.removeProperty('--primary-foreground');
     }
   }, [primaryColor]);
