@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "shuoshuo-player",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "identifier": "ren.sikong.shuoshuo-player",
   "build": {
     "frontendDist": "../dist",

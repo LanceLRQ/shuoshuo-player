@@ -1,6 +1,6 @@
 {
   "name": "@shuoshuo-player/shared",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
