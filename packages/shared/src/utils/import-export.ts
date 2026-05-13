@@ -13,6 +13,18 @@
  */
 import { EXPORT_KEYS } from '../constants';
 import { FavListType, type BilibiliVideo, type FavListItem, type LyricEntry } from '../types';
+import { z } from 'zod';
+
+const FavListItemSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  type: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  mid: z.string().optional(),
+  biliFavFolderId: z.string().optional(),
+  bv_ids: z.array(z.string()),
+  create_time: z.number(),
+  update_time: z.number(),
+});
 import type {
   PersistedBilibiliVideosShape,
   PersistedFavListShape,
@@ -121,9 +133,14 @@ export function parseImportData(input: unknown): ParsedImport | null {
   const rawList = Array.isArray(favListRaw.list) ? favListRaw.list : [];
   const favList: FavListItem[] = rawList
     .filter(isPlainObject)
-    .map((item) => (version === '1' ? normalizeV1FavItem(item) : (item as unknown as FavListItem)))
-    // 防御：丢弃 id 为空 / type 不是 0/1/2 的脏数据
-    .filter((it) => it.id !== '' && [0, 1, 2].includes(it.type as number));
+    .map((item) =>
+      version === '1'
+        ? normalizeV1FavItem(item)
+        : FavListItemSchema.safeParse(item).success
+          ? (item as unknown as FavListItem)
+          : null,
+    )
+    .filter((it): it is FavListItem => it !== null);
 
   // 提取 lyrics.lyricMaps
   const lyricsRaw = isPlainObject(input.lyrics) ? input.lyrics : {};

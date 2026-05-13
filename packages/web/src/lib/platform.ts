@@ -43,7 +43,7 @@ class ChromeAuthAdapter implements AuthAdapter {
  */
 class WebShellAdapter implements ShellAdapter {
   async openExternal(url: string): Promise<void> {
-    if (!url) return;
+    if (!url || !/^https?:\/\//i.test(url)) return;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 }

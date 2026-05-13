@@ -76,6 +76,11 @@ export const bilibiliService: AxiosInstance = axios.create({
   },
 });
 
+/* ========== B 站 API 请求限速 ========== */
+
+const MIN_BILI_REQUEST_INTERVAL_MS = 100;
+let lastBiliRequestTime = 0;
+
 /**
  * 注入自定义 axios adapter（仅 bilibiliService）
  *
@@ -124,6 +129,14 @@ bilibiliService.interceptors.response.use(
 
 bilibiliService.interceptors.request.use(async (config) => {
   const cfg = config as InternalRequestConfigWithWbi;
+
+  // 限速：保证连续请求间最小间隔，降低触发风控概率
+  const now = Date.now();
+  const gap = now - lastBiliRequestTime;
+  if (gap < MIN_BILI_REQUEST_INTERVAL_MS) {
+    await new Promise((r) => setTimeout(r, MIN_BILI_REQUEST_INTERVAL_MS - gap));
+  }
+  lastBiliRequestTime = Date.now();
   // 进入 wbi 接口前确保密钥新鲜（>20 分钟才真正调 nav，否则立即返回）
   if (cfg.__useWbi) {
     try {
