@@ -47,3 +47,19 @@ export function filterInvalidFileNameChars(input: string, replacement = ''): str
   // eslint-disable-next-line no-control-regex
   return input.replace(/[<>:"/\\|?*\x00-\x1f]/g, replacement);
 }
+
+const PH_EM_OPEN = '\x01';
+const PH_EM_CLOSE = '\x02';
+
+/** HTML 转义，仅保留 `<em>`/`</em>` 标签（B 站搜索高亮用） */
+export function sanitizeHtmlTitle(title: string): string {
+  return title
+    .replace(/<em>/gi, PH_EM_OPEN)
+    .replace(/<\/em>/gi, PH_EM_CLOSE)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(new RegExp(PH_EM_OPEN, 'g'), '<em>')
+    .replace(new RegExp(PH_EM_CLOSE, 'g'), '</em>');
+}

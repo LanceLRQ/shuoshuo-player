@@ -25,6 +25,7 @@ import {
   buildTrackId,
   getPlatformBridge,
   NoticeType,
+  sanitizeHtmlTitle,
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
@@ -293,7 +294,7 @@ function VideoItemImpl({
           {htmlTitle ? (
             <p
               className="min-w-0 flex-1 truncate text-sm font-medium [&>em]:not-italic [&>em]:text-primary"
-              dangerouslySetInnerHTML={{ __html: video.title }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtmlTitle(video.title) }}
             />
           ) : (
             <p className="min-w-0 flex-1 truncate text-sm font-medium">{video.title}</p>

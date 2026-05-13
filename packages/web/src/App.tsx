@@ -14,6 +14,7 @@ import { AddToFavDialog } from '@/components/dialogs/add-to-fav-dialog';
 import { PagesPickerDialog } from '@/components/dialogs/pages-picker-dialog';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { RiskControlDialog } from '@/components/dialogs/risk-control-dialog';
+import { MigrationGate } from '@/components/migration/migration-gate';
 import { useUIShell } from '@/stores/ui-shell';
 
 // 路由懒加载：每个页面单独 chunk（详见 vite.config manualChunks）
@@ -122,7 +123,8 @@ const router = createHashRouter([
   },
 ]);
 
-export default function App() {
+/** 三态主体：根据登录初始化状态选择渲染分支 */
+function AppShell() {
   // 启动期由 init.ts 触发 triggerWbiRefresh → getLoginUserInfo，状态落地后 isInited=true
   // 三态短路：未 inited→spinner（与 v1 LoadingGif 行为一致，避免登录态闪烁）；
   //           已 inited 但未登录→引导卡片；已登录→主路由
@@ -152,6 +154,17 @@ export default function App() {
       <RouterProvider router={router} />
       <ToasterProvider />
       <UpdateNotifier />
+    </>
+  );
+}
+
+export default function App() {
+  // MigrationGate 单点挂载：跨三种登录态切换时不卸载/重挂，避免 store selector
+  // 订阅抖动；MigrationGate 内部已有 status==='idle' 守卫，不会渲染脏弹层
+  return (
+    <>
+      <AppShell />
+      <MigrationGate />
     </>
   );
 }

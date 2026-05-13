@@ -12,7 +12,7 @@ import type { ShellAdapter } from '@shuoshuo-player/shared';
  */
 export class TauriShellAdapter implements ShellAdapter {
   async openExternal(url: string): Promise<void> {
-    if (!url) return;
+    if (!url || !/^https?:\/\//i.test(url)) return;
     await open(url);
   }
 }

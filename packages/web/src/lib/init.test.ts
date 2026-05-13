@@ -6,7 +6,7 @@
  * 验证 initializeApp() 的关键行为：
  * - baseURL 优先恢复（早于云服务调用）
  * - bili_user_videos.isLoading 强制为 false
- * - 各 store 状态从 player_data 中恢复
+ * - 各 store 状态从 ssp_v2_player_data 中恢复
  * - 7 个 store subscribe 自动持久化
  * - apiBaseUrl 走独立 storage key 即时写入
  * - chrome.runtime.onMessage 接收 wbi:refresh 消息后调 getLoginUserInfo
@@ -111,21 +111,25 @@ describe('F2: initializeApp', () => {
     }
   });
 
-  it('优先从 cloud_api_base_url 恢复 baseURL（早于 player_data）', async () => {
+  it('优先从 ssp_v2_cloud_api_base_url 恢复 baseURL（早于 ssp_v2_player_data）', async () => {
     chromeMock = installChromeMock({
-      cloud_api_base_url: 'https://my.api.example/v1',
+      ssp_v2_cloud_api_base_url: 'https://my.api.example/v1',
     });
     const { init, shared } = await loadFreshModules();
 
     await init.initializeApp();
 
     expect(shared.getCloudApiBaseUrl()).toBe('https://my.api.example/v1');
-    // storage.get 被并行调用了两次（cloud_api_base_url + player_data）
-    expect(chromeMock.storage.local.get).toHaveBeenCalledTimes(2);
+    // storage.get 共 4 次（每次都是单批 get）：
+    // 1) bootstrapPersistence: 读 ssp_v2_cloud_api_base_url
+    // 2) bootstrapPersistence: 读 ssp_v2_player_data（与 1 并行调度）
+    // 3) detectV1Snapshot: 读 ssp_v2_v1_migration_dismissed（dismiss 检查）
+    // 4) detectV1Snapshot: 一次读完 V1_PERSIST_KEYS 的 7 个 key
+    expect(chromeMock.storage.local.get).toHaveBeenCalledTimes(4);
   });
 
-  it('cloud_api_base_url 为空白时 fallback 到默认 baseURL', async () => {
-    chromeMock = installChromeMock({ cloud_api_base_url: '   ' });
+  it('ssp_v2_cloud_api_base_url 为空白时 fallback 到默认 baseURL', async () => {
+    chromeMock = installChromeMock({ ssp_v2_cloud_api_base_url: '   ' });
     const { init, shared } = await loadFreshModules();
 
     await init.initializeApp();
@@ -133,7 +137,7 @@ describe('F2: initializeApp', () => {
     expect(shared.getCloudApiBaseUrl()).toBe(shared.DEFAULT_CLOUD_API_BASE_URL);
   });
 
-  it('cloud_api_base_url 不存在时使用默认 baseURL', async () => {
+  it('ssp_v2_cloud_api_base_url 不存在时使用默认 baseURL', async () => {
     const { init, shared } = await loadFreshModules();
 
     await init.initializeApp();
@@ -143,7 +147,7 @@ describe('F2: initializeApp', () => {
 
   it('bili_user_videos.isLoading 始终强制 false（即使快照中是 true）', async () => {
     chromeMock = installChromeMock({
-      player_data: JSON.stringify({
+      ssp_v2_player_data: JSON.stringify({
         bili_user_videos: {
           isLoading: true,
           infos: { foo: { bvid: 'BV1', title: 't' } },
@@ -161,9 +165,9 @@ describe('F2: initializeApp', () => {
     expect(state.infos).toEqual({ foo: { bvid: 'BV1', title: 't' } });
   });
 
-  it('从 player_data 恢复 fav_list / playing_list / ui_profile / lyrics / cloud_service.session', async () => {
+  it('从 ssp_v2_player_data 恢复 fav_list / playing_list / ui_profile / lyrics / cloud_service.session', async () => {
     chromeMock = installChromeMock({
-      player_data: JSON.stringify({
+      ssp_v2_player_data: JSON.stringify({
         fav_list: {
           list: [{ id: 'a', name: 'A', type: 'CUSTOM', count: 0 }],
         },
@@ -207,7 +211,7 @@ describe('F2: initializeApp', () => {
 
   it('playing_list 的 playNext 信号始终重置为 false', async () => {
     chromeMock = installChromeMock({
-      player_data: JSON.stringify({
+      ssp_v2_player_data: JSON.stringify({
         playing_list: { favId: 'a', bvIds: ['BV1'], current: 'BV1' },
       }),
     });
@@ -261,15 +265,15 @@ describe('F2: initializeApp', () => {
     const calls = chromeMock.storage.local.set.mock.calls as [unknown][];
     const baseUrlCall = calls.find((args) => {
       const obj = args[0] as Record<string, unknown>;
-      return obj && Object.prototype.hasOwnProperty.call(obj, 'cloud_api_base_url');
+      return obj && Object.prototype.hasOwnProperty.call(obj, 'ssp_v2_cloud_api_base_url');
     });
     expect(baseUrlCall).toBeDefined();
-    expect((baseUrlCall![0] as Record<string, unknown>).cloud_api_base_url).toBe(
+    expect((baseUrlCall![0] as Record<string, unknown>).ssp_v2_cloud_api_base_url).toBe(
       'https://changed.api/v2',
     );
   });
 
-  it('store 状态变更后触发 player_data 节流写入', async () => {
+  it('store 状态变更后触发 ssp_v2_player_data 节流写入', async () => {
     vi.useFakeTimers();
     try {
       const { init, shared } = await loadFreshModules();
@@ -286,7 +290,7 @@ describe('F2: initializeApp', () => {
       const calls = chromeMock.storage.local.set.mock.calls as [unknown][];
       const playerDataCall = calls.find((args) => {
         const obj = args[0] as Record<string, unknown>;
-        return obj && Object.prototype.hasOwnProperty.call(obj, 'player_data');
+        return obj && Object.prototype.hasOwnProperty.call(obj, 'ssp_v2_player_data');
       });
       expect(playerDataCall).toBeDefined();
     } finally {
@@ -294,8 +298,8 @@ describe('F2: initializeApp', () => {
     }
   });
 
-  it('损坏的 player_data JSON 不抛错，应用仍能初始化', async () => {
-    chromeMock = installChromeMock({ player_data: '{ invalid json' });
+  it('损坏的 ssp_v2_player_data JSON 不抛错，应用仍能初始化', async () => {
+    chromeMock = installChromeMock({ ssp_v2_player_data: '{ invalid json' });
     const { init } = await loadFreshModules();
 
     await expect(init.initializeApp()).resolves.toBeUndefined();
@@ -368,7 +372,7 @@ describe('F2: initializeApp', () => {
     // 注入会触发 hydrate 异常的快照：cloud_service.session 缺关键字段
     // 通过劫持 useCloudServiceStore.updateSession 抛错来模拟 store hydrate 失败
     chromeMock = installChromeMock({
-      player_data: JSON.stringify({
+      ssp_v2_player_data: JSON.stringify({
         cloud_service: { session: { token: 'tk' } },
       }),
     });

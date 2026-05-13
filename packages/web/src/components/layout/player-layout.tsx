@@ -1,6 +1,7 @@
-import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { getPlatformBridge, usePlayerProfileStore } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
+import { HSL_PATTERN, computeEffectivePrimary, computePrimaryForeground } from '@/lib/color';
 import { TopBar } from './top-bar';
 import { NavMenu } from './nav-menu';
 
@@ -45,10 +46,13 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
   const theme = usePlayerProfileStore((s) => s.theme);
   const getEffectiveTheme = usePlayerProfileStore((s) => s.getEffectiveTheme);
   const primaryColor = usePlayerProfileStore((s) => s.primaryColor);
+  // 跟踪当前实际主题（auto 模式下随系统切换）：primaryColor effect 需要它做 dark 适配
+  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>(() => getEffectiveTheme());
 
   useEffect(() => {
     const apply = () => {
       const effective = getEffectiveTheme();
+      setEffectiveTheme(effective);
       document.documentElement.classList.toggle('dark', effective === 'dark');
     };
     apply();
@@ -59,30 +63,45 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
     return () => mql.removeEventListener('change', apply);
   }, [theme, getEffectiveTheme]);
 
-  // 注入用户自定义主色到 CSS variable --primary（globals.css 的默认值会被覆盖）。
-  // 同步根据主色亮度生成 --primary-foreground：保留原 H/S，只反向 L，
-  // 让 bg-primary 上的文字/图标使用"主色暗色版/亮色版"，避免纯黑白与底色割裂。
-  // 设置为空字符串时 removeProperty 让 globals.css 默认值生效。
+  // 注入用户自定义主色到 CSS variable --primary（globals.css 默认值被覆盖）。
+  //
+  // foreground 决策走 WCAG 相对亮度（不是 HSL.L）—— 因为 HSL.L 不能反映人眼感知，
+  // 黄色 HSL(60,100%,50%) 的 L=50 但实际很亮；旧 HSL 阈值会判错给白字 → 黄底白字看不见。
+  //
+  // dark 主题下若主色过暗会自动提亮（computeEffectivePrimary），让 text-primary 在深底
+  // 也清晰。算法/阈值/常量集中在 @/lib/color。
+  //
+  // 非法 HSL 字符串（如 #FF6687 / 'garbage'）→ 不写任何 CSS 变量并 console.warn 防伪状态。
   useEffect(() => {
     const root = document.documentElement;
-    if (primaryColor) {
-      root.style.setProperty('--primary', primaryColor);
-      const m = primaryColor.trim().match(/^([0-9.]+)\s+([0-9.]+)%\s+([0-9.]+)%$/);
-      if (m) {
-        const h = m[1];
-        const s = m[2];
-        const l = parseFloat(m[3]);
-        // 阈值 60% 经验值：偏亮主色用深同色相（L=30，可辨色调而非视觉近黑）作前景；偏暗主色用极亮版（L=96）。
-        const lFg = l >= 60 ? 30 : 96;
-        root.style.setProperty('--primary-foreground', `${h} ${s}% ${lFg}%`);
-      } else {
-        root.style.removeProperty('--primary-foreground');
-      }
-    } else {
+    if (!primaryColor) {
       root.style.removeProperty('--primary');
+      root.style.removeProperty('--ring');
       root.style.removeProperty('--primary-foreground');
+      return;
     }
-  }, [primaryColor]);
+
+    // 前置校验：非 HSL 格式直接放弃注入，让 globals.css 默认色生效，避免「半写」状态
+    if (!HSL_PATTERN.test(primaryColor.trim())) {
+      console.warn(
+        '[player-layout] primaryColor 不是合法 HSL 字符串（"H S% L%"），已忽略：',
+        primaryColor,
+      );
+      root.style.removeProperty('--primary');
+      root.style.removeProperty('--ring');
+      root.style.removeProperty('--primary-foreground');
+      return;
+    }
+
+    const actualPrimary = computeEffectivePrimary(primaryColor, effectiveTheme);
+    const m = actualPrimary.trim().match(HSL_PATTERN)!;
+    const fg = computePrimaryForeground(parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]));
+
+    root.style.setProperty('--primary', actualPrimary);
+    // --ring 同步主色：focus 高光跟随用户自定义色，避免一直停留在 globals.css 默认值
+    root.style.setProperty('--ring', actualPrimary);
+    root.style.setProperty('--primary-foreground', fg);
+  }, [primaryColor, effectiveTheme]);
 
   const showMacTrafficLightArea = useMemo(() => detectMacTrafficLightArea(), []);
   const gridRows = showMacTrafficLightArea

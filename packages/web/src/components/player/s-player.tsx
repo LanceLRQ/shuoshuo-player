@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Play,
   Pause,
@@ -67,6 +67,33 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
   // 显式 :p<n> 条目播放上下文：已锁定 P，不再展示分 P 选择器
   const isExplicitContext = isExplicitPageTrackId(currentTrackId);
 
+  // 进度条 thumb 显隐：JS 控制（mouseenter 立显、mouseleave 延迟 0.5s 隐藏）
+  // 比纯 CSS group-hover 更友好：避免快速划过时 thumb 一闪而过的视觉抖动
+  const [showProgressThumb, setShowProgressThumb] = useState(false);
+  const hideThumbTimerRef = useRef<number | null>(null);
+
+  const handleProgressMouseEnter = () => {
+    if (hideThumbTimerRef.current !== null) {
+      window.clearTimeout(hideThumbTimerRef.current);
+      hideThumbTimerRef.current = null;
+    }
+    setShowProgressThumb(true);
+  };
+
+  const handleProgressMouseLeave = () => {
+    if (hideThumbTimerRef.current !== null) window.clearTimeout(hideThumbTimerRef.current);
+    hideThumbTimerRef.current = window.setTimeout(() => {
+      setShowProgressThumb(false);
+      hideThumbTimerRef.current = null;
+    }, 500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hideThumbTimerRef.current !== null) window.clearTimeout(hideThumbTimerRef.current);
+    };
+  }, []);
+
   const [showQueue, setShowQueue] = useState(false);
   const [showPartSelector, setShowPartSelector] = useState(false);
 
@@ -97,14 +124,26 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
        * 同 z auto 时 footer 整体（含 thumb 溢出 6px）渲染在 row2 之上，无需 z-index。
        */}
       <footer className="relative h-20 border-t bg-background dark:bg-muted">
-        <div className="absolute -top-[6px] left-0 right-0">
+        {/* 进度条 hot zone：用 -top-[12px] + py-1.5 把视觉位置不变的同时，
+            mouse hit area 从 ~14px 撑到 ~26px，便于鼠标精准 hover；
+            mouseenter/leave 配合 1.5s 延时隐藏（避免快速划过时 thumb 闪一下就消失） */}
+        <div
+          className="absolute -top-[12px] left-0 right-0 py-1.5"
+          onMouseEnter={handleProgressMouseEnter}
+          onMouseLeave={handleProgressMouseLeave}
+        >
           <Slider
             value={[player.progress]}
             max={Math.max(player.duration, 0.01)}
             step={0.1}
             onValueChange={handleSeek}
             aria-label="播放进度"
-            className="cursor-pointer"
+            className={cn(
+              // focus-visible 仅匹配「键盘」focus（鼠标点击不触发），避免点击拖拽后 thumb
+              // 因获得 focus 而持久显示；鼠标用户由 showProgressThumb 状态完全控制
+              'cursor-pointer [&_[role=slider]]:transition-opacity [&_[role=slider]:focus-visible]:opacity-100',
+              showProgressThumb ? '[&_[role=slider]]:opacity-100' : '[&_[role=slider]]:opacity-0',
+            )}
           />
         </div>
 

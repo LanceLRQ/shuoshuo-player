@@ -45,6 +45,6 @@ describe('E1: 关键不变量数值', () => {
 
   it('云服务默认 baseURL 与 storage key 不漂移', () => {
     expect(DEFAULT_CLOUD_API_BASE_URL).toBe('https://shuoshuo.sikong.ren/api');
-    expect(CLOUD_API_BASE_URL_STORAGE_KEY).toBe('cloud_api_base_url');
+    expect(CLOUD_API_BASE_URL_STORAGE_KEY).toBe('ssp_v2_cloud_api_base_url');
   });
 });

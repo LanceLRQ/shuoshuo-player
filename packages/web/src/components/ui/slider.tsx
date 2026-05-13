@@ -18,18 +18,23 @@ const Slider = React.forwardRef<
   >
     <SliderPrimitive.Track
       className={cn(
-        // Track 用 foreground 的半透明派生：light 下是低透深色（更深 / 更可辨）；
-        // dark 下是低透浅色（更亮 / 更可辨）。比原 bg-secondary 对比度更高，
-        // 适配 footer / 设置页等浅底 + 暗底两种场景
-        'relative grow overflow-hidden rounded-full bg-foreground opacity-5',
+        // Track 用 foreground 的半透明派生（颜色级 alpha 而非 opacity 修饰符）：
+        // 旧实现 `bg-foreground opacity-5` 会被 Range 继承，导致已播放/未播放视觉无差；
+        // 改用 `bg-foreground/15` 仅影响背景色，Range 的 bg-primary 保持不透明对比清晰。
+        // light 下是低透深色 / dark 下是低透浅色，适配 footer / 设置页等多场景
+        'relative grow overflow-hidden rounded-full bg-foreground/15',
         orientation === 'horizontal' ? 'h-1.5 w-full' : 'h-full w-1.5',
       )}
     >
       <SliderPrimitive.Range
-        className={cn('absolute bg-primary', orientation === 'horizontal' ? 'h-full' : 'w-full')}
+        // rounded-r-full：已播放部分右端做半圆收尾，与 Track 左侧圆角呼应，视觉更柔和
+        className={cn(
+          'absolute rounded-r-full bg-primary',
+          orientation === 'horizontal' ? 'h-full' : 'w-full',
+        )}
       />
     </SliderPrimitive.Track>
-    <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
+    <SliderPrimitive.Thumb className="-mt-0.5 block h-4 w-4 rounded-full bg-primary shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
   </SliderPrimitive.Root>
 ));
 Slider.displayName = SliderPrimitive.Root.displayName;

@@ -170,6 +170,42 @@ describe('parseImportData', () => {
     expect(out!.favList.map((it) => it.id)).toEqual(['A']);
   });
 
+  it('v2：bv_ids 含恶意/非法 BV 号 → 整条歌单被丢弃（zod schema 拒绝）', () => {
+    const out = parseImportData({
+      version: '2',
+      fav_list: {
+        list: [
+          v2Item('OK', 'ok', ['BV1234567890']),
+          v2Item('BAD-EMPTY', 'empty', ['']),
+          v2Item('BAD-INJECT', 'inject', ['<script>alert(1)</script>']),
+          v2Item('BAD-PREFIX', 'no-prefix', ['1234567890']),
+          v2Item('BAD-LONG', 'too-long', ['BV' + 'x'.repeat(40)]),
+        ],
+      },
+    });
+    expect(out!.favList.map((it) => it.id)).toEqual(['OK']);
+  });
+
+  it('v1：bv_ids 含非法 BV 号 → 仅过滤非法元素，歌单本身保留（normalize 兜底）', () => {
+    const out = parseImportData({
+      // 无 version → v1 路径
+      fav_list: {
+        list: [
+          {
+            id: 'V1A',
+            name: 'v1 mixed bvids',
+            type: 0,
+            bv_ids: ['BV1234567890', '', '<script>x</script>', 'BV9876543210'],
+            create_time: 1700000000,
+            update_time: 1700000000,
+          },
+        ],
+      },
+    });
+    expect(out!.favList).toHaveLength(1);
+    expect(out!.favList[0].bv_ids).toEqual(['BV1234567890', 'BV9876543210']);
+  });
+
   it('favorites：v2 文件提取 entries + favoriteCount', () => {
     const out = parseImportData({
       version: '2',

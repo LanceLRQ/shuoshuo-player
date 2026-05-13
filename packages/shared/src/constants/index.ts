@@ -111,8 +111,19 @@ export const AUDIO_QUALITY = {
 /** 云服务 API 默认 baseURL（用户未在设置中覆盖时 fallback） */
 export const DEFAULT_CLOUD_API_BASE_URL = 'https://shuoshuo.sikong.ren/api';
 
+/**
+ * v2 storage key 命名空间前缀（**S**huoshuo**S**huo**P**layer **v2**）
+ *
+ * 所有 v2 自有持久化 key 都用此前缀，与 v1 老 key（fav_list / lyrics 等裸名）完全隔离；
+ * 未来 v3 升级可平行使用 `ssp_v3_`，便于多版本共存测试。
+ *
+ * 注意：Rust 端 (packages/desktop/src-tauri/src/commands/store.rs) 的 ALLOWED_KEYS
+ * 与本前缀拼接结果手动同步；改动时务必同步修改两边。
+ */
+export const SSP_V2_NAMESPACE = 'ssp_v2_';
+
 /** 用户自定义 baseURL 在 storage 中的 key */
-export const CLOUD_API_BASE_URL_STORAGE_KEY = 'cloud_api_base_url';
+export const CLOUD_API_BASE_URL_STORAGE_KEY = `${SSP_V2_NAMESPACE}cloud_api_base_url`;
 
 /** 撤销栈最大深度（歌词编辑器，对齐 v1 行为） */
 export const LYRIC_EDITOR_UNDO_STACK_MAX = 999;
