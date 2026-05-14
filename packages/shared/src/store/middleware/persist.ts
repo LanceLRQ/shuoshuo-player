@@ -22,7 +22,7 @@ import { useFavoritesStore } from '../favorites';
 import { useVideoPagePrefStore } from '../video-page-pref';
 import { hasPageSuffix, trackIdToBvid } from '../../utils/track-id';
 import type { FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
-import { DEFAULT_FLOATING_LYRICS } from '../../types';
+import { DEFAULT_CLOSE_ACTION, DEFAULT_FLOATING_LYRICS } from '../../types';
 import type {
   PersistedBilibiliUserVideosShape,
   PersistedBilibiliVideosShape,
@@ -230,11 +230,14 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     hydrate(raw) {
       const data = asRecord(raw) as PersistedPlayerProfileShape | null;
       if (!data) return;
-      // 老用户的 ui_profile 不含 floatingLyrics 字段，必须 spread DEFAULT 兜底，
-      // 否则渲染层访问 cfg.fontSize / cfg.textAlign 等会拿到 undefined 引发崩溃。
+      // 老用户的 ui_profile 不含 floatingLyrics / closeAction 等新字段，必须显式 spread DEFAULT 兜底，
+      // 否则渲染层访问 cfg.fontSize / cfg.textAlign 等会拿到 undefined 引发崩溃；
+      // closeActionFirstRunPrompted 缺失视为 false → 升级后第一次启动会弹首次引导。
       usePlayerProfileStore.setState({
         ...data,
         floatingLyrics: { ...DEFAULT_FLOATING_LYRICS, ...(data.floatingLyrics ?? {}) },
+        closeAction: data.closeAction ?? DEFAULT_CLOSE_ACTION,
+        closeActionFirstRunPrompted: data.closeActionFirstRunPrompted ?? false,
       });
     },
     snapshot() {
@@ -247,6 +250,8 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         primaryColor: s.primaryColor,
         autoPlayNextPage: s.autoPlayNextPage,
         floatingLyrics: s.floatingLyrics,
+        closeAction: s.closeAction,
+        closeActionFirstRunPrompted: s.closeActionFirstRunPrompted,
       };
     },
     subscribe(cb) {

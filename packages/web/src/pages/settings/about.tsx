@@ -17,7 +17,9 @@ import {
   NoticeType,
   useUIStore,
 } from '@shuoshuo-player/shared';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { SectionTitle } from './_components';
+import { CloudSettings } from './cloud';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
@@ -144,7 +146,7 @@ export function AboutSettings() {
       {/* 项目简介（引自 README） */}
       <Card>
         <CardHeader>
-          <CardTitle>说说播放器</CardTitle>
+          <SectionTitle>说说播放器</SectionTitle>
         </CardHeader>
         <CardContent className="text-sm leading-relaxed text-muted-foreground">
           <p>
@@ -158,7 +160,7 @@ export function AboutSettings() {
       <Card>
         {/* Header 改为左右对齐：标题左、操作按钮右；移除副标题描述 */}
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>版本与更新</CardTitle>
+          <SectionTitle>版本与更新</SectionTitle>
           {isChromeExtension ? (
             <div className="flex items-center gap-2">
               <Button
@@ -251,7 +253,7 @@ export function AboutSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>项目链接</CardTitle>
+          <SectionTitle>项目链接</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <Button
@@ -284,14 +286,17 @@ export function AboutSettings() {
         </CardContent>
       </Card>
 
+      {/* 水晶蟹小屋 API 地址（原独立 tab 合并到关于页，紧贴在日志卡片之上） */}
+      <CloudSettings />
+
       {/* 日志（仅桌面端注入 LoggerAdapter；扩展端隐藏整块） */}
       {loggerAdapter && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <SectionTitle className="flex items-center gap-2">
               <ScrollText className="h-4 w-4" />
               日志
-            </CardTitle>
+            </SectionTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
@@ -311,7 +316,7 @@ export function AboutSettings() {
       {/* 隐私安全声明（引自 README） */}
       <Card>
         <CardHeader>
-          <CardTitle>隐私安全声明</CardTitle>
+          <SectionTitle>隐私安全声明</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm leading-relaxed text-muted-foreground">
           <p>
@@ -340,7 +345,7 @@ export function AboutSettings() {
       {/* 项目协议（MIT + 附加条款，引自 README） */}
       <Card>
         <CardHeader>
-          <CardTitle>项目协议</CardTitle>
+          <SectionTitle>项目协议</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-xs leading-relaxed text-muted-foreground">
           <p>

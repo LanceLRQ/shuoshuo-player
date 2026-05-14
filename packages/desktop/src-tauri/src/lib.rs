@@ -2,7 +2,9 @@ mod commands;
 mod portable;
 mod tray;
 
-use tauri::Manager;
+use tauri::{Manager, RunEvent, WindowEvent};
+
+use commands::window::{CloseAction, CloseActionState, IsQuittingState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,6 +14,8 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::auth::CookieState::default())
+        .manage(CloseActionState::default())
+        .manage(IsQuittingState::default())
         // bili-stream:// custom protocol：让 audio 标签的 src 走 Rust 代理，
         // 由 Rust 注入 Cookie/Origin/Referer/UA 绕过 B 站音视频流反盗链
         .register_asynchronous_uri_scheme_protocol(
@@ -56,6 +60,45 @@ pub fn run() {
                 eprintln!("[startup] tray setup failed: {}", e);
             }
 
+            // 拦截主窗口的关闭事件：根据用户偏好"隐藏到托盘"或放行默认退出。
+            //
+            // 设计要点：
+            // - 仅挂在 main window，登录窗口（auth::bilibili_login 临时创建）正常退出
+            // - is_quitting=true 时直接 return → 不调 prevent_close → 让默认关闭走完
+            //   （配合托盘"退出"菜单与 ExitRequested 监听器，构成两条独立 quit 路径）
+            // - hide() 失败仅 .ok() 吞错：极端窗口状态下不应阻塞用户的关闭意图
+            if let Some(main_window) = handle.get_webview_window("main") {
+                let app_handle = handle.clone();
+                main_window.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        let quit_state = app_handle.state::<IsQuittingState>();
+                        if quit_state.is_quitting() {
+                            return;
+                        }
+                        let action = {
+                            let close_state = app_handle.state::<CloseActionState>();
+                            let guard = match close_state.0.lock() {
+                                Ok(g) => g,
+                                Err(poisoned) => poisoned.into_inner(),
+                            };
+                            *guard
+                        };
+                        match action {
+                            CloseAction::MinimizeToTray => {
+                                api.prevent_close();
+                                if let Some(w) = app_handle.get_webview_window("main") {
+                                    w.hide().ok();
+                                }
+                            }
+                            CloseAction::Exit => {
+                                quit_state.mark_quitting();
+                                app_handle.exit(0);
+                            }
+                        }
+                    }
+                });
+            }
+
             // Portable 调试能力：两种触发方式
             // - console-portable feature（dev 调试包）：启动时自动开 DevTools
             // - 否则（正式 portable）：检查 CLI 参数 --debug，命中才开
@@ -97,7 +140,33 @@ pub fn run() {
             commands::log::log_get_dir,
             commands::log::log_open_dir,
             commands::window::set_window_theme,
+            commands::window::set_close_action,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| match event {
+            // ExitRequested：macOS ⌘Q / Dock 右键 Quit / app.exit(0) 都会先走这里。
+            // 置位 is_quitting，让窗口的 CloseRequested handler 不再拦截关闭事件，
+            // 实现"两条独立 quit 路径都安全收敛"——托盘菜单退出 / 系统级退出请求。
+            RunEvent::ExitRequested { .. } => {
+                let state = app_handle.state::<IsQuittingState>();
+                state.mark_quitting();
+            }
+            // Reopen 是 macOS 专属事件（对应 AppKit applicationShouldHandleReopen）：
+            // 当主窗口被 hide() 隐藏到 Dock + 菜单栏托盘后，用户点 Dock 图标会派发本事件。
+            // has_visible_windows=false 表示当前没有可见窗口 → 恢复主窗口；
+            // 否则 Tauri/AppKit 默认行为已经能把窗口带到最前，无需干预。
+            #[cfg(target_os = "macos")]
+            RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            } => {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    window.show().ok();
+                    window.unminimize().ok();
+                    window.set_focus().ok();
+                }
+            }
+            _ => {}
+        });
 }

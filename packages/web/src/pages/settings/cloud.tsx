@@ -7,14 +7,8 @@ import {
   DEFAULT_CLOUD_API_BASE_URL,
   NoticeType,
 } from '@shuoshuo-player/shared';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from '@/components/ui/card';
+import { Card, CardHeader, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { SectionTitle } from './_components';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -56,7 +50,7 @@ export function CloudSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>水晶蟹小屋 API 地址</CardTitle>
+        <SectionTitle>水晶蟹小屋 API 地址</SectionTitle>
         <CardDescription>
           自定义水晶蟹小屋（shuoshuo.sikong.ren）后端地址。修改后立即生效，重启保留。
         </CardDescription>

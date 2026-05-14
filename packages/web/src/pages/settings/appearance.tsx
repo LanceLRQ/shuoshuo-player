@@ -19,7 +19,8 @@ import {
   type FloatingLyricsFamily,
   type FloatingLyricsWeight,
 } from '@shuoshuo-player/shared';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardDescription, CardContent } from '@/components/ui/card';
+import { SectionTitle } from './_components';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -108,7 +109,7 @@ export function AppearanceSettings() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>主题</CardTitle>
+          <SectionTitle>主题</SectionTitle>
           <CardDescription>切换亮色 / 暗色 / 跟随系统。</CardDescription>
         </CardHeader>
         <CardContent>
@@ -134,7 +135,7 @@ export function AppearanceSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>主色</CardTitle>
+          <SectionTitle>主色</SectionTitle>
           <CardDescription>
             UI 强调色（按钮 / 链接 / 焦点环）。配置即时生效，重启保留。
           </CardDescription>
@@ -238,13 +239,13 @@ export function AppearanceSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <SectionTitle className="flex items-center gap-2">
             播放行为
             <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-normal text-amber-600 dark:text-amber-400">
               <FlaskConical className="h-3 w-3" />
               实验性
             </span>
-          </CardTitle>
+          </SectionTitle>
           <CardDescription>多 P 投稿播放策略，可随时切换。</CardDescription>
         </CardHeader>
         <CardContent>
@@ -339,7 +340,7 @@ function FloatingLyricsCard({ cfg, setCfg, resetCfg }: FloatingLyricsCardProps) 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>悬浮歌词</CardTitle>
+        <SectionTitle>悬浮歌词</SectionTitle>
         <CardDescription>
           播放时显示在底部播放栏上方的当前歌词条。可独立开关，与全屏歌词页解耦。
         </CardDescription>

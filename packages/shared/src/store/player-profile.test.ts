@@ -1,5 +1,5 @@
 import { usePlayerProfileStore } from './player-profile';
-import { DEFAULT_FLOATING_LYRICS } from '../types';
+import { DEFAULT_CLOSE_ACTION, DEFAULT_FLOATING_LYRICS } from '../types';
 
 function reset() {
   usePlayerProfileStore.setState({
@@ -8,6 +8,8 @@ function reset() {
     autoPlay: false,
     loopMode: 'loop',
     floatingLyrics: { ...DEFAULT_FLOATING_LYRICS },
+    closeAction: DEFAULT_CLOSE_ACTION,
+    closeActionFirstRunPrompted: false,
   });
 }
 
@@ -167,6 +169,39 @@ describe('usePlayerProfileStore', () => {
       });
       usePlayerProfileStore.getState().resetFloatingLyrics();
       expect(usePlayerProfileStore.getState().floatingLyrics).toEqual(DEFAULT_FLOATING_LYRICS);
+    });
+  });
+
+  describe('closeAction（桌面端关闭行为）', () => {
+    it('默认值是 DEFAULT_CLOSE_ACTION（minimize-to-tray）', () => {
+      expect(usePlayerProfileStore.getState().closeAction).toBe(DEFAULT_CLOSE_ACTION);
+      expect(usePlayerProfileStore.getState().closeActionFirstRunPrompted).toBe(false);
+    });
+
+    it('setCloseAction 切换合法枚举', () => {
+      usePlayerProfileStore.getState().setCloseAction('exit');
+      expect(usePlayerProfileStore.getState().closeAction).toBe('exit');
+      usePlayerProfileStore.getState().setCloseAction('minimize-to-tray');
+      expect(usePlayerProfileStore.getState().closeAction).toBe('minimize-to-tray');
+    });
+
+    it('setCloseAction 非法值被忽略（防御导入脏数据）', () => {
+      usePlayerProfileStore.getState().setCloseAction('exit');
+      // @ts-expect-error 测试非法值
+      usePlayerProfileStore.getState().setCloseAction('quit');
+      expect(usePlayerProfileStore.getState().closeAction).toBe('exit');
+    });
+
+    it('markCloseActionPrompted 翻转 prompted 为 true', () => {
+      expect(usePlayerProfileStore.getState().closeActionFirstRunPrompted).toBe(false);
+      usePlayerProfileStore.getState().markCloseActionPrompted();
+      expect(usePlayerProfileStore.getState().closeActionFirstRunPrompted).toBe(true);
+    });
+
+    it('resetCloseActionPrompted 把 prompted 改回 false', () => {
+      usePlayerProfileStore.getState().markCloseActionPrompted();
+      usePlayerProfileStore.getState().resetCloseActionPrompted();
+      expect(usePlayerProfileStore.getState().closeActionFirstRunPrompted).toBe(false);
     });
   });
 

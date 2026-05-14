@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  CloseAction,
   FloatingLyricsConfig,
   FloatingLyricsAlign,
   FloatingLyricsFamily,
@@ -8,7 +9,12 @@ import type {
   LoopMode,
   PlayerProfile,
 } from '../types';
-import { DEFAULT_FLOATING_LYRICS, DEFAULT_PRIMARY_COLOR } from '../types';
+import { DEFAULT_CLOSE_ACTION, DEFAULT_FLOATING_LYRICS, DEFAULT_PRIMARY_COLOR } from '../types';
+
+const CLOSE_ACTION_SET: ReadonlySet<CloseAction> = new Set<CloseAction>([
+  'exit',
+  'minimize-to-tray',
+]);
 
 const FLOATING_LYRICS_ALIGN_SET: ReadonlySet<FloatingLyricsAlign> = new Set([
   'left',
@@ -77,6 +83,16 @@ interface PlayerProfileState extends PlayerProfile {
   toggleFloatingLyrics: () => void;
   /** 重置为 DEFAULT_FLOATING_LYRICS */
   resetFloatingLyrics: () => void;
+  /**
+   * 设置主窗口关闭行为；非法枚举值忽略以防御导入脏数据。
+   * 真正同步到 Rust state 的副作用由桌面端层（packages/desktop）订阅本 store 完成，
+   * shared 层只维护内存与持久化态。
+   */
+  setCloseAction: (action: CloseAction) => void;
+  /** 首次引导对话框提交后调用，写入"已展示过"标记 */
+  markCloseActionPrompted: () => void;
+  /** 重置首次引导标记，让下次启动重新弹引导（设置页"重新显示首次引导"按钮使用） */
+  resetCloseActionPrompted: () => void;
   /** 解析 'auto' 主题为实际 light/dark（依赖 prefers-color-scheme） */
   getEffectiveTheme: () => 'light' | 'dark';
 }
@@ -89,6 +105,8 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   primaryColor: DEFAULT_PRIMARY_COLOR,
   autoPlayNextPage: false,
   floatingLyrics: { ...DEFAULT_FLOATING_LYRICS },
+  closeAction: DEFAULT_CLOSE_ACTION,
+  closeActionFirstRunPrompted: false,
 
   setTheme: (theme) => set({ theme }),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(1, volume)) }),
@@ -105,6 +123,13 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
       floatingLyrics: { ...state.floatingLyrics, enabled: !state.floatingLyrics.enabled },
     })),
   resetFloatingLyrics: () => set({ floatingLyrics: { ...DEFAULT_FLOATING_LYRICS } }),
+
+  setCloseAction: (action) => {
+    if (!CLOSE_ACTION_SET.has(action)) return;
+    set({ closeAction: action });
+  },
+  markCloseActionPrompted: () => set({ closeActionFirstRunPrompted: true }),
+  resetCloseActionPrompted: () => set({ closeActionFirstRunPrompted: false }),
 
   getEffectiveTheme: () => {
     const { theme } = get();

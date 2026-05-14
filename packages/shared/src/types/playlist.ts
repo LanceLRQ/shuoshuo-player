@@ -85,7 +85,32 @@ export interface PlayerProfile {
   autoPlayNextPage: boolean;
   /** 悬浮歌词（footer 上方歌词条）的样式与开关 */
   floatingLyrics: FloatingLyricsConfig;
+  /** 主窗口关闭按钮的处置方式（仅 Tauri 桌面端生效） */
+  closeAction: CloseAction;
+  /**
+   * 是否已经向用户展示过"关闭行为"首次引导对话框。
+   * 仅 Tauri 平台读取；老用户升级缺该字段时视为 false，下次启动会弹一次引导。
+   */
+  closeActionFirstRunPrompted: boolean;
 }
 
 /** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致；#FF6687 中粉） */
 export const DEFAULT_PRIMARY_COLOR = '347 100% 70%';
+
+/**
+ * 主窗口关闭按钮的处置方式（仅 Tauri 桌面端生效）：
+ * - 'exit'：关闭窗口即退出整个应用进程（v1 行为）
+ * - 'minimize-to-tray'：拦截关闭事件，仅隐藏窗口到系统托盘 / 菜单栏；
+ *   退出由托盘菜单"退出"或 macOS Dock 右键 Quit 触发
+ *
+ * Web/Chrome 扩展平台忽略此字段（其后台播放生命周期由 tab 自身决定）。
+ */
+export type CloseAction = 'exit' | 'minimize-to-tray';
+
+/**
+ * 默认行为：隐藏到托盘
+ *
+ * 选这个是为了配合首次启动的引导对话框——Modal 阻塞 UI 强制用户二选一前的兜底；
+ * 万一用户绕过 Modal 关掉窗口，"隐藏"比"退出"更安全（托盘还能恢复，不会让进程消失导致用户找不到引导）。
+ */
+export const DEFAULT_CLOSE_ACTION: CloseAction = 'minimize-to-tray';
