@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { RiskControlDialog } from '@/components/dialogs/risk-control-dialog';
 import { MigrationGate } from '@/components/migration/migration-gate';
 import { CloseActionOnboardingDialog } from '@/components/dialogs/close-action-onboarding-dialog';
+import { TrayRouteListener } from '@/components/tray-route-listener';
 import { useUIShell } from '@/stores/ui-shell';
 
 // 路由懒加载：每个页面单独 chunk（详见 vite.config manualChunks）
@@ -77,6 +78,8 @@ function RootLayout() {
           <PagesPickerDialog />
           <ConfirmDialog />
           <RiskControlDialog />
+          {/* Tauri 托盘"设置…"菜单 → 跳路由，需在 RouterProvider 子树内才能用 useNavigate */}
+          <TrayRouteListener />
         </>
       }
     >

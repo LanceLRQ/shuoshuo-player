@@ -4,6 +4,7 @@ mod tray;
 
 use tauri::{Manager, RunEvent, WindowEvent};
 
+use commands::tray::TrayMenuState;
 use commands::window::{CloseAction, CloseActionState, IsQuittingState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -16,6 +17,7 @@ pub fn run() {
         .manage(commands::auth::CookieState::default())
         .manage(CloseActionState::default())
         .manage(IsQuittingState::default())
+        .manage(TrayMenuState::default())
         // bili-stream:// custom protocol：让 audio 标签的 src 走 Rust 代理，
         // 由 Rust 注入 Cookie/Origin/Referer/UA 绕过 B 站音视频流反盗链
         .register_asynchronous_uri_scheme_protocol(
@@ -141,6 +143,8 @@ pub fn run() {
             commands::log::log_open_dir,
             commands::window::set_window_theme,
             commands::window::set_close_action,
+            commands::tray::tray_set_track_label,
+            commands::tray::tray_set_play_state,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

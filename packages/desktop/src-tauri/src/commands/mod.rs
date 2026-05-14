@@ -5,4 +5,5 @@ pub mod file;
 pub mod log;
 pub mod spider;
 pub mod store;
+pub mod tray;
 pub mod window;

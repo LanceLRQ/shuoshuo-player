@@ -698,6 +698,28 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     usePlayerRuntimeStore.setState({ seek });
   }, [seek]);
 
+  // 同步 isPlaying 到 runtime store，供托盘菜单等非主控订阅方使用
+  useEffect(() => {
+    usePlayerRuntimeStore.setState({ isPlaying });
+  }, [isPlaying]);
+
+  // 注册播放控制函数指针：供托盘菜单 / 全局快捷键等非 React 上下文调用
+  // 卸载时清空，避免 stale 引用触发已卸载 hook 的 setState
+  useEffect(() => {
+    usePlayerRuntimeStore.setState({
+      togglePlay,
+      goNext,
+      goPrev,
+    });
+    return () => {
+      usePlayerRuntimeStore.setState({
+        togglePlay: undefined,
+        goNext: undefined,
+        goPrev: undefined,
+      });
+    };
+  }, [togglePlay, goNext, goPrev]);
+
   // 注册 switchToPage：让 PlayingQueue 等外部组件可请求切到当前投稿的指定 P
   // 不动 usePlayingListStore.current（保持用户视角 TrackId 稳定），仅重建 Howl
   useEffect(() => {

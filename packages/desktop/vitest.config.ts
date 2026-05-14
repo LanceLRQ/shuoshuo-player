@@ -30,7 +30,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      // 与 vite.config.ts 对齐：桌面端复用 packages/web 的页面/组件/store，
+      // 因此 `@` 指向 web/src 而非 desktop/src（desktop 自身代码用 `@desktop/...`）
+      '@': path.resolve(__dirname, '../web/src'),
+      '@desktop': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../shared/src'),
     },
   },

@@ -16,6 +16,7 @@ import {
 } from '@desktop/lib/tauri-bilibili-http-adapter';
 import { startWindowThemeSync } from '@desktop/lib/window-theme-sync';
 import { startCloseActionSync } from '@desktop/lib/close-action-sync';
+import { startTraySync } from '@desktop/lib/tray-sync';
 import '@/styles/globals.css';
 
 // 启动期 nav 接口若长时间未响应（极端网络场景），UI 不应永久卡在 spinner；
@@ -48,6 +49,9 @@ bootstrapPersistence()
     // 关闭行为（隐藏到托盘 / 退出应用）同步到 Rust state；
     // 同步发生在 bootstrap 之后，避免拿到默认值覆盖持久化的用户选择
     startCloseActionSync();
+
+    // 托盘菜单同步：当前曲目标签 / 播放暂停状态推送 + listen 菜单点击事件
+    startTraySync();
 
     // Wbi 密钥仅在启动时拉一次（与 v1 player.js mount-once 行为一致）；
     // wbi key 每日更新，单次会话内无需周期刷新——多次 nav 反而可能触发 B 站风控

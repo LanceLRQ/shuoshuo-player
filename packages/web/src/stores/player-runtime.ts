@@ -14,6 +14,8 @@ interface PlayerRuntimeState {
   progress: number;
   /** 当前曲目总时长（秒） */
   duration: number;
+  /** 是否正在播放（由 useMusicPlayer 同步；供托盘菜单等非主控消费方使用） */
+  isPlaying: boolean;
   /** 跳转到指定秒数。useMusicPlayer 主控 hook mount 时注册；未注册时为 undefined（noop） */
   seek?: (seconds: number) => void;
   /** 当前实际播放的分 P（与 store.current TrackId 解耦的运行时状态；自 C3 起由 useMusicPlayer 同步） */
@@ -24,10 +26,20 @@ interface PlayerRuntimeState {
    * 内部仅触发 Howl 重建，不动 usePlayingListStore.current（保持用户视角 TrackId 稳定）。
    */
   switchToPage?: (page: number) => void;
+  /**
+   * 播放/暂停切换函数指针，主控 hook 注册。供托盘菜单、全局快捷键等
+   * 非 React 上下文（事件回调）通过 getState() 调用。未注册时 undefined（noop）。
+   */
+  togglePlay?: () => void;
+  /** 切到下一首（同 togglePlay 的注册模式） */
+  goNext?: () => void;
+  /** 切到上一首 */
+  goPrev?: () => void;
 }
 
 export const usePlayerRuntimeStore = create<PlayerRuntimeState>(() => ({
   progress: 0,
   duration: 0,
+  isPlaying: false,
   playingPage: 1,
 }));

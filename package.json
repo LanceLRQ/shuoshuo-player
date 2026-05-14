@@ -26,6 +26,7 @@
     "pack:extension": "node scripts/pack-extension.mjs",
     "release:extension": "pnpm build:extension && pnpm pack:extension",
     "build:version-json": "node scripts/build-version-json.mjs",
+    "build:tray-icon": "node scripts/build-tray-icon.mjs",
     "release": "bash scripts/release.sh",
     "prepare": "husky"
   },
@@ -53,6 +54,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
+    "sharp": "^0.34.5",
     "typescript-eslint": "^8.59.1"
   }
 }
