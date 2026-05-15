@@ -22,7 +22,11 @@ import { useFavoritesStore } from '../favorites';
 import { useVideoPagePrefStore } from '../video-page-pref';
 import { hasPageSuffix, trackIdToBvid } from '../../utils/track-id';
 import type { FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
-import { DEFAULT_CLOSE_ACTION, DEFAULT_FLOATING_LYRICS } from '../../types';
+import {
+  DEFAULT_CLOSE_ACTION,
+  DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+  DEFAULT_FLOATING_LYRICS,
+} from '../../types';
 import type {
   PersistedBilibiliUserVideosShape,
   PersistedBilibiliVideosShape,
@@ -238,6 +242,7 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         floatingLyrics: { ...DEFAULT_FLOATING_LYRICS, ...(data.floatingLyrics ?? {}) },
         closeAction: data.closeAction ?? DEFAULT_CLOSE_ACTION,
         closeActionFirstRunPrompted: data.closeActionFirstRunPrompted ?? false,
+        collectionPlayBehavior: data.collectionPlayBehavior ?? DEFAULT_COLLECTION_PLAY_BEHAVIOR,
       });
     },
     snapshot() {
@@ -252,6 +257,7 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         floatingLyrics: s.floatingLyrics,
         closeAction: s.closeAction,
         closeActionFirstRunPrompted: s.closeActionFirstRunPrompted,
+        collectionPlayBehavior: s.collectionPlayBehavior,
       };
     },
     subscribe(cb) {

@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import type { BilibiliVideo, BilibiliVideoPage } from '../types';
+import { formatPlayTime } from './format';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
@@ -33,8 +34,14 @@ dayjs.locale('zh-cn');
  *     upper.name → author
  *     upper.mid → mid
  *     intro → description
+ *
+ * - `season`：合集内视频项（/x/polymer/web-space/seasons_archives_list），需映射：
+ *     pubdate → created
+ *     duration（秒）→ length（formatPlayTime 转字符串）
+ *     stat.view → play
+ *   合集 API 无 author / sub_title / description / cnt 等字段，缺省即可（VideoItem 已兼容）
  */
-type PickMode = 'default' | 'fav_folder' | 'view';
+type PickMode = 'default' | 'fav_folder' | 'view' | 'season';
 type RawItem = Record<string, unknown> & { bvid: string };
 type Mapped = Partial<BilibiliVideo> & { bvid: string };
 
@@ -81,6 +88,25 @@ function mapViewItem(i: RawItem): Mapped {
   };
 }
 
+function mapSeasonItem(i: RawItem): Mapped {
+  const stat = (i.stat ?? {}) as { view?: number };
+  const duration = typeof i.duration === 'number' ? (i.duration as number) : 0;
+  return {
+    aid: i.aid as number,
+    bvid: i.bvid,
+    pic: i.pic as string,
+    title: i.title as string,
+    sub_title: '',
+    is_union_video: false,
+    created: i.pubdate as number,
+    length: formatPlayTime(duration),
+    play: stat.view ?? 0,
+    comment: 0,
+    author: '',
+    description: '',
+  };
+}
+
 function mapFavFolderItem(i: RawItem): Mapped {
   const cnt = (i.cnt_info ?? {}) as { play?: number; reply?: number };
   const upper = (i.upper ?? {}) as { name?: string; mid?: number };
@@ -107,7 +133,8 @@ export function pickVideosFields(
 ): Mapped[] {
   const arr = (Array.isArray(list) ? list : [list]) as RawItem[];
   if (mode === 'default') return arr as unknown as Mapped[];
-  const mapper = mode === 'view' ? mapViewItem : mapFavFolderItem;
+  const mapper =
+    mode === 'view' ? mapViewItem : mode === 'season' ? mapSeasonItem : mapFavFolderItem;
   return arr.map(mapper);
 }
 

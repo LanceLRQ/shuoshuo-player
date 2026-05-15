@@ -1,5 +1,9 @@
 import { usePlayerProfileStore } from './player-profile';
-import { DEFAULT_CLOSE_ACTION, DEFAULT_FLOATING_LYRICS } from '../types';
+import {
+  DEFAULT_CLOSE_ACTION,
+  DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+  DEFAULT_FLOATING_LYRICS,
+} from '../types';
 
 function reset() {
   usePlayerProfileStore.setState({
@@ -10,6 +14,7 @@ function reset() {
     floatingLyrics: { ...DEFAULT_FLOATING_LYRICS },
     closeAction: DEFAULT_CLOSE_ACTION,
     closeActionFirstRunPrompted: false,
+    collectionPlayBehavior: DEFAULT_COLLECTION_PLAY_BEHAVIOR,
   });
 }
 
@@ -202,6 +207,29 @@ describe('usePlayerProfileStore', () => {
       usePlayerProfileStore.getState().markCloseActionPrompted();
       usePlayerProfileStore.getState().resetCloseActionPrompted();
       expect(usePlayerProfileStore.getState().closeActionFirstRunPrompted).toBe(false);
+    });
+  });
+
+  describe('collectionPlayBehavior（合集播放行为）', () => {
+    it('默认值是 DEFAULT_COLLECTION_PLAY_BEHAVIOR（replace）', () => {
+      expect(usePlayerProfileStore.getState().collectionPlayBehavior).toBe(
+        DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+      );
+      expect(DEFAULT_COLLECTION_PLAY_BEHAVIOR).toBe('replace');
+    });
+
+    it('setCollectionPlayBehavior 切换合法枚举', () => {
+      usePlayerProfileStore.getState().setCollectionPlayBehavior('append');
+      expect(usePlayerProfileStore.getState().collectionPlayBehavior).toBe('append');
+      usePlayerProfileStore.getState().setCollectionPlayBehavior('replace');
+      expect(usePlayerProfileStore.getState().collectionPlayBehavior).toBe('replace');
+    });
+
+    it('setCollectionPlayBehavior 非法值被忽略（防御导入脏数据）', () => {
+      usePlayerProfileStore.getState().setCollectionPlayBehavior('append');
+      // @ts-expect-error 测试非法值
+      usePlayerProfileStore.getState().setCollectionPlayBehavior('queue');
+      expect(usePlayerProfileStore.getState().collectionPlayBehavior).toBe('append');
     });
   });
 

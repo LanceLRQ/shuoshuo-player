@@ -1,14 +1,15 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Palette, Info, MonitorCog } from 'lucide-react';
+import { Palette, Info, MonitorCog, Play } from 'lucide-react';
 import { detectPlatformType } from '@shuoshuo-player/shared';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AppearanceSettings } from './appearance';
+import { PlaybackSettings } from './playback';
 import { DesktopSettings } from './desktop';
 import { AboutSettings } from './about';
 
-type Tab = 'appearance' | 'desktop' | 'about';
-const VALID_TABS: Tab[] = ['appearance', 'desktop', 'about'];
+type Tab = 'appearance' | 'playback' | 'desktop' | 'about';
+const VALID_TABS: Tab[] = ['appearance', 'playback', 'desktop', 'about'];
 
 /**
  * 统一设置页：tab 通过 URL ?tab= 同步，便于左侧导航和外链直达。
@@ -26,7 +27,10 @@ export function SettingsPage() {
   const isTauri = platform === 'tauri';
 
   const availableTabs = useMemo<Tab[]>(
-    () => (isTauri ? ['appearance', 'desktop', 'about'] : ['appearance', 'about']),
+    () =>
+      isTauri
+        ? ['appearance', 'playback', 'desktop', 'about']
+        : ['appearance', 'playback', 'about'],
     [isTauri],
   );
 
@@ -76,6 +80,12 @@ export function SettingsPage() {
                 外观
               </TabsTrigger>
             )}
+            {availableTabs.includes('playback') && (
+              <TabsTrigger value="playback">
+                <Play className="mr-1.5 h-4 w-4" />
+                播放
+              </TabsTrigger>
+            )}
             {availableTabs.includes('desktop') && (
               <TabsTrigger value="desktop">
                 <MonitorCog className="mr-1.5 h-4 w-4" />
@@ -97,6 +107,9 @@ export function SettingsPage() {
         <div className="mx-auto max-w-3xl px-6 py-4">
           <TabsContent value="appearance">
             <AppearanceSettings />
+          </TabsContent>
+          <TabsContent value="playback">
+            <PlaybackSettings />
           </TabsContent>
           {isTauri && (
             <TabsContent value="desktop">

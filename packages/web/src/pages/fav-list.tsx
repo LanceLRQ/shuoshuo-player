@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import Fuse from 'fuse.js';
 import {
@@ -28,8 +28,10 @@ import {
 import { useUIShell } from '@/stores/ui-shell';
 import { VideoItem } from '@/components/video-item';
 import { FavCard } from '@/components/fav-card';
+import { UploaderSeasonsTab } from '@/components/uploader-seasons-tab';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const MAIN_FAV_ID = 'main';
 const FAVORITES_FAV_ID = 'favorites';
@@ -60,6 +62,7 @@ const FAVORITES_FAV_ITEM: FavListItem = {
 export function FavListPage() {
   const params = useParams<{ id: string }>();
   const favId = params.id ?? MAIN_FAV_ID;
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchKey, setSearchKey] = useState('');
   const [favoritesOrder, setFavoritesOrder] = useState<FavoritesOrder>('desc');
@@ -191,12 +194,9 @@ export function FavListPage() {
     );
   }
 
-  return (
-    <div className="flex h-full flex-col gap-4">
-      {/* 顶部 FavCard */}
-      <FavCard favId={favId} fav={favListInfo} />
-
-      {/* 搜索栏 */}
+  /* "视频投稿"区块（搜索栏 + 列表/空态），单独抽取以便 UPLOADER 类型嵌入 Tab、其他类型直接渲染 */
+  const videosSection: ReactNode = (
+    <>
       {favVideoList.length > 0 && (
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -233,7 +233,6 @@ export function FavListPage() {
               {favoritesOrder === 'desc' ? '最新收藏在前' : '最早收藏在前'}
             </Button>
           )}
-          {/* 总数已在 FavCard 标题旁显示，这里只在搜索时显示命中情况 */}
           {searchKey && (
             <span className="text-xs text-muted-foreground">
               命中 {filteredVideos.length} / {favVideoList.length}
@@ -241,8 +240,6 @@ export function FavListPage() {
           )}
         </div>
       )}
-
-      {/* 列表 */}
       {filteredVideos.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
           {searchKey ? (
@@ -301,6 +298,56 @@ export function FavListPage() {
             })}
           </div>
         </div>
+      )}
+    </>
+  );
+
+  /* UPLOADER 类型且有 mid 时启用 Tabs；其他类型保持原结构（零回归） */
+  const uploaderMid =
+    favListInfo.type === FavListType.UPLOADER && favListInfo.mid ? favListInfo.mid : null;
+  const rawTab = searchParams.get('tab');
+  const tab: 'videos' | 'seasons' = rawTab === 'seasons' ? 'seasons' : 'videos';
+  const handleTabChange = (next: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (next === 'seasons') {
+      nextParams.set('tab', 'seasons');
+    } else {
+      nextParams.delete('tab');
+      // 切回视频投稿时也清掉详情态的 season 参数，避免再次切到合集 Tab 残留旧详情
+      nextParams.delete('season');
+    }
+    setSearchParams(nextParams, { replace: false });
+  };
+
+  return (
+    <div className="flex h-full flex-col gap-4">
+      <FavCard favId={favId} fav={favListInfo} />
+      {uploaderMid ? (
+        // min-h-0：让 flex item 允许收缩超出 content 大小，否则虚拟列表的 overflow-auto 失效
+        <Tabs
+          value={tab}
+          onValueChange={handleTabChange}
+          className="flex min-h-0 flex-1 flex-col gap-4"
+        >
+          <TabsList className="w-fit">
+            <TabsTrigger value="videos">视频投稿</TabsTrigger>
+            <TabsTrigger value="seasons">合集</TabsTrigger>
+          </TabsList>
+          <TabsContent
+            value="videos"
+            className="mt-0 flex min-h-0 flex-1 flex-col gap-4 data-[state=inactive]:hidden"
+          >
+            {videosSection}
+          </TabsContent>
+          <TabsContent
+            value="seasons"
+            className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          >
+            <UploaderSeasonsTab mid={uploaderMid} favId={favId} />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        videosSection
       )}
     </div>
   );

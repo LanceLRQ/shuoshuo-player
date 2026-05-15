@@ -93,3 +93,56 @@ export interface WbiInfo {
   img_key: string;
   sub_key: string;
 }
+
+/**
+ * B 站合集元信息（seasons_archives_list / seasons_series_list 响应中 meta 字段子集）
+ *
+ * 注：is_opened 仅在 UP 主创作中心 API (member.bilibili.com) 中返回；公开 web API
+ * (polymer/web-space) 不返回该字段，但仍保留可选字段以做客户端兜底（=0 视为私密）。
+ */
+export interface BilibiliSeasonMeta {
+  season_id: number;
+  mid: number;
+  name: string;
+  cover: string;
+  description: string;
+  total: number;
+  ptime?: number;
+  is_opened?: number;
+}
+
+/** B 站合集内单条视频（seasons_archives_list 的 archives[] 项） */
+export interface BilibiliSeasonVideo {
+  aid: number;
+  bvid: string;
+  title: string;
+  pic: string;
+  pubdate: number;
+  duration: number;
+  stat?: { view: number };
+}
+
+/**
+ * seasons_series_list 中单个 season 条目。
+ * archives 字段在该端点会返回前 N 条视频，用于做封面 fallback。
+ */
+export interface BilibiliSeasonsListItem {
+  meta: BilibiliSeasonMeta;
+  archives?: BilibiliSeasonVideo[];
+}
+
+/** seasons_series_list 接口响应 data 字段 */
+export interface BilibiliSeasonsListResponse {
+  items_lists: {
+    seasons_list?: BilibiliSeasonsListItem[];
+    series_list?: unknown[];
+    page: { num: number; size: number; total: number };
+  };
+}
+
+/** seasons_archives_list 接口响应 data 字段 */
+export interface BilibiliSeasonArchivesResponse {
+  meta: BilibiliSeasonMeta;
+  archives: BilibiliSeasonVideo[];
+  page: { num: number; size: number; total: number };
+}

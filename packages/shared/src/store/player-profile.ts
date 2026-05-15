@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   CloseAction,
+  CollectionPlayBehavior,
   FloatingLyricsConfig,
   FloatingLyricsAlign,
   FloatingLyricsFamily,
@@ -9,12 +10,20 @@ import type {
   LoopMode,
   PlayerProfile,
 } from '../types';
-import { DEFAULT_CLOSE_ACTION, DEFAULT_FLOATING_LYRICS, DEFAULT_PRIMARY_COLOR } from '../types';
+import {
+  DEFAULT_CLOSE_ACTION,
+  DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+  DEFAULT_FLOATING_LYRICS,
+  DEFAULT_PRIMARY_COLOR,
+} from '../types';
 
 const CLOSE_ACTION_SET: ReadonlySet<CloseAction> = new Set<CloseAction>([
   'exit',
   'minimize-to-tray',
 ]);
+
+const COLLECTION_PLAY_BEHAVIOR_SET: ReadonlySet<CollectionPlayBehavior> =
+  new Set<CollectionPlayBehavior>(['replace', 'append']);
 
 const FLOATING_LYRICS_ALIGN_SET: ReadonlySet<FloatingLyricsAlign> = new Set([
   'left',
@@ -93,6 +102,10 @@ interface PlayerProfileState extends PlayerProfile {
   markCloseActionPrompted: () => void;
   /** 重置首次引导标记，让下次启动重新弹引导（设置页"重新显示首次引导"按钮使用） */
   resetCloseActionPrompted: () => void;
+  /**
+   * 设置「以合集为歌单播放」按钮的队列行为；非法枚举值忽略以防御导入脏数据。
+   */
+  setCollectionPlayBehavior: (behavior: CollectionPlayBehavior) => void;
   /** 解析 'auto' 主题为实际 light/dark（依赖 prefers-color-scheme） */
   getEffectiveTheme: () => 'light' | 'dark';
 }
@@ -107,6 +120,7 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   floatingLyrics: { ...DEFAULT_FLOATING_LYRICS },
   closeAction: DEFAULT_CLOSE_ACTION,
   closeActionFirstRunPrompted: false,
+  collectionPlayBehavior: DEFAULT_COLLECTION_PLAY_BEHAVIOR,
 
   setTheme: (theme) => set({ theme }),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(1, volume)) }),
@@ -130,6 +144,11 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   },
   markCloseActionPrompted: () => set({ closeActionFirstRunPrompted: true }),
   resetCloseActionPrompted: () => set({ closeActionFirstRunPrompted: false }),
+
+  setCollectionPlayBehavior: (behavior) => {
+    if (!COLLECTION_PLAY_BEHAVIOR_SET.has(behavior)) return;
+    set({ collectionPlayBehavior: behavior });
+  },
 
   getEffectiveTheme: () => {
     const { theme } = get();

@@ -92,6 +92,14 @@ export interface PlayerProfile {
    * 仅 Tauri 平台读取；老用户升级缺该字段时视为 false，下次启动会弹一次引导。
    */
   closeActionFirstRunPrompted: boolean;
+  /**
+   * 「以合集为歌单播放」时的队列行为：
+   * - 'replace'：替换当前播放队列（默认，符合"现在听这个合集"的直觉）
+   * - 'append'：追加到当前队列尾部，首条立即播放
+   *
+   * 与播放器循环模式、单条点击行为正交，仅作用于合集详情顶部"以合集为歌单播放"按钮。
+   */
+  collectionPlayBehavior: CollectionPlayBehavior;
 }
 
 /** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致；#FF6687 中粉） */
@@ -114,3 +122,13 @@ export type CloseAction = 'exit' | 'minimize-to-tray';
  * 万一用户绕过 Modal 关掉窗口，"隐藏"比"退出"更安全（托盘还能恢复，不会让进程消失导致用户找不到引导）。
  */
 export const DEFAULT_CLOSE_ACTION: CloseAction = 'minimize-to-tray';
+
+/**
+ * 合集播放行为：
+ * - 'replace'：「以合集为歌单播放」按钮按下后替换当前播放队列
+ * - 'append'：合集追加到队列尾，首条立即播放
+ */
+export type CollectionPlayBehavior = 'replace' | 'append';
+
+/** 默认：替换当前队列。符合"现在听这个合集"的直觉用法 */
+export const DEFAULT_COLLECTION_PLAY_BEHAVIOR: CollectionPlayBehavior = 'replace';

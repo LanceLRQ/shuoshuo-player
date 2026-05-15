@@ -1,14 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import {
-  Sun,
-  Moon,
-  Monitor,
-  RotateCcw,
-  FlaskConical,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-} from 'lucide-react';
+import { Sun, Moon, Monitor, RotateCcw, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import {
   usePlayerProfileStore,
   DEFAULT_FLOATING_LYRICS,
@@ -75,8 +66,6 @@ export function AppearanceSettings() {
   const primaryColor = usePlayerProfileStore((s) => s.primaryColor);
   const setPrimaryColor = usePlayerProfileStore((s) => s.setPrimaryColor);
   const resetPrimaryColor = usePlayerProfileStore((s) => s.resetPrimaryColor);
-  const autoPlayNextPage = usePlayerProfileStore((s) => s.autoPlayNextPage);
-  const setAutoPlayNextPage = usePlayerProfileStore((s) => s.setAutoPlayNextPage);
   const floatingLyrics = usePlayerProfileStore((s) => s.floatingLyrics);
   const setFloatingLyrics = usePlayerProfileStore((s) => s.setFloatingLyrics);
   const resetFloatingLyrics = usePlayerProfileStore((s) => s.resetFloatingLyrics);
@@ -236,32 +225,6 @@ export function AppearanceSettings() {
         setCfg={setFloatingLyrics}
         resetCfg={resetFloatingLyrics}
       />
-
-      <Card>
-        <CardHeader>
-          <SectionTitle className="flex items-center gap-2">
-            播放行为
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-normal text-amber-600 dark:text-amber-400">
-              <FlaskConical className="h-3 w-3" />
-              实验性
-            </span>
-          </SectionTitle>
-          <CardDescription>多 P 投稿播放策略，可随时切换。</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="auto-play-next-page" className="cursor-pointer text-sm font-medium">
-              多 P 投稿连续播放
-            </Label>
-            <Switch
-              id="auto-play-next-page"
-              checked={autoPlayNextPage}
-              onCheckedChange={setAutoPlayNextPage}
-              aria-label="多 P 投稿连续播放"
-            />
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
