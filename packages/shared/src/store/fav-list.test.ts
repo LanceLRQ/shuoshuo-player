@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useFavListStore } from './fav-list';
 import { useBilibiliUserVideosStore } from './bilibili-user-videos';
-import { FavListType } from '../types';
+import { useBilibiliVideosStore } from './bilibili-videos';
+import { FavListType, type BilibiliVideo } from '../types';
 
 function makeFav(type: FavListType, mid?: string) {
   return useFavListStore.getState().addFavList({
@@ -15,6 +16,8 @@ function makeFav(type: FavListType, mid?: string) {
 describe('useFavListStore（E1/E2 TrackId 校验）', () => {
   beforeEach(() => {
     useFavListStore.setState({ list: [] });
+    // 复位 entity store，避免上一用例预热的缓存影响"view 调用次数"断言
+    useBilibiliVideosStore.setState({ ids: [], entities: {} });
   });
 
   describe('addFavVideo', () => {
@@ -148,6 +151,42 @@ describe('useFavListStore（E1/E2 TrackId 校验）', () => {
       expect(getVideoByBvid).toHaveBeenCalledTimes(2);
       const after = useFavListStore.getState().list.find((f) => f.id === fav.id);
       expect(after?.bv_ids).toEqual(['BV1A', 'BV1A:p2', 'BV1B', 'BV1B:p3']);
+    });
+
+    it('entity 已缓存的 bvid 跳过 view 调用（合集场景预热后零请求）', async () => {
+      const fav = makeFav(FavListType.CUSTOM);
+      const getVideoByBvid = vi.fn(async () => true);
+      useBilibiliUserVideosStore.setState({ getVideoByBvid });
+      // 模拟合集 archives 已 upsert：BV_CACHED 缓存命中，BV_NEW 仍需 view
+      useBilibiliVideosStore
+        .getState()
+        .upsertMany([{ bvid: 'BV_CACHED', created: 0 } as BilibiliVideo]);
+
+      const result = await useFavListStore
+        .getState()
+        .addFavVideoByBvids(fav.id, ['BV_CACHED', 'BV_CACHED:p2', 'BV_NEW']);
+
+      // 只对 BV_NEW 调一次 view；BV_CACHED 完全短路
+      expect(getVideoByBvid).toHaveBeenCalledTimes(1);
+      expect(getVideoByBvid).toHaveBeenCalledWith('BV_NEW', 1, 1);
+      expect(result.success).toBe(3);
+      expect(result.failed).toBe(0);
+    });
+
+    it('全部 bvid 命中缓存时 view 调用 0 次（解决 toast 抽搐 + 150 次 HTTP）', async () => {
+      const fav = makeFav(FavListType.CUSTOM);
+      const getVideoByBvid = vi.fn(async () => true);
+      useBilibiliUserVideosStore.setState({ getVideoByBvid });
+      useBilibiliVideosStore
+        .getState()
+        .upsertMany([
+          { bvid: 'BV1', created: 0 } as BilibiliVideo,
+          { bvid: 'BV2', created: 0 } as BilibiliVideo,
+        ]);
+
+      await useFavListStore.getState().addFavVideoByBvids(fav.id, ['BV1', 'BV2']);
+
+      expect(getVideoByBvid).toHaveBeenCalledTimes(0);
     });
   });
 });

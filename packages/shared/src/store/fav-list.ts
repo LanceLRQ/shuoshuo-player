@@ -4,6 +4,7 @@ import { FavListType, type FavListItem } from '../types';
 import { timeStampNow, parseTrackId, trackIdToBvid, logger } from '../utils';
 import { MASTER_UP_INFO, NoticeType } from '../constants';
 import { useBilibiliUserVideosStore } from './bilibili-user-videos';
+import { useBilibiliVideosStore } from './bilibili-videos';
 import { useUIStore } from './ui';
 
 /**
@@ -120,28 +121,28 @@ export const useFavListStore = create<FavListState>((set, get) => ({
   addFavVideoByBvids: async (favId, trackIds) => {
     const ui = useUIStore.getState();
     const userVideos = useBilibiliUserVideosStore.getState();
+    const { entities } = useBilibiliVideosStore.getState();
     // 按 bvid 去重 view 调用：多 P 投稿 N 个 P 共享同一 view 结果。
     // 此前每 P 各调一次 view，B 站对同 bvid 高频 view 易触发限流 → 仅首次成功、后续 failed，
     // 导致用户选 N 个 P 实际只入库 1 条。
     const uniqueBvids = Array.from(new Set(trackIds.map(trackIdToBvid)));
+    // 缓存短路：entity 已存在的 bvid 跳过 view 调用——避免合集场景下 150 条逐条请求 + 进度 toast 抽搐
+    const missingBvids = uniqueBvids.filter((b) => !entities[b]);
     const viewResults = new Map<string, boolean>();
-    for (let i = 0; i < uniqueBvids.length; i++) {
-      const bvId = uniqueBvids[i];
-      const ok = await userVideos.getVideoByBvid(bvId, i + 1, uniqueBvids.length);
+    for (const b of uniqueBvids) {
+      if (entities[b]) viewResults.set(b, true);
+    }
+    for (let i = 0; i < missingBvids.length; i++) {
+      const bvId = missingBvids[i];
+      const ok = await userVideos.getVideoByBvid(bvId, i + 1, missingBvids.length);
       viewResults.set(bvId, ok);
     }
 
-    let success = 0;
-    let failed = 0;
-    for (const trackId of trackIds) {
-      const bvId = trackIdToBvid(trackId);
-      if (viewResults.get(bvId)) {
-        get().addFavVideo(favId, trackId);
-        success++;
-      } else {
-        failed++;
-      }
-    }
+    // 一次性 batch 写入：避免 N 次 setState 触发 N 次持久化与组件 rerender
+    const okTrackIds = trackIds.filter((tid) => viewResults.get(trackIdToBvid(tid)));
+    get().batchAddFavVideos(favId, okTrackIds);
+    const success = okTrackIds.length;
+    const failed = trackIds.length - success;
     ui.sendNotice({
       type: NoticeType.SUCCESS,
       message: `添加完成(成功:${success},失败:${failed})`,

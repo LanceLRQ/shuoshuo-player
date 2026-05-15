@@ -23,12 +23,16 @@ interface PageRangeDialogProps {
   defaultTo?: number;
   /** 对话框标题；默认 "按范围拉取" */
   title?: string;
+  /**
+   * 每页预估秒数（含 HTTP 网络 + 串行间隔），用于"预计耗时"文案。
+   * 默认 0.6（300ms 间隔，投稿 / 收藏夹）；合集场景传 0.5（200ms 间隔）。
+   */
+  secondsPerPage?: number;
   onConfirm: (fromPage: number, toPage: number) => void;
   onCancel: () => void;
 }
 
-/** 串行节奏估算：单页 HTTP 约 300ms 网络 + 300ms 间隔 */
-const PER_PAGE_SECONDS = 0.6;
+const DEFAULT_SECONDS_PER_PAGE = 0.6;
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
@@ -49,6 +53,7 @@ export function PageRangeDialog({
   defaultFrom = 1,
   defaultTo,
   title = '按范围拉取',
+  secondsPerPage = DEFAULT_SECONDS_PER_PAGE,
   onConfirm,
   onCancel,
 }: PageRangeDialogProps) {
@@ -71,7 +76,7 @@ export function PageRangeDialog({
   const validTo = clamp(Number.isFinite(to) ? to : validFrom, validFrom, safeTotal);
   const pages = validTo - validFrom + 1;
   const estimateCount = pages * pageSize;
-  const estimateSeconds = Math.ceil(pages * PER_PAGE_SECONDS);
+  const estimateSeconds = Math.ceil(pages * secondsPerPage);
   const invalid = validFrom > validTo || pages <= 0;
 
   return (

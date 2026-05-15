@@ -70,8 +70,8 @@ function stringToHue(str: string): number {
 /**
  * 收藏歌单卡片：
  * - banner 头部 + stats grid（UPLOADER 有 spaceInfo 时显示）
- * - 24h 内未刷新则在 useEffect 自动触发 readUserVideos('default')
- * - 三种类型差异化菜单（CUSTOM 显示"添加歌曲"，UPLOADER/BILI_FAV 显示"更新前 30/更新全部"）
+ * - 24h 内未刷新则在 useEffect 自动触发 readUserVideos('incremental')
+ * - 三种类型差异化菜单（CUSTOM 显示"添加歌曲"，UPLOADER/BILI_FAV 显示"检查更新 / 按范围拉取 / 重新拉取全部"）
  */
 function FavCardImpl({ favId, fav, className }: FavCardProps) {
   const navigate = useNavigate();

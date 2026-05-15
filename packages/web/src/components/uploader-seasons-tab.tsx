@@ -40,8 +40,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
-
 /* ───────── 批次配置 ───────── */
 
 /** 与 hook 内 ARCHIVES_PAGE_SIZE 对齐；分散在两边因为模块边界——若需统一可抽公共常量 */
@@ -53,14 +51,14 @@ const BATCH_SIZE_VIDEOS = BATCH_PAGE_COUNT * ARCHIVES_PAGE_SIZE; // 150
 interface Batch {
   fromPage: number;
   toPage: number;
-  /** 例：「第 1-7 页（最新约 200 首）」/「第 8-14 页（约 200 首）」 */
+  /** 例：「第 1-5 页（最新约 150 首）」/「第 6-10 页（约 150 首）」 */
   label: string;
 }
 
 /**
- * 把合集切成 200 一组的批次；total ≤ 200 时返回空数组（调用方按单按钮分支处理）。
+ * 把合集切成 150 一组（5 页 × 30 条）的批次；total ≤ 150 时返回空数组（调用方按单按钮分支处理）。
  *
- * 每批最多 7 页 × 30 = 210 条；末批向 total 截断。
+ * 末批向 total 截断。
  * label 用页码语言表达（与投稿/收藏夹的"按范围拉取"对话框一致），更直观。
  */
 function computeBatches(total: number): Batch[] {
@@ -338,7 +336,10 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
   const headerTotal = total || fallback?.total || archives.length;
 
   const batches = useMemo(() => computeBatches(headerTotal), [headerTotal]);
-  const useBatchedDropdown = batches.length > 0;
+  // 总页数 ≥ 2 就保留 dropdown 入口（自定义范围 / 全部），让小合集也能选范围；
+  // 大合集（> 150 首）额外切分批次项，并把"全部加载"标 destructive + 二次确认
+  const showActionDropdown = headerTotal > ARCHIVES_PAGE_SIZE;
+  const isHighRisk = headerTotal > BATCH_SIZE_VIDEOS;
   const collectionTotalPages = Math.max(1, Math.ceil(headerTotal / ARCHIVES_PAGE_SIZE));
   /** PageRangeDialog 复用：mode 区分"播放范围"/"加入歌单范围" */
   const [rangeDialog, setRangeDialog] = useState<{ open: boolean; mode: 'play' | 'add' }>({
@@ -350,7 +351,7 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
   const handlePlayAllWithConfirm = useCallback(() => {
     openConfirm({
       title: `加载全部 ${headerTotal} 首？`,
-      description: `每页之间会留 200ms 间隔，预计 ${Math.ceil((headerTotal / ARCHIVES_PAGE_SIZE) * 0.25)} 秒。期间可随时取消；为避免被风控，请勿频繁触发。`,
+      description: `每页之间会留 200ms 间隔，预计 ${Math.ceil((headerTotal / ARCHIVES_PAGE_SIZE) * 0.5)} 秒。期间可随时取消；为避免被风控，请勿频繁触发。`,
       destructive: true,
       confirmText: '继续加载',
       onConfirm: () => playRange(undefined),
@@ -386,17 +387,22 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
     [withAllArchives, openAddToFavBatch],
   );
 
-  /** 「全部加入歌单」destructive 确认 → 拉全部 → 加入歌单 */
+  /** 「全部加入歌单」直接拉全部（小合集场景，无需二次确认） */
+  const handleAddAllDirect = useCallback(
+    () => void withAllArchives((trackIds) => openAddToFavBatch(trackIds), '合集为空', undefined),
+    [withAllArchives, openAddToFavBatch],
+  );
+
+  /** 「全部加入歌单」destructive 确认 → 拉全部 → 加入歌单（大合集 >150 首场景） */
   const handleAddAllConfirm = useCallback(() => {
     openConfirm({
       title: `加载全部 ${headerTotal} 首到歌单？`,
-      description: `每页之间会留 200ms 间隔，预计 ${Math.ceil((headerTotal / ARCHIVES_PAGE_SIZE) * 0.25)} 秒。期间可随时取消；为避免被风控，请勿频繁触发。`,
+      description: `每页之间会留 200ms 间隔，预计 ${Math.ceil((headerTotal / ARCHIVES_PAGE_SIZE) * 0.5)} 秒。期间可随时取消；为避免被风控，请勿频繁触发。`,
       destructive: true,
       confirmText: '继续加载',
-      onConfirm: () =>
-        void withAllArchives((trackIds) => openAddToFavBatch(trackIds), '合集为空', undefined),
+      onConfirm: handleAddAllDirect,
     });
-  }, [openConfirm, headerTotal, withAllArchives, openAddToFavBatch]);
+  }, [openConfirm, headerTotal, handleAddAllDirect]);
 
   const handleRangeConfirm = useCallback(
     (fromPage: number, toPage: number) => {
@@ -427,16 +433,18 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
     allArchives.archives.forEach((a) => seen.add(a.bvid));
     return seen.size;
   }, [visitedArchives, allArchives.archives]);
-  const addToFavLabel =
-    addToFavLoadedCount > 0 ? `加入歌单（${addToFavLoadedCount} 首已加载）` : '加入歌单';
+  // 精简文案：窄屏下「加入歌单（150 首已加载）」会把按钮撑到 ~180px 挤压标题区
+  const addToFavLabel = addToFavLoadedCount > 0 ? `加入歌单 (${addToFavLoadedCount})` : '加入歌单';
 
   return (
     <div className="flex flex-1 flex-col gap-3">
       {/*
-       * 紧凑型 header：返回箭头 + 小封面 + 标题 + 数量 + 两个操作按钮全部塞进一行。
+       * 紧凑型 header：返回箭头 + 小封面 + 标题 + 数量 + 两个操作按钮。
+       * 容器用 flex-wrap：窄屏（Chrome 扩展弹窗 ~400px）下操作按钮组自动换到第二行，
+       * 避免按钮长文案把 min-w-0 标题区挤压到 0px。
        * description 折叠到标题的 title 属性（hover tooltip），避免占用纵向空间。
        */}
-      <div className="flex items-center gap-3 rounded-lg border bg-card p-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2">
         <Button
           variant="ghost"
           size="icon"
@@ -457,7 +465,8 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
             <ListMusic className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        {/* basis-[140px]：保证标题区有最小宽度，否则 flex-wrap 不会触发换行 */}
+        <div className="min-w-0 flex-1 basis-[140px]">
           <h3
             className="truncate text-sm font-semibold leading-tight"
             title={description || headerName}
@@ -466,112 +475,115 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
           </h3>
           <p className="truncate text-xs text-muted-foreground">{headerTotal} 首</p>
         </div>
-        {useBatchedDropdown ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" disabled={allArchives.isLoading} className="shrink-0">
-                <PlayCircle className="mr-1 h-4 w-4" />
-                {playAllLabel}
-                <ChevronDown className="ml-1 h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {batches.map((b) => (
-                <DropdownMenuItem
-                  key={`${b.fromPage}-${b.toPage}`}
-                  onSelect={() => playRange({ fromPage: b.fromPage, toPage: b.toPage })}
-                >
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                  {b.label}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuItem onSelect={() => setRangeDialog({ open: true, mode: 'play' })}>
-                <PlayCircle className="mr-2 h-4 w-4" />
-                自定义范围…
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={handlePlayAllWithConfirm}
-                className="text-destructive focus:text-destructive"
-              >
-                <PlayCircle className="mr-2 h-4 w-4" />
-                全部 {headerTotal} 首（高风险）
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Button
-            size="sm"
-            onClick={handlePlayAll}
-            disabled={allArchives.isLoading}
-            className="shrink-0"
-          >
-            <PlayCircle className="mr-1 h-4 w-4" />
-            {playAllLabel}
-          </Button>
-        )}
-        {useBatchedDropdown ? (
-          // Split button：主按钮直接「加入当前已加载」；右侧 ▾ 展开范围选择
-          <div className="inline-flex shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleAddCurrentLoaded}
-              disabled={allArchives.isLoading}
-              className="rounded-r-none border-r-0"
-            >
-              <ListPlus className="mr-1 h-4 w-4" />
-              {addToFavLabel}
-            </Button>
+        {/* 操作按钮组：宽屏时 ml-auto 右对齐，窄屏 flex-wrap 后整组换到第二行 */}
+        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+          {showActionDropdown ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={allArchives.isLoading}
-                  className="rounded-l-none px-2"
-                  aria-label="加入歌单更多选项"
-                >
-                  <ChevronDown className="h-4 w-4" />
+                <Button size="sm" disabled={allArchives.isLoading} className="shrink-0">
+                  <PlayCircle className="mr-1 h-4 w-4" />
+                  {playAllLabel}
+                  <ChevronDown className="ml-1 h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {batches.map((b) => (
                   <DropdownMenuItem
-                    key={`add-${b.fromPage}-${b.toPage}`}
-                    onSelect={() => handleAddRange(b.fromPage, b.toPage)}
+                    key={`${b.fromPage}-${b.toPage}`}
+                    onSelect={() => playRange({ fromPage: b.fromPage, toPage: b.toPage })}
                   >
-                    <ListPlus className="mr-2 h-4 w-4" />
-                    加入 {b.label}
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                    {b.label}
                   </DropdownMenuItem>
                 ))}
-                <DropdownMenuItem onSelect={() => setRangeDialog({ open: true, mode: 'add' })}>
-                  <ListPlus className="mr-2 h-4 w-4" />
+                <DropdownMenuItem onSelect={() => setRangeDialog({ open: true, mode: 'play' })}>
+                  <PlayCircle className="mr-2 h-4 w-4" />
                   自定义范围…
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={handleAddAllConfirm}
-                  className="text-destructive focus:text-destructive"
+                  onSelect={isHighRisk ? handlePlayAllWithConfirm : handlePlayAll}
+                  className={isHighRisk ? 'text-destructive focus:text-destructive' : undefined}
                 >
-                  <ListPlus className="mr-2 h-4 w-4" />
-                  全部 {headerTotal} 首（高风险）
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  全部 {headerTotal} 首{isHighRisk && '（高风险）'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleAddCurrentLoaded}
-            disabled={allArchives.isLoading}
-            className="shrink-0"
-          >
-            <ListPlus className="mr-1 h-4 w-4" />
-            {addToFavLabel}
-          </Button>
-        )}
+          ) : (
+            <Button
+              size="sm"
+              onClick={handlePlayAll}
+              disabled={allArchives.isLoading}
+              className="shrink-0"
+            >
+              <PlayCircle className="mr-1 h-4 w-4" />
+              {playAllLabel}
+            </Button>
+          )}
+          {showActionDropdown ? (
+            // Split button：主按钮直接「加入当前已加载」；右侧 ▾ 展开范围 / 全部
+            <div className="inline-flex shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAddCurrentLoaded}
+                disabled={allArchives.isLoading}
+                className="rounded-r-none border-r-0"
+              >
+                <ListPlus className="mr-1 h-4 w-4" />
+                {addToFavLabel}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={allArchives.isLoading}
+                    className="rounded-l-none px-2"
+                    aria-label="加入歌单更多选项"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {batches.map((b) => (
+                    <DropdownMenuItem
+                      key={`add-${b.fromPage}-${b.toPage}`}
+                      onSelect={() => handleAddRange(b.fromPage, b.toPage)}
+                    >
+                      <ListPlus className="mr-2 h-4 w-4" />
+                      加入 {b.label}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem onSelect={() => setRangeDialog({ open: true, mode: 'add' })}>
+                    <ListPlus className="mr-2 h-4 w-4" />
+                    自定义范围…
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={isHighRisk ? handleAddAllConfirm : handleAddAllDirect}
+                    className={isHighRisk ? 'text-destructive focus:text-destructive' : undefined}
+                  >
+                    <ListPlus className="mr-2 h-4 w-4" />
+                    全部 {headerTotal} 首{isHighRisk && '（高风险）'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAddCurrentLoaded}
+              disabled={allArchives.isLoading}
+              className="shrink-0"
+            >
+              <ListPlus className="mr-1 h-4 w-4" />
+              {addToFavLabel}
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading && archives.length === 0 ? (
@@ -623,6 +635,8 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
         open={rangeDialog.open}
         totalPages={collectionTotalPages}
         pageSize={ARCHIVES_PAGE_SIZE}
+        // 合集走 200ms 间隔（hook 内 COLLECTION_PAGE_SLEEP_MS），单页约 0.5s
+        secondsPerPage={0.5}
         title={rangeDialog.mode === 'add' ? '按范围加入歌单' : '按范围播放合集'}
         onConfirm={handleRangeConfirm}
         onCancel={() => setRangeDialog((s) => ({ ...s, open: false }))}

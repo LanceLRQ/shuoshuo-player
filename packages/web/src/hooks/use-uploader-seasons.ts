@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   fetchCollectionArchives,
   fetchUploaderCollections,
+  pickVideosFields,
+  useBilibiliVideosStore,
   type BilibiliSeasonVideo,
+  type BilibiliVideo,
   type UploaderCollection,
   type UploaderCollectionSource,
 } from '@shuoshuo-player/shared';
@@ -14,6 +17,23 @@ const COLLECTION_PAGE_SLEEP_MS = 200;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * 合集 archives 自带 BilibiliVideo 必备字段（bvid/title/pic/created/play/length）。
+ * 把它们 upsert 到 useBilibiliVideosStore，让后续「加入歌单」时 addFavVideoByBvids
+ * 能从缓存命中而不必再调 B 站 view API（150 条 = 150 次 view + 150 次 toast 抽搐）。
+ *
+ * 仅写入 entities 中不存在的 bvid——已有 entity 通常来自投稿/收藏夹/view 接口，字段更全，
+ * 不应被合集的精简字段（author='' 等空值）覆盖。
+ */
+function upsertSeasonArchivesIfMissing(archives: BilibiliSeasonVideo[]): void {
+  if (archives.length === 0) return;
+  const { entities, upsertMany } = useBilibiliVideosStore.getState();
+  const missing = archives.filter((a) => !entities[a.bvid]);
+  if (missing.length === 0) return;
+  const mapped = pickVideosFields(missing, 'season') as BilibiliVideo[];
+  upsertMany(mapped);
 }
 
 function errMessage(err: unknown): string {
@@ -172,6 +192,7 @@ export function useCollectionArchives(
         );
         if (!guard.valid(id)) return;
         const fb = fallbackMetaRef.current;
+        upsertSeasonArchivesIfMissing(result.archives);
         setState({
           name: result.name ?? fb?.name ?? '',
           description: result.description ?? fb?.description ?? '',
@@ -274,16 +295,21 @@ export function useCollectionAllArchives(
           ARCHIVES_PAGE_SIZE,
         );
         if (!guard.valid(id)) return null;
+        upsertSeasonArchivesIfMissing(first.archives);
         accumulated.push(...first.archives);
         const totalPages = Math.max(1, Math.ceil(first.total / ARCHIVES_PAGE_SIZE));
         const toPage = Math.min(opts?.toPage ?? totalPages, totalPages);
+        // 范围内的实际条数（用于进度分母）：min(范围预期, 合集剩余)
+        // 不能用 first.total 直接做分母——范围拉取 fromPage>1 时会让进度条永远到不了 100%
+        const remoteRemaining = Math.max(0, first.total - (fromPage - 1) * ARCHIVES_PAGE_SIZE);
+        const rangeTotal = Math.min((toPage - fromPage + 1) * ARCHIVES_PAGE_SIZE, remoteRemaining);
         // first.archives 为空或已是最后一页 → 收尾返回
         if (first.archives.length === 0 || fromPage >= toPage) {
           setState({
             isLoading: false,
             archives: accumulated.slice(),
             loaded: accumulated.length,
-            total: first.total,
+            total: rangeTotal,
             error: null,
             done: true,
           });
@@ -293,7 +319,7 @@ export function useCollectionAllArchives(
           isLoading: true,
           archives: accumulated.slice(),
           loaded: accumulated.length,
-          total: first.total,
+          total: rangeTotal,
           error: null,
           done: false,
         });
@@ -308,6 +334,7 @@ export function useCollectionAllArchives(
             ARCHIVES_PAGE_SIZE,
           );
           if (!guard.valid(id)) return null;
+          upsertSeasonArchivesIfMissing(result.archives);
           accumulated.push(...result.archives);
           setState((prev) => ({
             ...prev,
