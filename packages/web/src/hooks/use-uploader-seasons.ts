@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  fetchSeasonArchives,
-  fetchUploaderSeasons,
-  type BilibiliSeasonMeta,
+  fetchCollectionArchives,
+  fetchUploaderCollections,
   type BilibiliSeasonVideo,
-  type UploaderSeason,
+  type UploaderCollection,
+  type UploaderCollectionSource,
 } from '@shuoshuo-player/shared';
 
-const SEASONS_PAGE_SIZE = 20;
+const COLLECTIONS_PAGE_SIZE = 20;
 const ARCHIVES_PAGE_SIZE = 30;
 
-/** B 站接口 throw 出的对象/Error 形态不一，统一提取人类可读 message；缺失返回空串由调用方兜底 */
 function errMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (err && typeof err === 'object' && 'message' in err) {
@@ -20,7 +19,7 @@ function errMessage(err: unknown): string {
   return '';
 }
 
-/** 用 mountedRef + 单调递增 fetchId 拦截"已卸载或参数已变"的过期响应，避免回写过期 state */
+/** mountedRef + 单调递增 fetchId 拦截"已卸载或参数已变"的过期响应 */
 function useFetchGuard() {
   const fetchIdRef = useRef(0);
   const mountedRef = useRef(true);
@@ -30,7 +29,7 @@ function useFetchGuard() {
       mountedRef.current = false;
     };
   }, []);
-  // useMemo 空 deps：保证返回引用稳定，避免被 useCallback deps 误判为变化引发 effect 死循环
+  // useMemo 空 deps：保证返回引用稳定，避免被 useCallback deps 误判变化引发 effect 死循环
   return useMemo(
     () => ({
       next: () => ++fetchIdRef.current,
@@ -40,8 +39,8 @@ function useFetchGuard() {
   );
 }
 
-interface UseUploaderSeasonsState {
-  items: UploaderSeason[];
+interface UseUploaderCollectionsState {
+  items: UploaderCollection[];
   total: number;
   page: number;
   pageSize: number;
@@ -50,28 +49,27 @@ interface UseUploaderSeasonsState {
   error: string | null;
 }
 
-const INITIAL_SEASONS_STATE: UseUploaderSeasonsState = {
+const INITIAL_COLLECTIONS_STATE: UseUploaderCollectionsState = {
   items: [],
   total: 0,
   page: 1,
-  pageSize: SEASONS_PAGE_SIZE,
+  pageSize: COLLECTIONS_PAGE_SIZE,
   hasMore: false,
   isLoading: false,
   error: null,
 };
 
-export function useUploaderSeasons(mid: string | undefined) {
-  const [state, setState] = useState<UseUploaderSeasonsState>(INITIAL_SEASONS_STATE);
+export function useUploaderCollections(mid: string | undefined) {
+  const [state, setState] = useState<UseUploaderCollectionsState>(INITIAL_COLLECTIONS_STATE);
   const guard = useFetchGuard();
 
   const load = useCallback(
     async (targetPage: number) => {
       if (!mid) return;
       const id = guard.next();
-      // 重置 items / total 与 isLoading 合并为一次 setState，避免双 useEffect 触发两次 render
-      setState({ ...INITIAL_SEASONS_STATE, page: targetPage, isLoading: true });
+      setState({ ...INITIAL_COLLECTIONS_STATE, page: targetPage, isLoading: true });
       try {
-        const result = await fetchUploaderSeasons(mid, targetPage, SEASONS_PAGE_SIZE);
+        const result = await fetchUploaderCollections(mid, targetPage, COLLECTIONS_PAGE_SIZE);
         if (!guard.valid(id)) return;
         setState({
           items: result.items,
@@ -96,7 +94,7 @@ export function useUploaderSeasons(mid: string | undefined) {
 
   useEffect(() => {
     if (!mid) {
-      setState(INITIAL_SEASONS_STATE);
+      setState(INITIAL_COLLECTIONS_STATE);
       return;
     }
     void load(1);
@@ -108,8 +106,10 @@ export function useUploaderSeasons(mid: string | undefined) {
   return { ...state, setPage, refresh };
 }
 
-interface UseSeasonArchivesState {
-  meta: BilibiliSeasonMeta | null;
+interface UseCollectionArchivesState {
+  name: string;
+  description: string;
+  cover: string;
   archives: BilibiliSeasonVideo[];
   total: number;
   page: number;
@@ -119,8 +119,10 @@ interface UseSeasonArchivesState {
   error: string | null;
 }
 
-const INITIAL_ARCHIVES_STATE: UseSeasonArchivesState = {
-  meta: null,
+const INITIAL_ARCHIVES_STATE: UseCollectionArchivesState = {
+  name: '',
+  description: '',
+  cover: '',
   archives: [],
   total: 0,
   page: 1,
@@ -130,20 +132,44 @@ const INITIAL_ARCHIVES_STATE: UseSeasonArchivesState = {
   error: null,
 };
 
-export function useSeasonArchives(mid: string | undefined, seasonId: string | undefined) {
-  const [state, setState] = useState<UseSeasonArchivesState>(INITIAL_ARCHIVES_STATE);
+/**
+ * 拉取合集/系列内视频分页。
+ *
+ * series API 不返回 meta，由调用方从列表页传入的 collection 数据兜底（参数 fallbackMeta）。
+ */
+export function useCollectionArchives(
+  mid: string | undefined,
+  source: UploaderCollectionSource | undefined,
+  collectionId: string | undefined,
+  fallbackMeta?: { name: string; description: string; cover: string },
+) {
+  const [state, setState] = useState<UseCollectionArchivesState>(INITIAL_ARCHIVES_STATE);
   const guard = useFetchGuard();
+  // 用 ref 持有 fallbackMeta，避免组件每次 render 传入新对象引用导致 load deps 变化 → effect 死循环
+  const fallbackMetaRef = useRef(fallbackMeta);
+  useEffect(() => {
+    fallbackMetaRef.current = fallbackMeta;
+  });
 
   const load = useCallback(
     async (targetPage: number) => {
-      if (!mid || !seasonId) return;
+      if (!mid || !source || !collectionId) return;
       const id = guard.next();
       setState({ ...INITIAL_ARCHIVES_STATE, page: targetPage, isLoading: true });
       try {
-        const result = await fetchSeasonArchives(mid, seasonId, targetPage, ARCHIVES_PAGE_SIZE);
+        const result = await fetchCollectionArchives(
+          mid,
+          source,
+          collectionId,
+          targetPage,
+          ARCHIVES_PAGE_SIZE,
+        );
         if (!guard.valid(id)) return;
+        const fb = fallbackMetaRef.current;
         setState({
-          meta: result.meta,
+          name: result.name ?? fb?.name ?? '',
+          description: result.description ?? fb?.description ?? '',
+          cover: result.cover ?? fb?.cover ?? '',
           archives: result.archives,
           total: result.total,
           page: result.page,
@@ -161,35 +187,32 @@ export function useSeasonArchives(mid: string | undefined, seasonId: string | un
         }));
       }
     },
-    [mid, seasonId, guard],
+    [mid, source, collectionId, guard],
   );
 
   useEffect(() => {
-    if (!mid || !seasonId) {
+    if (!mid || !source || !collectionId) {
       setState(INITIAL_ARCHIVES_STATE);
       return;
     }
     void load(1);
-  }, [mid, seasonId, load]);
+  }, [mid, source, collectionId, load]);
 
   const setPage = useCallback((next: number) => void load(Math.max(1, next)), [load]);
 
   return { ...state, setPage };
 }
 
-interface UseSeasonAllArchivesState {
+interface UseCollectionAllArchivesState {
   isLoading: boolean;
   archives: BilibiliSeasonVideo[];
-  /** 已拉取条数（hasMore=false 时与 total 一致） */
   loaded: number;
-  /** 合集总视频数（首页响应即知，用于按钮进度文案 X/Y） */
   total: number;
   error: string | null;
-  /** 本次全量拉取是否成功收尾 */
   done: boolean;
 }
 
-const INITIAL_ALL_STATE: UseSeasonAllArchivesState = {
+const INITIAL_ALL_STATE: UseCollectionAllArchivesState = {
   isLoading: false,
   archives: [],
   loaded: 0,
@@ -199,27 +222,29 @@ const INITIAL_ALL_STATE: UseSeasonAllArchivesState = {
 };
 
 /**
- * 按需触发的全量拉取。
+ * 按需触发的全量拉取（用于「以合集为歌单播放」/「全部加入歌单」按钮）。
  *
- * 拉取策略：先取 page=1 拿到 total，再 Promise.all 并发拉剩余页。
- * client.ts 已对 B 站请求做 100ms 间隔限速（rateLimitGate），并发 Promise.all
- * 在客户端层并行触发但底层串行排队，省去逐 await 的额外 render 往返。
- * 单页失败立即停止，已拉的部分保留供 UI 决策。
+ * 策略：先取 page=1 拿到 total，再 Promise.all 并发拉剩余页。
+ * client.ts 已对 B 站请求做 100ms 间隔限速，并发触发但底层串行排队。
  */
-export function useSeasonAllArchives(mid: string | undefined, seasonId: string | undefined) {
-  const [state, setState] = useState<UseSeasonAllArchivesState>(INITIAL_ALL_STATE);
+export function useCollectionAllArchives(
+  mid: string | undefined,
+  source: UploaderCollectionSource | undefined,
+  collectionId: string | undefined,
+) {
+  const [state, setState] = useState<UseCollectionAllArchivesState>(INITIAL_ALL_STATE);
   const guard = useFetchGuard();
 
   useEffect(() => {
     setState(INITIAL_ALL_STATE);
-  }, [mid, seasonId]);
+  }, [mid, source, collectionId]);
 
   const trigger = useCallback(async (): Promise<BilibiliSeasonVideo[] | null> => {
-    if (!mid || !seasonId) return null;
+    if (!mid || !source || !collectionId) return null;
     const id = guard.next();
     setState({ ...INITIAL_ALL_STATE, isLoading: true });
     try {
-      const first = await fetchSeasonArchives(mid, seasonId, 1, ARCHIVES_PAGE_SIZE);
+      const first = await fetchCollectionArchives(mid, source, collectionId, 1, ARCHIVES_PAGE_SIZE);
       if (!guard.valid(id)) return null;
       if (!first.hasMore || first.archives.length === 0) {
         setState({
@@ -243,7 +268,7 @@ export function useSeasonAllArchives(mid: string | undefined, seasonId: string |
       const totalPages = Math.max(1, Math.ceil(first.total / ARCHIVES_PAGE_SIZE));
       const rest = await Promise.all(
         Array.from({ length: totalPages - 1 }, (_, i) =>
-          fetchSeasonArchives(mid, seasonId, i + 2, ARCHIVES_PAGE_SIZE),
+          fetchCollectionArchives(mid, source, collectionId, i + 2, ARCHIVES_PAGE_SIZE),
         ),
       );
       if (!guard.valid(id)) return null;
@@ -267,7 +292,7 @@ export function useSeasonAllArchives(mid: string | undefined, seasonId: string |
       }));
       return null;
     }
-  }, [mid, seasonId, guard]);
+  }, [mid, source, collectionId, guard]);
 
   return { ...state, trigger };
 }

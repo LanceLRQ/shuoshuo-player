@@ -111,7 +111,28 @@ export interface BilibiliSeasonMeta {
   is_opened?: number;
 }
 
-/** B 站合集内单条视频（seasons_archives_list 的 archives[] 项） */
+/**
+ * B 站系列元信息（seasons_series_list / series/series 响应中 meta 字段子集）。
+ *
+ * 与 seasons 不同：ID 字段是 series_id；通过 seasons_series_list 端点拿到的 meta
+ * 包含 cover（即使 series/series 单独查询不返回）。
+ */
+export interface BilibiliSeriesMeta {
+  series_id: number;
+  mid: number;
+  name: string;
+  cover?: string;
+  description: string;
+  total: number;
+  ctime?: number;
+  mtime?: number;
+}
+
+/**
+ * 合集/系列内单条视频条目。
+ * - seasons_archives_list 返回结构：含 stat.view
+ * - series/archives 返回结构：基本一致，可能少部分字段
+ */
 export interface BilibiliSeasonVideo {
   aid: number;
   bvid: string;
@@ -122,12 +143,13 @@ export interface BilibiliSeasonVideo {
   stat?: { view: number };
 }
 
-/**
- * seasons_series_list 中单个 season 条目。
- * archives 字段在该端点会返回前 N 条视频，用于做封面 fallback。
- */
 export interface BilibiliSeasonsListItem {
   meta: BilibiliSeasonMeta;
+  archives?: BilibiliSeasonVideo[];
+}
+
+export interface BilibiliSeriesListItem {
+  meta: BilibiliSeriesMeta;
   archives?: BilibiliSeasonVideo[];
 }
 
@@ -135,14 +157,24 @@ export interface BilibiliSeasonsListItem {
 export interface BilibiliSeasonsListResponse {
   items_lists: {
     seasons_list?: BilibiliSeasonsListItem[];
-    series_list?: unknown[];
+    series_list?: BilibiliSeriesListItem[];
     page: { num: number; size: number; total: number };
   };
 }
 
-/** seasons_archives_list 接口响应 data 字段 */
+/** seasons_archives_list 接口响应 data 字段（合集详情） */
 export interface BilibiliSeasonArchivesResponse {
   meta: BilibiliSeasonMeta;
   archives: BilibiliSeasonVideo[];
   page: { num: number; size: number; total: number };
 }
+
+/** series/archives 接口响应 data 字段（系列详情） */
+export interface BilibiliSeriesArchivesResponse {
+  aids?: number[];
+  archives: BilibiliSeasonVideo[];
+  page: { num: number; size: number; total: number };
+}
+
+/** UP 主歌单页「合集」Tab 用的统一抽象：seasons + series 二合一 */
+export type UploaderCollectionSource = 'season' | 'series';

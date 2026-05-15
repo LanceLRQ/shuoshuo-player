@@ -1,95 +1,94 @@
 /**
- * Hook 单测：useUploaderSeasons / useSeasonArchives / useSeasonAllArchives
+ * Hook 单测：useUploaderCollections / useCollectionArchives / useCollectionAllArchives
  *
- * Mock 策略：
- * - vi.mock 拦截 @shuoshuo-player/shared 的 fetchUploaderSeasons / fetchSeasonArchives
- * - 通过 mockImplementation 让每次调用返回不同 payload，覆盖分页 / 全量 / 错误场景
+ * Mock 策略：拦截 @shuoshuo-player/shared 的 fetchUploaderCollections / fetchCollectionArchives
  */
 import { renderHook, act, waitFor } from '@testing-library/react';
 import {
-  fetchSeasonArchives,
-  fetchUploaderSeasons,
+  fetchCollectionArchives,
+  fetchUploaderCollections,
   type BilibiliSeasonVideo,
 } from '@shuoshuo-player/shared';
 import {
-  useSeasonAllArchives,
-  useSeasonArchives,
-  useUploaderSeasons,
+  useCollectionAllArchives,
+  useCollectionArchives,
+  useUploaderCollections,
 } from './use-uploader-seasons';
 
 vi.mock('@shuoshuo-player/shared', async () => {
   const actual = await vi.importActual<object>('@shuoshuo-player/shared');
   return {
     ...actual,
-    fetchUploaderSeasons: vi.fn(),
-    fetchSeasonArchives: vi.fn(),
+    fetchUploaderCollections: vi.fn(),
+    fetchCollectionArchives: vi.fn(),
   };
 });
 
-const mockedFetchSeasons = vi.mocked(fetchUploaderSeasons);
-const mockedFetchArchives = vi.mocked(fetchSeasonArchives);
+const mockedFetchCollections = vi.mocked(fetchUploaderCollections);
+const mockedFetchArchives = vi.mocked(fetchCollectionArchives);
 
 function buildArchive(bvid: string): BilibiliSeasonVideo {
-  return {
-    aid: 1,
-    bvid,
-    title: `t-${bvid}`,
-    pic: `pic-${bvid}`,
-    pubdate: 1000,
-    duration: 60,
-  };
+  return { aid: 1, bvid, title: `t-${bvid}`, pic: `pic-${bvid}`, pubdate: 1000, duration: 60 };
 }
 
-describe('useUploaderSeasons', () => {
+describe('useUploaderCollections', () => {
   beforeEach(() => {
-    mockedFetchSeasons.mockReset();
+    mockedFetchCollections.mockReset();
   });
 
   it('mid 为空时不发起请求', async () => {
-    const { result } = renderHook(() => useUploaderSeasons(undefined));
+    const { result } = renderHook(() => useUploaderCollections(undefined));
     expect(result.current.items).toEqual([]);
-    expect(mockedFetchSeasons).not.toHaveBeenCalled();
+    expect(mockedFetchCollections).not.toHaveBeenCalled();
   });
 
-  it('mid 变化时自动拉取第 1 页并写入 state', async () => {
-    mockedFetchSeasons.mockResolvedValueOnce({
+  it('mid 变化时自动拉取第 1 页，items 同时含 season 与 series', async () => {
+    mockedFetchCollections.mockResolvedValueOnce({
       items: [
         {
-          meta: {
-            season_id: 1,
-            mid: 100,
-            name: '合集A',
-            cover: 'cover-a',
-            description: '',
-            total: 5,
-          },
-          effectiveCover: 'cover-a',
+          source: 'season',
+          id: 1,
+          mid: 100,
+          name: '合集A',
+          cover: 'cover-a',
+          description: '',
+          total: 5,
+        },
+        {
+          source: 'series',
+          id: 2,
+          mid: 100,
+          name: '系列B',
+          cover: 'cover-b',
+          description: '',
+          total: 3,
         },
       ],
-      total: 1,
+      total: 2,
       page: 1,
       pageSize: 20,
       hasMore: false,
     });
-    const { result } = renderHook(() => useUploaderSeasons('100'));
+    const { result } = renderHook(() => useUploaderCollections('100'));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.items).toHaveLength(1);
-    expect(result.current.items[0].meta.name).toBe('合集A');
-    expect(mockedFetchSeasons).toHaveBeenCalledWith('100', 1, 20);
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.items[0].source).toBe('season');
+    expect(result.current.items[1].source).toBe('series');
+    expect(mockedFetchCollections).toHaveBeenCalledWith('100', 1, 20);
   });
 
   it('setPage 触发新页请求', async () => {
-    mockedFetchSeasons.mockResolvedValue({
+    mockedFetchCollections.mockResolvedValue({
       items: [],
       total: 30,
       page: 1,
       pageSize: 20,
       hasMore: true,
     });
-    const { result } = renderHook(() => useUploaderSeasons('100'));
+    const { result } = renderHook(() => useUploaderCollections('100'));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    mockedFetchSeasons.mockClear();
-    mockedFetchSeasons.mockResolvedValueOnce({
+    mockedFetchCollections.mockClear();
+    mockedFetchCollections.mockResolvedValueOnce({
       items: [],
       total: 30,
       page: 2,
@@ -98,77 +97,82 @@ describe('useUploaderSeasons', () => {
     });
     act(() => result.current.setPage(2));
     await waitFor(() => expect(result.current.page).toBe(2));
-    expect(mockedFetchSeasons).toHaveBeenCalledWith('100', 2, 20);
+    expect(mockedFetchCollections).toHaveBeenCalledWith('100', 2, 20);
   });
 
   it('请求失败时 error 落地，isLoading 复位', async () => {
-    mockedFetchSeasons.mockRejectedValueOnce({ message: '风控了' });
-    const { result } = renderHook(() => useUploaderSeasons('100'));
+    mockedFetchCollections.mockRejectedValueOnce({ message: '风控了' });
+    const { result } = renderHook(() => useUploaderCollections('100'));
     await waitFor(() => expect(result.current.error).toBe('风控了'));
     expect(result.current.isLoading).toBe(false);
   });
 
   it('卸载后旧响应不再写入 state', async () => {
-    let resolveFn: ((v: Awaited<ReturnType<typeof fetchUploaderSeasons>>) => void) | undefined;
-    mockedFetchSeasons.mockImplementationOnce(
+    let resolveFn: ((v: Awaited<ReturnType<typeof fetchUploaderCollections>>) => void) | undefined;
+    mockedFetchCollections.mockImplementationOnce(
       () =>
-        new Promise<Awaited<ReturnType<typeof fetchUploaderSeasons>>>((r) => {
+        new Promise<Awaited<ReturnType<typeof fetchUploaderCollections>>>((r) => {
           resolveFn = r;
         }),
     );
-    const { unmount } = renderHook(() => useUploaderSeasons('100'));
+    const { unmount } = renderHook(() => useUploaderCollections('100'));
     unmount();
     resolveFn?.({ items: [], total: 0, page: 1, pageSize: 20, hasMore: false });
-    // 等一轮 microtask 确保没崩
     await Promise.resolve();
     expect(true).toBe(true);
   });
 });
 
-describe('useSeasonArchives', () => {
+describe('useCollectionArchives', () => {
   beforeEach(() => {
     mockedFetchArchives.mockReset();
   });
 
-  it('mid 或 seasonId 为空时不发起请求', () => {
-    renderHook(() => useSeasonArchives(undefined, '1'));
-    renderHook(() => useSeasonArchives('100', undefined));
+  it('参数缺失时不发起请求', () => {
+    renderHook(() => useCollectionArchives(undefined, 'season', '1'));
+    renderHook(() => useCollectionArchives('100', undefined, '1'));
+    renderHook(() => useCollectionArchives('100', 'season', undefined));
     expect(mockedFetchArchives).not.toHaveBeenCalled();
   });
 
-  it('参数齐全时自动拉取', async () => {
+  it('参数齐全时自动拉取，传 source 给底层', async () => {
     mockedFetchArchives.mockResolvedValueOnce({
-      meta: {
-        season_id: 7,
-        mid: 100,
-        name: '合集X',
-        cover: 'c',
-        description: 'd',
-        total: 30,
-      },
+      name: '合集X',
+      description: 'd',
+      cover: 'c',
       archives: [buildArchive('BV1')],
       total: 30,
       page: 1,
       pageSize: 30,
       hasMore: false,
     });
-    const { result } = renderHook(() => useSeasonArchives('100', '7'));
-    await waitFor(() => expect(result.current.meta?.season_id).toBe(7));
-    expect(result.current.archives).toHaveLength(1);
-    expect(mockedFetchArchives).toHaveBeenCalledWith('100', '7', 1, 30);
+    const { result } = renderHook(() => useCollectionArchives('100', 'series', '7'));
+    await waitFor(() => expect(result.current.archives).toHaveLength(1));
+    expect(mockedFetchArchives).toHaveBeenCalledWith('100', 'series', '7', 1, 30);
   });
 
-  it('seasonId 变化重置到第 1 页', async () => {
-    // mock 动态回 page，让 hook 写入的 page 反映实际请求页码
-    mockedFetchArchives.mockImplementation(async (_mid, _sid, page, pageSize) => ({
-      meta: {
-        season_id: 1,
-        mid: 100,
-        name: '',
-        cover: '',
-        description: '',
-        total: 0,
-      },
+  it('series 接口无 meta 时使用 fallbackMeta', async () => {
+    mockedFetchArchives.mockResolvedValueOnce({
+      archives: [buildArchive('BV1')],
+      total: 1,
+      page: 1,
+      pageSize: 30,
+      hasMore: false,
+    });
+    const { result } = renderHook(() =>
+      useCollectionArchives('100', 'series', '7', {
+        name: 'fb-name',
+        description: 'fb-desc',
+        cover: 'fb-cover',
+      }),
+    );
+    await waitFor(() => expect(result.current.archives).toHaveLength(1));
+    expect(result.current.name).toBe('fb-name');
+    expect(result.current.cover).toBe('fb-cover');
+  });
+
+  it('collectionId 变化重置到第 1 页', async () => {
+    mockedFetchArchives.mockImplementation(async (_mid, _src, _id, page, pageSize) => ({
       archives: [],
       total: 0,
       page: page ?? 1,
@@ -176,34 +180,25 @@ describe('useSeasonArchives', () => {
       hasMore: false,
     }));
     const { result, rerender } = renderHook(
-      ({ seasonId }: { seasonId: string }) => useSeasonArchives('100', seasonId),
-      { initialProps: { seasonId: '1' } },
+      ({ collectionId }: { collectionId: string }) =>
+        useCollectionArchives('100', 'season', collectionId),
+      { initialProps: { collectionId: '1' } },
     );
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     act(() => result.current.setPage(3));
     await waitFor(() => expect(result.current.page).toBe(3));
-    rerender({ seasonId: '2' });
+    rerender({ collectionId: '2' });
     await waitFor(() => expect(result.current.page).toBe(1));
   });
 });
 
-describe('useSeasonAllArchives', () => {
+describe('useCollectionAllArchives', () => {
   beforeEach(() => {
     mockedFetchArchives.mockReset();
   });
 
-  it('trigger 拉取首页 + 并发拉剩余页，累积所有 archives', async () => {
-    // total=60 + pageSize=30 → 2 页：page=1 + page=2 并发
-    const buildMeta = () => ({
-      season_id: 1,
-      mid: 100,
-      name: '',
-      cover: '',
-      description: '',
-      total: 60,
-    });
+  it('trigger 拉首页 + 并发拉剩余页', async () => {
     mockedFetchArchives.mockResolvedValueOnce({
-      meta: buildMeta(),
       archives: [buildArchive('BV1'), buildArchive('BV2'), buildArchive('BV3')],
       total: 60,
       page: 1,
@@ -211,14 +206,13 @@ describe('useSeasonAllArchives', () => {
       hasMore: true,
     });
     mockedFetchArchives.mockResolvedValueOnce({
-      meta: buildMeta(),
       archives: [buildArchive('BV4'), buildArchive('BV5')],
       total: 60,
       page: 2,
       pageSize: 30,
       hasMore: false,
     });
-    const { result } = renderHook(() => useSeasonAllArchives('100', '1'));
+    const { result } = renderHook(() => useCollectionAllArchives('100', 'season', '1'));
     let returned: BilibiliSeasonVideo[] | null = null;
     await act(async () => {
       returned = await result.current.trigger();
@@ -230,23 +224,15 @@ describe('useSeasonAllArchives', () => {
     expect(mockedFetchArchives).toHaveBeenCalledTimes(2);
   });
 
-  it('单页足够时不再发起额外请求（small case）', async () => {
+  it('单页足够时不再发起额外请求', async () => {
     mockedFetchArchives.mockResolvedValueOnce({
-      meta: {
-        season_id: 1,
-        mid: 100,
-        name: '',
-        cover: '',
-        description: '',
-        total: 2,
-      },
       archives: [buildArchive('BV1'), buildArchive('BV2')],
       total: 2,
       page: 1,
       pageSize: 30,
       hasMore: false,
     });
-    const { result } = renderHook(() => useSeasonAllArchives('100', '1'));
+    const { result } = renderHook(() => useCollectionAllArchives('100', 'season', '1'));
     let returned: BilibiliSeasonVideo[] | null = null;
     await act(async () => {
       returned = await result.current.trigger();
@@ -256,16 +242,8 @@ describe('useSeasonAllArchives', () => {
     expect(result.current.done).toBe(true);
   });
 
-  it('剩余页中任一失败时整体失败，保留首页已拉到的部分', async () => {
+  it('剩余页失败时整体失败，保留首页已拉到的部分', async () => {
     mockedFetchArchives.mockResolvedValueOnce({
-      meta: {
-        season_id: 1,
-        mid: 100,
-        name: '',
-        cover: '',
-        description: '',
-        total: 60,
-      },
       archives: [buildArchive('BV1')],
       total: 60,
       page: 1,
@@ -273,7 +251,7 @@ describe('useSeasonAllArchives', () => {
       hasMore: true,
     });
     mockedFetchArchives.mockRejectedValueOnce({ message: '中断' });
-    const { result } = renderHook(() => useSeasonAllArchives('100', '1'));
+    const { result } = renderHook(() => useCollectionAllArchives('100', 'series', '1'));
     let returned: BilibiliSeasonVideo[] | null = null;
     await act(async () => {
       returned = await result.current.trigger();
@@ -284,8 +262,8 @@ describe('useSeasonAllArchives', () => {
     expect(result.current.done).toBe(false);
   });
 
-  it('mid/seasonId 缺失时返回 null 且不发起请求', async () => {
-    const { result } = renderHook(() => useSeasonAllArchives(undefined, '1'));
+  it('参数缺失时返回 null 且不发起请求', async () => {
+    const { result } = renderHook(() => useCollectionAllArchives(undefined, 'season', '1'));
     const returned = await result.current.trigger();
     expect(returned).toBeNull();
     expect(mockedFetchArchives).not.toHaveBeenCalled();

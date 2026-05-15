@@ -333,14 +333,22 @@ export function FavListPage() {
             <TabsTrigger value="videos">视频投稿</TabsTrigger>
             <TabsTrigger value="seasons">合集</TabsTrigger>
           </TabsList>
+          {/*
+           * forceMount 让两个 Tab 内容常驻 DOM（仅由 CSS hidden 控制显隐）。
+           * 默认行为下 Radix Tabs.Content 在 inactive 时会 unmount，导致：
+           *   1) 视频投稿 Tab 的 useVirtualizer parentRef 失效，切回后白屏
+           *   2) 合集 Tab 切回需重新拉数据并丢掉详情态滚动位置
+           */}
           <TabsContent
             value="videos"
+            forceMount
             className="mt-0 flex min-h-0 flex-1 flex-col gap-4 data-[state=inactive]:hidden"
           >
             {videosSection}
           </TabsContent>
           <TabsContent
             value="seasons"
+            forceMount
             className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
           >
             <UploaderSeasonsTab mid={uploaderMid} favId={favId} />

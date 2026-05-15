@@ -4,38 +4,53 @@ import type {
   BilibiliSeasonMeta,
   BilibiliSeasonVideo,
   BilibiliSeasonsListResponse,
+  BilibiliSeriesArchivesResponse,
+  UploaderCollectionSource,
 } from '../../types';
 
 /**
- * B 站「视频合集」相关 API。
+ * B 站「合集 / 系列」相关 API。
  *
- * 公开 polymer/web-space 端点：
- * - seasons_series_list：UP 主合集 + 系列汇总（本仓只用 seasons_list，丢 series）
- * - seasons_archives_list：单个合集内视频分页
+ * B 站在 UP 主页同时暴露两种内容组织：
+ * - season（合集）：创作中心新功能，meta 含 season_id
+ * - series（系列）：早期功能，meta 含 series_id；UI 上 UP 主和访客都统称"合集"
  *
- * 两个端点的 WBI 签名实测可选——但被风控时会强制要求；统一走 useWbi:true 兜底。
+ * 用户视角看，两者无差别——按"合集"统一展示；只在请求详情时分流到不同 API。
  */
 export const CollectionApi = {
+  /** UP 主合集 + 系列汇总列表（WBI）；items_lists.seasons_list / series_list 各自可空 */
   listSeasonsAndSeriesRaw: buildBilibiliApiCall<BilibiliSeasonsListResponse>({
     url: 'https://api.bilibili.com/x/polymer/web-space/seasons_series_list',
     useWbi: true,
   }),
 
+  /** 合集（season）内视频列表（WBI） */
   getSeasonArchivesRaw: buildBilibiliApiCall<BilibiliSeasonArchivesResponse>({
     url: 'https://api.bilibili.com/x/polymer/web-space/seasons_archives_list',
     useWbi: true,
   }),
+
+  /** 系列（series）内视频列表（无需 WBI）；分页参数是 pn / ps */
+  getSeriesArchivesRaw: buildBilibiliApiCall<BilibiliSeriesArchivesResponse>({
+    url: 'https://api.bilibili.com/x/series/archives',
+  }),
 };
 
-/** 适配后的合集列表项；UI 直接消费此结构而非 raw 响应 */
-export interface UploaderSeason {
-  meta: BilibiliSeasonMeta;
-  /** meta.cover 优先；空则用合集内最新视频封面 archives[0]?.pic 兜底；都空 → '' */
-  effectiveCover: string;
+/** UI 直接消费的「合集/系列」统一抽象 */
+export interface UploaderCollection {
+  source: UploaderCollectionSource;
+  /** season_id 或 series_id */
+  id: number;
+  mid: number;
+  name: string;
+  /** meta.cover 优先；空则用 archives[0]?.pic 兜底；都空 → '' */
+  cover: string;
+  description: string;
+  total: number;
 }
 
-export interface UploaderSeasonsResult {
-  items: UploaderSeason[];
+export interface UploaderCollectionsResult {
+  items: UploaderCollection[];
   total: number;
   page: number;
   pageSize: number;
@@ -43,44 +58,54 @@ export interface UploaderSeasonsResult {
 }
 
 /**
- * 拉取 UP 主公开合集列表。
+ * 拉取 UP 主的合集 + 系列汇总（UI 统称"合集"）。
  *
- * 适配处理：
- * - 仅取 items_lists.seasons_list，丢弃 series_list（产品决定只接合集不接系列）
- * - 客户端兜底过滤 is_opened === 0（实际 web API 不返回私密合集，此处仅做防御）
+ * 合并策略：
+ * - seasons_list / series_list 各自规整后按 API 返回顺序合并（seasons 在前）
+ * - meta 字段差异折叠到 UploaderCollection 统一形态
+ * - 私密内容兜底过滤：seasons 的 is_opened === 0（series 公开 API 不返回私密）
  * - 封面 fallback：meta.cover || archives[0]?.pic
  */
-export async function fetchUploaderSeasons(
+export async function fetchUploaderCollections(
   mid: string | number,
   page: number = 1,
   pageSize: number = 20,
-): Promise<UploaderSeasonsResult> {
+): Promise<UploaderCollectionsResult> {
   const resp = await CollectionApi.listSeasonsAndSeriesRaw({
-    params: {
-      mid: String(mid),
-      page_num: page,
-      page_size: pageSize,
-    },
+    params: { mid: String(mid), page_num: page, page_size: pageSize },
   });
-  const rawList = resp?.items_lists?.seasons_list ?? [];
-  const items: UploaderSeason[] = rawList
+  const rawSeasons = resp?.items_lists?.seasons_list ?? [];
+  const rawSeries = resp?.items_lists?.series_list ?? [];
+  const seasonItems: UploaderCollection[] = rawSeasons
     .filter((item) => item.meta.is_opened === undefined || item.meta.is_opened === 1)
     .map((item) => ({
-      meta: item.meta,
-      effectiveCover: item.meta.cover || item.archives?.[0]?.pic || '',
+      source: 'season',
+      id: item.meta.season_id,
+      mid: item.meta.mid,
+      name: item.meta.name,
+      cover: item.meta.cover || item.archives?.[0]?.pic || '',
+      description: item.meta.description ?? '',
+      total: item.meta.total ?? item.archives?.length ?? 0,
     }));
+  const seriesItems: UploaderCollection[] = rawSeries.map((item) => ({
+    source: 'series',
+    id: item.meta.series_id,
+    mid: item.meta.mid,
+    name: item.meta.name,
+    cover: item.meta.cover || item.archives?.[0]?.pic || '',
+    description: item.meta.description ?? '',
+    total: item.meta.total ?? item.archives?.length ?? 0,
+  }));
+  const items = [...seasonItems, ...seriesItems];
   const total = resp?.items_lists?.page?.total ?? items.length;
-  return {
-    items,
-    total,
-    page,
-    pageSize,
-    hasMore: page * pageSize < total,
-  };
+  return { items, total, page, pageSize, hasMore: page * pageSize < total };
 }
 
-export interface SeasonArchivesResult {
-  meta: BilibiliSeasonMeta;
+export interface CollectionArchivesResult {
+  /** 合集名（season 模式 API 返回 meta，series 模式合并 list 给的 meta 不在详情接口里，由调用方注入） */
+  name?: string;
+  description?: string;
+  cover?: string;
   archives: BilibiliSeasonVideo[];
   total: number;
   page: number;
@@ -88,31 +113,49 @@ export interface SeasonArchivesResult {
   hasMore: boolean;
 }
 
+const COLLECTION_ARCHIVES_PAGE_SIZE = 30;
+
 /**
- * 拉取合集内视频分页。
+ * 拉取合集/系列内视频分页，按 source 路由不同 API。
  *
- * sortReverse=true 时 B 站按"先发布在前"返回；默认按"最新在前"。
+ * - season → seasons_archives_list（带 meta 元信息，page_num / page_size 命名）
+ * - series → series/archives（无 meta，pn / ps 命名）
  */
-export async function fetchSeasonArchives(
+export async function fetchCollectionArchives(
   mid: string | number,
-  seasonId: string | number,
+  source: UploaderCollectionSource,
+  collectionId: string | number,
   page: number = 1,
-  pageSize: number = 30,
-  sortReverse: boolean = false,
-): Promise<SeasonArchivesResult> {
-  const resp = await CollectionApi.getSeasonArchivesRaw({
-    params: {
-      mid: String(mid),
-      season_id: String(seasonId),
-      page_num: page,
-      page_size: pageSize,
-      sort_reverse: sortReverse ? 1 : 0,
-    },
+  pageSize: number = COLLECTION_ARCHIVES_PAGE_SIZE,
+): Promise<CollectionArchivesResult> {
+  if (source === 'season') {
+    const resp = await CollectionApi.getSeasonArchivesRaw({
+      params: {
+        mid: String(mid),
+        season_id: String(collectionId),
+        page_num: page,
+        page_size: pageSize,
+      },
+    });
+    const total = resp?.page?.total ?? resp?.archives?.length ?? 0;
+    const meta: BilibiliSeasonMeta | undefined = resp?.meta;
+    return {
+      name: meta?.name,
+      description: meta?.description,
+      cover: meta?.cover,
+      archives: resp?.archives ?? [],
+      total,
+      page,
+      pageSize,
+      hasMore: page * pageSize < total,
+    };
+  }
+  const resp = await CollectionApi.getSeriesArchivesRaw({
+    params: { mid: String(mid), series_id: String(collectionId), pn: page, ps: pageSize },
   });
   const total = resp?.page?.total ?? resp?.archives?.length ?? 0;
   return {
-    meta: resp.meta,
-    archives: resp.archives ?? [],
+    archives: resp?.archives ?? [],
     total,
     page,
     pageSize,

@@ -17,11 +17,13 @@ import {
   usePlayingListStore,
   useUIStore,
   type BilibiliVideo,
+  type UploaderCollection,
+  type UploaderCollectionSource,
 } from '@shuoshuo-player/shared';
 import {
-  useSeasonAllArchives,
-  useSeasonArchives,
-  useUploaderSeasons,
+  useCollectionAllArchives,
+  useCollectionArchives,
+  useUploaderCollections,
 } from '@/hooks/use-uploader-seasons';
 import { useUIShell } from '@/stores/ui-shell';
 import { SeasonCard } from '@/components/season-card';
@@ -30,30 +32,46 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface UploaderSeasonsTabProps {
-  /** UP 主 UID（字符串） */
   mid: string;
   /** 当前所属歌单 ID，透传给 VideoItem 用于单条点击 addSingle 行为 */
   favId: string;
 }
 
+const COLLECTION_QUERY_RE = /^(season|series):(\d+)$/;
+
+interface OpenedCollection {
+  source: UploaderCollectionSource;
+  id: string;
+}
+
+function parseCollectionQuery(raw: string | null): OpenedCollection | null {
+  if (!raw) return null;
+  const match = raw.match(COLLECTION_QUERY_RE);
+  if (!match) return null;
+  return { source: match[1] as UploaderCollectionSource, id: match[2] };
+}
+
 /**
- * UP 主歌单页「合集」Tab 容器。
+ * UP 主歌单页「合集」Tab 容器：列表态 / 详情态由 URL ?collection=<source>:<id> 决定。
  *
- * 两态切换通过 URL query `?season=<id>` 反映：
- * - 列表态（season 缺失）：渲染合集卡片网格
- * - 详情态（season 命中）：渲染合集 header + 视频分页列表
- *
- * 浏览器后退键 / 「返回合集列表」按钮都从 URL 移除 season 参数即可回到列表态。
+ * 列表态拉到的 collection 数据会在详情态作为 fallback：
+ * series API 详情接口本身不返回 meta，需要从列表态把 name/cover/description 透传过去
+ * 才能让 header 立即显示正确标题（而不是 "加载中…"）。
  */
 export function UploaderSeasonsTab({ mid, favId }: UploaderSeasonsTabProps) {
   const [params, setParams] = useSearchParams();
-  const seasonIdRaw = params.get('season');
-  const seasonId = seasonIdRaw && /^\d+$/.test(seasonIdRaw) ? seasonIdRaw : null;
+  const opened = parseCollectionQuery(params.get('collection'));
+  const collections = useUploaderCollections(mid);
+
+  const openedCollection = useMemo<UploaderCollection | undefined>(() => {
+    if (!opened) return undefined;
+    return collections.items.find((c) => c.source === opened.source && String(c.id) === opened.id);
+  }, [opened, collections.items]);
 
   const handleOpen = useCallback(
-    (sid: number) => {
+    (collection: UploaderCollection) => {
       const next = new URLSearchParams(params);
-      next.set('season', String(sid));
+      next.set('collection', `${collection.source}:${collection.id}`);
       setParams(next, { replace: false });
     },
     [params, setParams],
@@ -61,25 +79,33 @@ export function UploaderSeasonsTab({ mid, favId }: UploaderSeasonsTabProps) {
 
   const handleBack = useCallback(() => {
     const next = new URLSearchParams(params);
-    next.delete('season');
+    next.delete('collection');
     setParams(next, { replace: false });
   }, [params, setParams]);
 
-  if (seasonId) {
-    return <SeasonDetail mid={mid} seasonId={seasonId} favId={favId} onBack={handleBack} />;
+  if (opened) {
+    return (
+      <SeasonDetail
+        mid={mid}
+        opened={opened}
+        fallback={openedCollection}
+        favId={favId}
+        onBack={handleBack}
+      />
+    );
   }
-  return <SeasonList mid={mid} onOpen={handleOpen} />;
+  return <SeasonList state={collections} onOpen={handleOpen} />;
 }
+
+type CollectionsHookState = ReturnType<typeof useUploaderCollections>;
 
 interface SeasonListProps {
-  mid: string;
-  onOpen: (seasonId: number) => void;
+  state: CollectionsHookState;
+  onOpen: (collection: UploaderCollection) => void;
 }
 
-function SeasonList({ mid, onOpen }: SeasonListProps) {
-  const { items, total, page, pageSize, hasMore, isLoading, error, setPage } =
-    useUploaderSeasons(mid);
-
+function SeasonList({ state, onOpen }: SeasonListProps) {
+  const { items, total, page, pageSize, hasMore, isLoading, error, setPage } = state;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (error) {
@@ -89,7 +115,6 @@ function SeasonList({ mid, onOpen }: SeasonListProps) {
       </div>
     );
   }
-
   if (isLoading && items.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
@@ -97,8 +122,7 @@ function SeasonList({ mid, onOpen }: SeasonListProps) {
       </div>
     );
   }
-
-  if (!isLoading && total === 0) {
+  if (!isLoading && items.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
         <ListMusic className="h-8 w-8" />
@@ -111,8 +135,12 @@ function SeasonList({ mid, onOpen }: SeasonListProps) {
     <div className="flex flex-1 flex-col gap-4">
       <div className="text-xs text-muted-foreground">共 {total} 个合集</div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {items.map((season) => (
-          <SeasonCard key={season.meta.season_id} season={season} onClick={onOpen} />
+        {items.map((collection) => (
+          <SeasonCard
+            key={`${collection.source}-${collection.id}`}
+            collection={collection}
+            onClick={onOpen}
+          />
         ))}
       </div>
       {totalPages > 1 && (
@@ -130,15 +158,35 @@ function SeasonList({ mid, onOpen }: SeasonListProps) {
 
 interface SeasonDetailProps {
   mid: string;
-  seasonId: string;
+  opened: OpenedCollection;
+  /** 来自列表态的 collection 数据；series API 详情接口无 meta 时用此兜底 name/cover/description */
+  fallback?: UploaderCollection;
   favId: string;
   onBack: () => void;
 }
 
-function SeasonDetail({ mid, seasonId, favId, onBack }: SeasonDetailProps) {
-  const { meta, archives, total, page, pageSize, hasMore, isLoading, error, setPage } =
-    useSeasonArchives(mid, seasonId);
-  const allArchives = useSeasonAllArchives(mid, seasonId);
+function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProps) {
+  const fallbackMeta = useMemo(
+    () =>
+      fallback
+        ? { name: fallback.name, description: fallback.description, cover: fallback.cover }
+        : undefined,
+    [fallback],
+  );
+  const {
+    name,
+    description,
+    cover,
+    archives,
+    total,
+    page,
+    pageSize,
+    hasMore,
+    isLoading,
+    error,
+    setPage,
+  } = useCollectionArchives(mid, opened.source, opened.id, fallbackMeta);
+  const allArchives = useCollectionAllArchives(mid, opened.source, opened.id);
 
   const setPlaylist = usePlayingListStore((s) => s.setPlaylist);
   const addSingle = usePlayingListStore((s) => s.addSingle);
@@ -158,16 +206,11 @@ function SeasonDetail({ mid, seasonId, favId, onBack }: SeasonDetailProps) {
     }
   }, [error, sendNotice]);
 
-  /** 视频列表当前页归一化映射；archives 不变时复用，避免逐 render 重建对象 */
   const visibleVideos = useMemo<BilibiliVideo[]>(
     () => pickVideosFields(archives, 'season') as BilibiliVideo[],
     [archives],
   );
 
-  /**
-   * 抽出"触发全量拉取 + 空集合兜底通知"的公共片段；
-   * 已在拉取中（isLoading）则丢弃本次点击，防止用户连点导致重复全量请求。
-   */
   const withAllArchives = useCallback(
     async (action: (trackIds: string[]) => void, emptyMsg: string) => {
       if (allArchives.isLoading) return;
@@ -193,11 +236,11 @@ function SeasonDetail({ mid, seasonId, favId, onBack }: SeasonDetailProps) {
           duration: 2000,
         });
       } else {
-        // favId 用 'season:' 前缀与现有 UUID/MAIN_FAV_ID/FAVORITES_FAV_ID 命名空间隔离
-        setPlaylist(`season:${mid}:${seasonId}`, trackIds, trackIds[0], true);
+        // favId 用 'collection:<source>:<id>' 与现有 UUID/MAIN_FAV_ID/FAVORITES_FAV_ID 隔离
+        setPlaylist(`collection:${opened.source}:${opened.id}`, trackIds, trackIds[0], true);
       }
     }, '合集为空，无法播放');
-  }, [withAllArchives, collectionPlayBehavior, setPlaylist, addSingle, sendNotice, mid, seasonId]);
+  }, [withAllArchives, collectionPlayBehavior, setPlaylist, addSingle, sendNotice, opened]);
 
   const handleAddAll = useCallback(() => {
     void withAllArchives((trackIds) => openAddToFavBatch(trackIds), '合集为空，无法加入歌单');
@@ -212,58 +255,66 @@ function SeasonDetail({ mid, seasonId, favId, onBack }: SeasonDetailProps) {
     return '以合集为歌单播放';
   }, [allArchives.isLoading, allArchives.loaded, allArchives.total]);
 
-  const headerCover = meta?.cover || archives[0]?.pic || '';
+  // 优先级：详情接口 → fallback meta → 视频列表首帧；总数同理用 fallback.total 兜底
+  const headerCover = cover || archives[0]?.pic || '';
+  const headerName = name || (archives.length === 0 ? '加载中…' : '');
+  const headerTotal = total || fallback?.total || archives.length;
 
   return (
-    <div className="flex flex-1 flex-col gap-4">
-      <div>
-        <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 gap-1">
-          <ArrowLeft className="h-4 w-4" />
-          返回合集列表
-        </Button>
-      </div>
-
-      <div className="flex flex-col gap-4 rounded-lg border bg-card p-4 sm:flex-row">
-        <div
-          className={cn(
-            'flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted sm:w-32',
-          )}
+    <div className="flex flex-1 flex-col gap-3">
+      {/*
+       * 紧凑型 header：返回箭头 + 小封面 + 标题 + 数量 + 两个操作按钮全部塞进一行。
+       * description 折叠到标题的 title 属性（hover tooltip），避免占用纵向空间。
+       */}
+      <div className="flex items-center gap-3 rounded-lg border bg-card p-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          className="h-8 w-8 shrink-0"
+          aria-label="返回合集列表"
         >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
           {headerCover ? (
             <img
-              src={bilibiliThumbUrl(urlPrefixFixed(headerCover), 400, 400)}
-              alt={meta?.name ?? ''}
+              src={bilibiliThumbUrl(urlPrefixFixed(headerCover), 80, 80)}
+              alt={headerName}
               className="h-full w-full object-cover"
             />
           ) : (
-            <ListMusic className="h-10 w-10 text-muted-foreground" />
+            <ListMusic className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex items-baseline gap-2">
-            <h3 className="truncate text-lg font-semibold" title={meta?.name ?? ''}>
-              {meta?.name ?? '加载中…'}
-            </h3>
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {meta?.total ?? total} 首
-            </span>
-          </div>
-          {meta?.description && (
-            <p className="line-clamp-3 text-xs text-muted-foreground" title={meta.description}>
-              {meta.description}
-            </p>
-          )}
-          <div className="mt-auto flex flex-wrap gap-2">
-            <Button onClick={handlePlayAll} disabled={allArchives.isLoading}>
-              <PlayCircle className="mr-2 h-4 w-4" />
-              {playAllLabel}
-            </Button>
-            <Button variant="outline" onClick={handleAddAll} disabled={allArchives.isLoading}>
-              <ListPlus className="mr-2 h-4 w-4" />
-              全部加入歌单…
-            </Button>
-          </div>
+        <div className="min-w-0 flex-1">
+          <h3
+            className="truncate text-sm font-semibold leading-tight"
+            title={description || headerName}
+          >
+            {headerName}
+          </h3>
+          <p className="truncate text-xs text-muted-foreground">{headerTotal} 首</p>
         </div>
+        <Button
+          size="sm"
+          onClick={handlePlayAll}
+          disabled={allArchives.isLoading}
+          className="shrink-0"
+        >
+          <PlayCircle className="mr-1 h-4 w-4" />
+          {playAllLabel}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleAddAll}
+          disabled={allArchives.isLoading}
+          className="shrink-0"
+        >
+          <ListPlus className="mr-1 h-4 w-4" />
+          加入歌单
+        </Button>
       </div>
 
       {isLoading && archives.length === 0 ? (
