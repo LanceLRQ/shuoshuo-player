@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ListMusic,
@@ -28,8 +29,53 @@ import {
 import { useUIShell } from '@/stores/ui-shell';
 import { SeasonCard } from '@/components/season-card';
 import { VideoItem } from '@/components/video-item';
+import { CollectionLoadingDialog } from '@/components/dialogs/collection-loading-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+
+/* ───────── 批次配置 ───────── */
+
+/** 一批 200 首；超过此数才启用分批 DropdownMenu，否则保持单按钮 */
+const BATCH_SIZE_VIDEOS = 200;
+/** 与 hook 内 ARCHIVES_PAGE_SIZE 对齐；分散在两边因为模块边界——若需统一可抽公共常量 */
+const ARCHIVES_PAGE_SIZE = 30;
+const BATCH_PAGE_COUNT = Math.ceil(BATCH_SIZE_VIDEOS / ARCHIVES_PAGE_SIZE); // 7 页
+
+interface Batch {
+  fromPage: number;
+  toPage: number;
+  /** 例：「最新 200 首」/ 「201-400」 */
+  label: string;
+}
+
+/**
+ * 把合集切成 200 一组的批次；total ≤ 200 时返回空数组（调用方按单按钮分支处理）。
+ *
+ * 每批最多 7 页 × 30 = 210 条；末批向 total 截断。
+ * 第 1 批 label 为「最新 N 首」更直观（B 站默认 desc 排序）；后续批用「fromVideo-toVideo」。
+ */
+function computeBatches(total: number): Batch[] {
+  if (total <= BATCH_SIZE_VIDEOS) return [];
+  const lastPage = Math.ceil(total / ARCHIVES_PAGE_SIZE);
+  const count = Math.ceil(total / BATCH_SIZE_VIDEOS);
+  const result: Batch[] = [];
+  for (let i = 0; i < count; i++) {
+    const fromPage = i * BATCH_PAGE_COUNT + 1;
+    const toPage = Math.min((i + 1) * BATCH_PAGE_COUNT, lastPage);
+    const fromVideo = i * BATCH_SIZE_VIDEOS + 1;
+    const toVideo = Math.min((i + 1) * BATCH_SIZE_VIDEOS, total);
+    const label = i === 0 ? `最新 ${BATCH_SIZE_VIDEOS} 首` : `${fromVideo}-${toVideo}`;
+    result.push({ fromPage, toPage, label });
+  }
+  return result;
+}
 
 interface UploaderSeasonsTabProps {
   mid: string;
@@ -193,6 +239,7 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
   const collectionPlayBehavior = usePlayerProfileStore((s) => s.collectionPlayBehavior);
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openAddToFavBatch = useUIShell((s) => s.openAddToFavBatch);
+  const openConfirm = useUIShell((s) => s.openConfirm);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -211,10 +258,18 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
     [archives],
   );
 
+  /**
+   * 全量拉取的公共流程：防重入 + 触发 trigger + 空集合兜底通知。
+   * 接受可选 range 参数透传给 trigger，未传则拉全部。
+   */
   const withAllArchives = useCallback(
-    async (action: (trackIds: string[]) => void, emptyMsg: string) => {
+    async (
+      action: (trackIds: string[]) => void,
+      emptyMsg: string,
+      range?: { fromPage: number; toPage: number },
+    ) => {
       if (allArchives.isLoading) return;
-      const all = await allArchives.trigger();
+      const all = await allArchives.trigger(range);
       if (!all || all.length === 0) {
         if (!allArchives.error) {
           sendNotice({ type: NoticeType.WARN, message: emptyMsg, duration: 2000 });
@@ -226,25 +281,70 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
     [allArchives, sendNotice],
   );
 
-  const handlePlayAll = useCallback(() => {
-    void withAllArchives((trackIds) => {
-      if (collectionPlayBehavior === 'append') {
-        trackIds.forEach((tid, i) => addSingle(tid, i === 0));
-        sendNotice({
-          type: NoticeType.SUCCESS,
-          message: `已追加 ${trackIds.length} 首到队列尾部`,
-          duration: 2000,
-        });
-      } else {
-        // favId 用 'collection:<source>:<id>' 与现有 UUID/MAIN_FAV_ID/FAVORITES_FAV_ID 隔离
-        setPlaylist(`collection:${opened.source}:${opened.id}`, trackIds, trackIds[0], true);
-      }
-    }, '合集为空，无法播放');
-  }, [withAllArchives, collectionPlayBehavior, setPlaylist, addSingle, sendNotice, opened]);
+  /** 播放某个范围（用于分批 DropdownMenu 和单按钮分支共享） */
+  const playRange = useCallback(
+    (range?: { fromPage: number; toPage: number }) => {
+      void withAllArchives(
+        (trackIds) => {
+          if (collectionPlayBehavior === 'append') {
+            trackIds.forEach((tid, i) => addSingle(tid, i === 0));
+            sendNotice({
+              type: NoticeType.SUCCESS,
+              message: `已追加 ${trackIds.length} 首到队列尾部`,
+              duration: 2000,
+            });
+          } else {
+            // favId 用 'collection:<source>:<id>' 与现有 UUID/MAIN_FAV_ID/FAVORITES_FAV_ID 隔离
+            setPlaylist(`collection:${opened.source}:${opened.id}`, trackIds, trackIds[0], true);
+          }
+        },
+        '合集为空，无法播放',
+        range,
+      );
+    },
+    [withAllArchives, collectionPlayBehavior, setPlaylist, addSingle, sendNotice, opened],
+  );
 
+  const handlePlayAll = useCallback(() => playRange(undefined), [playRange]);
+
+  // 优先级：详情接口 → fallback meta → 视频列表首帧；总数同理用 fallback.total 兜底
+  const headerCover = cover || archives[0]?.pic || '';
+  const headerName = name || (archives.length === 0 ? '加载中…' : '');
+  const headerTotal = total || fallback?.total || archives.length;
+
+  const batches = useMemo(() => computeBatches(headerTotal), [headerTotal]);
+  const useBatchedDropdown = batches.length > 0;
+
+  /** 「全部加载」选项点击后弹 destructive 确认（仅在大合集 DropdownMenu 中暴露） */
+  const handlePlayAllWithConfirm = useCallback(() => {
+    openConfirm({
+      title: `加载全部 ${headerTotal} 首？`,
+      description: `每页之间会留 200ms 间隔，预计 ${Math.ceil((headerTotal / ARCHIVES_PAGE_SIZE) * 0.25)} 秒。期间可随时取消；为避免被风控，请勿频繁触发。`,
+      destructive: true,
+      confirmText: '继续加载',
+      onConfirm: () => playRange(undefined),
+    });
+  }, [openConfirm, headerTotal, playRange]);
+
+  /**
+   * 「加入歌单」按钮：
+   * - 不主动触发任何新拉取，直接用"已加载的视频"
+   * - 优先用 useCollectionAllArchives.archives（用户主动点过批次播放积攒的）
+   * - 否则 fallback 当前分页页面 archives（用户进详情自动加载的首页 30 条）
+   * - 两者都为空才提示
+   */
   const handleAddAll = useCallback(() => {
-    void withAllArchives((trackIds) => openAddToFavBatch(trackIds), '合集为空，无法加入歌单');
-  }, [withAllArchives, openAddToFavBatch]);
+    const source = allArchives.archives.length > 0 ? allArchives.archives : archives;
+    if (source.length === 0) {
+      sendNotice({
+        type: NoticeType.WARN,
+        message: '当前没有可加入歌单的视频',
+        duration: 2000,
+      });
+      return;
+    }
+    openAddToFavBatch(source.map((a) => a.bvid));
+  }, [allArchives.archives, archives, openAddToFavBatch, sendNotice]);
 
   const playAllLabel = useMemo(() => {
     if (allArchives.isLoading) {
@@ -255,10 +355,11 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
     return '以合集为歌单播放';
   }, [allArchives.isLoading, allArchives.loaded, allArchives.total]);
 
-  // 优先级：详情接口 → fallback meta → 视频列表首帧；总数同理用 fallback.total 兜底
-  const headerCover = cover || archives[0]?.pic || '';
-  const headerName = name || (archives.length === 0 ? '加载中…' : '');
-  const headerTotal = total || fallback?.total || archives.length;
+  /** 按钮标签显示"已加载数量"：批量拉取过的优先；否则用当前分页页面条数 */
+  const addToFavLoadedCount =
+    allArchives.archives.length > 0 ? allArchives.archives.length : archives.length;
+  const addToFavLabel =
+    addToFavLoadedCount > 0 ? `加入歌单（${addToFavLoadedCount} 首已加载）` : '加入歌单';
 
   return (
     <div className="flex flex-1 flex-col gap-3">
@@ -296,15 +397,46 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
           </h3>
           <p className="truncate text-xs text-muted-foreground">{headerTotal} 首</p>
         </div>
-        <Button
-          size="sm"
-          onClick={handlePlayAll}
-          disabled={allArchives.isLoading}
-          className="shrink-0"
-        >
-          <PlayCircle className="mr-1 h-4 w-4" />
-          {playAllLabel}
-        </Button>
+        {useBatchedDropdown ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" disabled={allArchives.isLoading} className="shrink-0">
+                <PlayCircle className="mr-1 h-4 w-4" />
+                {playAllLabel}
+                <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {batches.map((b) => (
+                <DropdownMenuItem
+                  key={`${b.fromPage}-${b.toPage}`}
+                  onSelect={() => playRange({ fromPage: b.fromPage, toPage: b.toPage })}
+                >
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  {b.label}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={handlePlayAllWithConfirm}
+                className="text-destructive focus:text-destructive"
+              >
+                <PlayCircle className="mr-2 h-4 w-4" />
+                全部 {headerTotal} 首（高风险）
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handlePlayAll}
+            disabled={allArchives.isLoading}
+            className="shrink-0"
+          >
+            <PlayCircle className="mr-1 h-4 w-4" />
+            {playAllLabel}
+          </Button>
+        )}
         <Button
           size="sm"
           variant="outline"
@@ -313,7 +445,7 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
           className="shrink-0"
         >
           <ListPlus className="mr-1 h-4 w-4" />
-          加入歌单
+          {addToFavLabel}
         </Button>
       </div>
 
@@ -341,14 +473,26 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
       )}
 
       {totalPages > 1 && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          hasMore={hasMore}
-          disabled={isLoading}
-          onChange={setPage}
-        />
+        <>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            hasMore={hasMore}
+            disabled={isLoading}
+            onChange={setPage}
+          />
+          <p className="text-center text-xs text-muted-foreground">
+            此处仅供浏览；批量播放 / 加入歌单请用上方按钮
+          </p>
+        </>
       )}
+
+      <CollectionLoadingDialog
+        loading={allArchives.isLoading}
+        loaded={allArchives.loaded}
+        total={allArchives.total}
+        onCancel={allArchives.cancel}
+      />
     </div>
   );
 }

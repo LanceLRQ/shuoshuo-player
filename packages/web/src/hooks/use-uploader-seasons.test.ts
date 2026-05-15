@@ -197,20 +197,24 @@ describe('useCollectionAllArchives', () => {
     mockedFetchArchives.mockReset();
   });
 
-  it('trigger 拉首页 + 并发拉剩余页', async () => {
-    mockedFetchArchives.mockResolvedValueOnce({
-      archives: [buildArchive('BV1'), buildArchive('BV2'), buildArchive('BV3')],
-      total: 60,
-      page: 1,
-      pageSize: 30,
-      hasMore: true,
-    });
-    mockedFetchArchives.mockResolvedValueOnce({
-      archives: [buildArchive('BV4'), buildArchive('BV5')],
-      total: 60,
-      page: 2,
-      pageSize: 30,
-      hasMore: false,
+  it('trigger 串行拉所有页，累积所有 archives', async () => {
+    mockedFetchArchives.mockImplementation(async (_m, _s, _id, page) => {
+      if (page === 1) {
+        return {
+          archives: [buildArchive('BV1'), buildArchive('BV2'), buildArchive('BV3')],
+          total: 60,
+          page: 1,
+          pageSize: 30,
+          hasMore: true,
+        };
+      }
+      return {
+        archives: [buildArchive('BV4'), buildArchive('BV5')],
+        total: 60,
+        page: 2,
+        pageSize: 30,
+        hasMore: false,
+      };
     });
     const { result } = renderHook(() => useCollectionAllArchives('100', 'season', '1'));
     let returned: BilibiliSeasonVideo[] | null = null;
@@ -218,11 +222,12 @@ describe('useCollectionAllArchives', () => {
       returned = await result.current.trigger();
     });
     expect(returned).toHaveLength(5);
+    // 串行调用顺序：page=1, page=2（前一页完成才发下一页）
+    expect(mockedFetchArchives.mock.calls.map((c) => c[3])).toEqual([1, 2]);
     expect(result.current.archives.map((a) => a.bvid)).toEqual(['BV1', 'BV2', 'BV3', 'BV4', 'BV5']);
     expect(result.current.done).toBe(true);
     expect(result.current.isLoading).toBe(false);
-    expect(mockedFetchArchives).toHaveBeenCalledTimes(2);
-  });
+  }, 10_000);
 
   it('单页足够时不再发起额外请求', async () => {
     mockedFetchArchives.mockResolvedValueOnce({
@@ -242,15 +247,20 @@ describe('useCollectionAllArchives', () => {
     expect(result.current.done).toBe(true);
   });
 
-  it('剩余页失败时整体失败，保留首页已拉到的部分', async () => {
-    mockedFetchArchives.mockResolvedValueOnce({
-      archives: [buildArchive('BV1')],
-      total: 60,
-      page: 1,
-      pageSize: 30,
-      hasMore: true,
+  it('串行碰到失败立即停止，已拉部分保留', async () => {
+    mockedFetchArchives.mockImplementation(async (_m, _s, _id, page) => {
+      if (page === 1) {
+        return {
+          archives: [buildArchive('BV1')],
+          total: 90,
+          page: 1,
+          pageSize: 30,
+          hasMore: true,
+        };
+      }
+      if (page === 2) throw { message: '中断' };
+      throw new Error('should not reach page 3');
     });
-    mockedFetchArchives.mockRejectedValueOnce({ message: '中断' });
     const { result } = renderHook(() => useCollectionAllArchives('100', 'series', '1'));
     let returned: BilibiliSeasonVideo[] | null = null;
     await act(async () => {
@@ -259,8 +269,82 @@ describe('useCollectionAllArchives', () => {
     expect(returned).toBeNull();
     expect(result.current.error).toBe('中断');
     expect(result.current.archives).toHaveLength(1);
-    expect(result.current.done).toBe(false);
-  });
+    // page=2 失败后 page=3 不应被调用
+    expect(mockedFetchArchives.mock.calls.map((c) => c[3])).toEqual([1, 2]);
+  }, 10_000);
+
+  it('trigger({ fromPage, toPage }) 只拉指定页范围', async () => {
+    mockedFetchArchives.mockImplementation(async (_m, _s, _id, page) => ({
+      archives: [buildArchive(`BV-page-${page}`)],
+      total: 300,
+      page: page ?? 1,
+      pageSize: 30,
+      hasMore: (page ?? 1) < 10,
+    }));
+    const { result } = renderHook(() => useCollectionAllArchives('100', 'season', '1'));
+    await act(async () => {
+      await result.current.trigger({ fromPage: 4, toPage: 6 });
+    });
+    const pages = mockedFetchArchives.mock.calls.map((c) => c[3]);
+    expect(pages).toEqual([4, 5, 6]);
+    expect(result.current.archives.map((a) => a.bvid)).toEqual([
+      'BV-page-4',
+      'BV-page-5',
+      'BV-page-6',
+    ]);
+    expect(result.current.done).toBe(true);
+  }, 10_000);
+
+  it('cancel() 立即把 isLoading 置 false，已拉到的 archives 保留', async () => {
+    // page=1 立即完成；page=2 卡住不 resolve，模拟用户在中途按取消
+    let resolvePage2:
+      | ((v: Awaited<ReturnType<typeof fetchCollectionArchives>>) => void)
+      | undefined;
+    mockedFetchArchives.mockImplementation(async (_m, _s, _id, page) => {
+      if (page === 1) {
+        return {
+          archives: [buildArchive('BV1'), buildArchive('BV2'), buildArchive('BV3')],
+          total: 60,
+          page: 1,
+          pageSize: 30,
+          hasMore: true,
+        };
+      }
+      return new Promise((r) => {
+        resolvePage2 = r;
+      });
+    });
+    const { result } = renderHook(() => useCollectionAllArchives('100', 'season', '1'));
+    let triggerPromise: Promise<BilibiliSeasonVideo[] | null> | undefined;
+    await act(async () => {
+      triggerPromise = result.current.trigger();
+      // 等 page=1 完成 + sleep 进行中
+      await new Promise((r) => setTimeout(r, 350));
+    });
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.archives).toHaveLength(3);
+    // 用户取消
+    await act(async () => {
+      result.current.cancel();
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.archives).toHaveLength(3);
+    // 即使后续 page=2 完成，已无效不再写 state
+    resolvePage2?.({
+      archives: [buildArchive('BV4')],
+      total: 60,
+      page: 2,
+      pageSize: 30,
+      hasMore: false,
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(result.current.archives).toHaveLength(3);
+    // trigger 因 cancel 早退返回 null
+    const returned = await triggerPromise;
+    expect(returned).toBeNull();
+  }, 10_000);
 
   it('参数缺失时返回 null 且不发起请求', async () => {
     const { result } = renderHook(() => useCollectionAllArchives(undefined, 'season', '1'));

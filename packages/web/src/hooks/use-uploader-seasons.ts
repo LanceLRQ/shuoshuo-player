@@ -9,6 +9,12 @@ import {
 
 const COLLECTIONS_PAGE_SIZE = 20;
 const ARCHIVES_PAGE_SIZE = 30;
+/** 全量拉取的页间隔：避免短时间高频请求被 B 站风控 */
+const COLLECTION_PAGE_SLEEP_MS = 200;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function errMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -239,60 +245,111 @@ export function useCollectionAllArchives(
     setState(INITIAL_ALL_STATE);
   }, [mid, source, collectionId]);
 
-  const trigger = useCallback(async (): Promise<BilibiliSeasonVideo[] | null> => {
-    if (!mid || !source || !collectionId) return null;
-    const id = guard.next();
-    setState({ ...INITIAL_ALL_STATE, isLoading: true });
-    try {
-      const first = await fetchCollectionArchives(mid, source, collectionId, 1, ARCHIVES_PAGE_SIZE);
-      if (!guard.valid(id)) return null;
-      if (!first.hasMore || first.archives.length === 0) {
+  /**
+   * 按需触发拉取。
+   *
+   * @param opts.fromPage 起始页（默认 1）
+   * @param opts.toPage   结束页（默认拉到 total 对应的最后一页）
+   *
+   * 拉取节奏：串行 for 循环，页之间 sleep 200ms，避免被 B 站风控。
+   * 每页拉完立即 setState 让 UI 进度条平滑变化。
+   * cancel() 期间已发的 HTTP 仍会跑完，但 setState 通过 guard.valid 拦截。
+   */
+  const trigger = useCallback(
+    async (opts?: {
+      fromPage?: number;
+      toPage?: number;
+    }): Promise<BilibiliSeasonVideo[] | null> => {
+      if (!mid || !source || !collectionId) return null;
+      const fromPage = Math.max(1, opts?.fromPage ?? 1);
+      const id = guard.next();
+      setState({ ...INITIAL_ALL_STATE, isLoading: true });
+      const accumulated: BilibiliSeasonVideo[] = [];
+      try {
+        const first = await fetchCollectionArchives(
+          mid,
+          source,
+          collectionId,
+          fromPage,
+          ARCHIVES_PAGE_SIZE,
+        );
+        if (!guard.valid(id)) return null;
+        accumulated.push(...first.archives);
+        const totalPages = Math.max(1, Math.ceil(first.total / ARCHIVES_PAGE_SIZE));
+        const toPage = Math.min(opts?.toPage ?? totalPages, totalPages);
+        // first.archives 为空或已是最后一页 → 收尾返回
+        if (first.archives.length === 0 || fromPage >= toPage) {
+          setState({
+            isLoading: false,
+            archives: accumulated.slice(),
+            loaded: accumulated.length,
+            total: first.total,
+            error: null,
+            done: true,
+          });
+          return accumulated;
+        }
         setState({
-          isLoading: false,
-          archives: first.archives,
-          loaded: first.archives.length,
+          isLoading: true,
+          archives: accumulated.slice(),
+          loaded: accumulated.length,
           total: first.total,
           error: null,
-          done: true,
+          done: false,
         });
-        return first.archives;
+        for (let p = fromPage + 1; p <= toPage; p++) {
+          await sleep(COLLECTION_PAGE_SLEEP_MS);
+          if (!guard.valid(id)) return null; // cancel / unmount 早退
+          const result = await fetchCollectionArchives(
+            mid,
+            source,
+            collectionId,
+            p,
+            ARCHIVES_PAGE_SIZE,
+          );
+          if (!guard.valid(id)) return null;
+          accumulated.push(...result.archives);
+          setState((prev) => ({
+            ...prev,
+            archives: accumulated.slice(),
+            loaded: accumulated.length,
+          }));
+          if (result.archives.length === 0) break; // 防御：B 站偶发返回空页提前止损
+        }
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          done: true,
+        }));
+        return accumulated;
+      } catch (err) {
+        if (!guard.valid(id)) return null;
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errMessage(err) || '拉取合集失败',
+          done: false,
+        }));
+        return null;
       }
-      setState({
-        isLoading: true,
-        archives: first.archives,
-        loaded: first.archives.length,
-        total: first.total,
-        error: null,
-        done: false,
-      });
-      const totalPages = Math.max(1, Math.ceil(first.total / ARCHIVES_PAGE_SIZE));
-      const rest = await Promise.all(
-        Array.from({ length: totalPages - 1 }, (_, i) =>
-          fetchCollectionArchives(mid, source, collectionId, i + 2, ARCHIVES_PAGE_SIZE),
-        ),
-      );
-      if (!guard.valid(id)) return null;
-      const all = first.archives.concat(...rest.map((r) => r.archives));
-      setState({
-        isLoading: false,
-        archives: all,
-        loaded: all.length,
-        total: first.total,
-        error: null,
-        done: true,
-      });
-      return all;
-    } catch (err) {
-      if (!guard.valid(id)) return null;
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: errMessage(err) || '拉取合集失败',
-        done: false,
-      }));
-      return null;
-    }
-  }, [mid, source, collectionId, guard]);
+    },
+    [mid, source, collectionId, guard],
+  );
 
-  return { ...state, trigger };
+  /**
+   * 主动中断当前拉取。
+   *
+   * 实现：guard.next() 让旧 fetchId 失效，剩余 sleep / await 完成后 valid() 返回 false，
+   * 函数 return null 不再 setState；同时立即把 isLoading 置 false 让 UI 立刻响应。
+   * 已拉部分保留在 archives 字段，供「加入歌单」等后续操作复用。
+   *
+   * 注：未中断在飞的 HTTP 请求（buildBilibiliApiCall 不支持 AbortSignal）。
+   * 因为页间有 sleep，实际泄漏的请求至多 1 个。
+   */
+  const cancel = useCallback(() => {
+    guard.next();
+    setState((prev) => ({ ...prev, isLoading: false }));
+  }, [guard]);
+
+  return { ...state, trigger, cancel };
 }
