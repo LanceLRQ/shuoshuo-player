@@ -129,6 +129,7 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+.claude
 .idea
 .vscode
 .DS_Store
