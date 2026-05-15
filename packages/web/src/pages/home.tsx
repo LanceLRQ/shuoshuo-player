@@ -22,6 +22,8 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
+import { MediaLoadingDialog } from '@/components/dialogs/media-loading-dialog';
+import { useUIShell } from '@/stores/ui-shell';
 
 const MASTER_MID = String(MASTER_UP_INFO.mid);
 /** 首页主歌单的虚拟 favId（与 v1 'main' 对齐） */
@@ -36,6 +38,10 @@ export function HomePage() {
 
   const videoEntities = useBilibiliVideosStore((s) => s.entities);
   const setPlaylist = usePlayingListStore((s) => s.setPlaylist);
+  const loaded = useBilibiliUserVideosStore((s) => s.loaded);
+  const progressTotal = useBilibiliUserVideosStore((s) => s.progressTotal);
+  const cancelRefresh = useBilibiliUserVideosStore((s) => s.cancelRefresh);
+  const openConfirm = useUIShell((s) => s.openConfirm);
 
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
@@ -56,9 +62,9 @@ export function HomePage() {
     const info = videoListInfo;
     const stale = !info || timeStampNow() - info.update_time > VIDEO_LIST_REFRESH_THRESHOLD;
     if (stale) {
-      // 列表为空时直接全量，与 v1 行为一致
-      const mode = !info || info.video_list.length === 0 ? 'fully' : 'default';
-      void readUserVideos(MASTER_MID, mode);
+      // 统一走增量模式：缓存空时 hook 内部 fallback 拉前 3 页（90 条），
+      // 避免对大投稿 UP 一次性全拉触发风控
+      void readUserVideos(MASTER_MID, 'incremental');
     }
     if (!spaceInfo) {
       void readUserSpaceInfo(MASTER_MID);
@@ -72,8 +78,19 @@ export function HomePage() {
     setPlaylist(MAIN_FAV_ID, trackIds, video.bvid, true);
   };
 
-  const handleManualUpdate = (mode: 'default' | 'fully') => {
+  const handleManualUpdate = (mode: 'incremental' | 'fully') => {
     setUpdateDialogOpen(false);
+    if (mode === 'fully') {
+      openConfirm({
+        title: '重新拉取全部',
+        description:
+          '将串行拉取所有页（每页间隔 300ms），耗时较长且对 B 站请求量较大。完成后远端不存在的视频会标记为「已失效」。仅在数据明显异常时使用。',
+        destructive: true,
+        confirmText: '继续',
+        onConfirm: () => void readUserVideos(MASTER_MID, 'fully'),
+      });
+      return;
+    }
     void readUserVideos(MASTER_MID, mode);
   };
 
@@ -142,15 +159,15 @@ export function HomePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>更新视频列表</AlertDialogTitle>
             <AlertDialogDescription>
-              选择更新模式。完整列表会拉取全部历史投稿，耗时较长。
+              选择更新模式。重新拉取全部会串行扫描所有历史投稿，耗时较长且对 B 站请求量较大。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex flex-col gap-2">
-            <Button variant="outline" onClick={() => handleManualUpdate('default')}>
-              获取前 30 条
+            <Button variant="outline" onClick={() => handleManualUpdate('incremental')}>
+              检查更新
             </Button>
             <Button variant="outline" onClick={() => handleManualUpdate('fully')}>
-              获取完整列表
+              重新拉取全部
             </Button>
           </div>
           <AlertDialogFooter>
@@ -158,6 +175,15 @@ export function HomePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MediaLoadingDialog
+        loading={isLoading}
+        loaded={loaded}
+        total={progressTotal}
+        onCancel={cancelRefresh}
+        title="正在加载投稿…"
+        unit="条"
+      />
     </div>
   );
 }

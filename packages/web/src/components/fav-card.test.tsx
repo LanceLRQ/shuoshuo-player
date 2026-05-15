@@ -173,7 +173,7 @@ describe('FavCard', () => {
       }),
     });
 
-    expect(readUserVideos).toHaveBeenCalledWith(MASTER_MID, 'default');
+    expect(readUserVideos).toHaveBeenCalledWith(MASTER_MID, 'incremental', undefined);
     expect(readUserSpaceInfo).toHaveBeenCalledWith(MASTER_MID);
   });
 

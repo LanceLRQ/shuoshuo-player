@@ -79,14 +79,14 @@ describe('HomePage', () => {
     reset();
   });
 
-  it('挂载时若 infos 为空 → readUserVideos(fully) + readUserSpaceInfo', () => {
+  it('挂载时若 infos 为空 → readUserVideos(incremental) + readUserSpaceInfo（增量内部 fallback 拉前 90 条）', () => {
     const readUserVideos = vi.fn(async () => {});
     const readUserSpaceInfo = vi.fn(async () => {});
     useBilibiliUserVideosStore.setState({ readUserVideos, readUserSpaceInfo });
 
     renderHome();
 
-    expect(readUserVideos).toHaveBeenCalledWith(MASTER_MID, 'fully');
+    expect(readUserVideos).toHaveBeenCalledWith(MASTER_MID, 'incremental');
     expect(readUserSpaceInfo).toHaveBeenCalledWith(MASTER_MID);
   });
 
@@ -206,11 +206,11 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /更新列表/ }));
 
     expect(await screen.findByText('更新视频列表')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '获取前 30 条' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '获取完整列表' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '检查更新' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新拉取全部' })).toBeInTheDocument();
   });
 
-  it('AlertDialog 中点击"获取前 30 条" → readUserVideos(default)', async () => {
+  it('AlertDialog 中点击「检查更新」→ readUserVideos(incremental)', async () => {
     const readUserVideos = vi.fn(async () => {});
     useBilibiliUserVideosStore.setState({
       infos: {
@@ -229,10 +229,10 @@ describe('HomePage', () => {
     readUserVideos.mockClear();
 
     fireEvent.click(screen.getByRole('button', { name: /更新列表/ }));
-    fireEvent.click(await screen.findByRole('button', { name: '获取前 30 条' }));
+    fireEvent.click(await screen.findByRole('button', { name: '检查更新' }));
 
     await waitFor(() => {
-      expect(readUserVideos).toHaveBeenCalledWith(MASTER_MID, 'default');
+      expect(readUserVideos).toHaveBeenCalledWith(MASTER_MID, 'incremental');
     });
   });
 });

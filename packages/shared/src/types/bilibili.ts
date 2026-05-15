@@ -45,6 +45,12 @@ export interface BilibiliVideo {
   videos?: number;
   /** 分 P 列表（view 模式入库时填充；列表 / 收藏夹模式可能缺失） */
   pages?: BilibiliVideoPage[];
+  /**
+   * 软删除标记：UP 主投稿/收藏夹「重新拉取全部」做删除对账后，本地存在但远端不存在的 bvid
+   * 会被标记 invalid=true。CUSTOM 歌单引用到该 bvid 时仍正常展示但禁用播放，方便用户保留收藏记录。
+   * 后续若远端恢复（用户重新拉取拿到该 bvid），upsertMany 会自动覆写为 false。
+   */
+  invalid?: boolean;
 }
 
 /** UP 主空间信息（/x/space/wbi/acc/info 响应字段拾取） */
@@ -69,7 +75,12 @@ export interface VideoListCacheEntry {
   update_time: number;
   video_list: Array<{ bvid: string; created: number }>;
   count: number;
-  update_type: 'default' | 'fully' | '';
+  /**
+   * 上次拉取使用的 mode。'' 表示从未拉取过；
+   * 'default' 为 B-阶段早期遗留命名（语义=增量），与 'incremental' 等价；
+   * 'incremental' / 'range' / 'fully' 为 C-阶段引入。
+   */
+  update_type: 'default' | 'incremental' | 'range' | 'fully' | '';
 }
 
 /** B 站收藏夹缓存条目（继承视频列表 + 元信息） */

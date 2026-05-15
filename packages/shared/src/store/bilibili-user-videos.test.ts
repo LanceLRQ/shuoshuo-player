@@ -45,4 +45,32 @@ describe('C2: bilibili-user-videos persistSnapshot', () => {
       expect(typeof v).not.toBe('function');
     }
   });
+
+  it('快照不包含瞬态进度字段 loaded / progressTotal', () => {
+    useBilibiliUserVideosStore.setState({ isLoading: true, loaded: 50, progressTotal: 100 });
+    const snap = useBilibiliUserVideosStore.getState().persistSnapshot() as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(snap.loaded).toBeUndefined();
+    expect(snap.progressTotal).toBeUndefined();
+  });
+});
+
+describe('C3: cancelRefresh 立即重置加载态', () => {
+  it('cancel 后 isLoading=false 且 loaded/progressTotal 归零', () => {
+    useBilibiliUserVideosStore.setState({ isLoading: true, loaded: 60, progressTotal: 200 });
+    useBilibiliUserVideosStore.getState().cancelRefresh();
+    const s = useBilibiliUserVideosStore.getState();
+    expect(s.isLoading).toBe(false);
+    expect(s.loaded).toBe(0);
+    expect(s.progressTotal).toBe(0);
+  });
+
+  it('cancel 多次调用幂等', () => {
+    useBilibiliUserVideosStore.setState({ isLoading: true, loaded: 30, progressTotal: 100 });
+    useBilibiliUserVideosStore.getState().cancelRefresh();
+    useBilibiliUserVideosStore.getState().cancelRefresh();
+    expect(useBilibiliUserVideosStore.getState().isLoading).toBe(false);
+  });
 });

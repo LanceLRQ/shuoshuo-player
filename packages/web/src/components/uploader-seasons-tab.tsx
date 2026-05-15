@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -17,6 +17,7 @@ import {
   usePlayerProfileStore,
   usePlayingListStore,
   useUIStore,
+  type BilibiliSeasonVideo,
   type BilibiliVideo,
   type UploaderCollection,
   type UploaderCollectionSource,
@@ -29,7 +30,8 @@ import {
 import { useUIShell } from '@/stores/ui-shell';
 import { SeasonCard } from '@/components/season-card';
 import { VideoItem } from '@/components/video-item';
-import { CollectionLoadingDialog } from '@/components/dialogs/collection-loading-dialog';
+import { MediaLoadingDialog } from '@/components/dialogs/media-loading-dialog';
+import { PageRangeDialog } from '@/components/dialogs/page-range-dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -51,7 +53,7 @@ const BATCH_PAGE_COUNT = Math.ceil(BATCH_SIZE_VIDEOS / ARCHIVES_PAGE_SIZE); // 7
 interface Batch {
   fromPage: number;
   toPage: number;
-  /** 例：「最新 200 首」/ 「201-400」 */
+  /** 例：「第 1-7 页（最新约 200 首）」/「第 8-14 页（约 200 首）」 */
   label: string;
 }
 
@@ -59,7 +61,7 @@ interface Batch {
  * 把合集切成 200 一组的批次；total ≤ 200 时返回空数组（调用方按单按钮分支处理）。
  *
  * 每批最多 7 页 × 30 = 210 条；末批向 total 截断。
- * 第 1 批 label 为「最新 N 首」更直观（B 站默认 desc 排序）；后续批用「fromVideo-toVideo」。
+ * label 用页码语言表达（与投稿/收藏夹的"按范围拉取"对话框一致），更直观。
  */
 function computeBatches(total: number): Batch[] {
   if (total <= BATCH_SIZE_VIDEOS) return [];
@@ -69,9 +71,11 @@ function computeBatches(total: number): Batch[] {
   for (let i = 0; i < count; i++) {
     const fromPage = i * BATCH_PAGE_COUNT + 1;
     const toPage = Math.min((i + 1) * BATCH_PAGE_COUNT, lastPage);
-    const fromVideo = i * BATCH_SIZE_VIDEOS + 1;
-    const toVideo = Math.min((i + 1) * BATCH_SIZE_VIDEOS, total);
-    const label = i === 0 ? `最新 ${BATCH_SIZE_VIDEOS} 首` : `${fromVideo}-${toVideo}`;
+    const approxCount = (toPage - fromPage + 1) * ARCHIVES_PAGE_SIZE;
+    const label =
+      i === 0
+        ? `第 ${fromPage}-${toPage} 页（最新约 ${approxCount} 首）`
+        : `第 ${fromPage}-${toPage} 页（约 ${approxCount} 首）`;
     result.push({ fromPage, toPage, label });
   }
   return result;
@@ -241,6 +245,27 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
   const openAddToFavBatch = useUIShell((s) => s.openAddToFavBatch);
   const openConfirm = useUIShell((s) => s.openConfirm);
 
+  /**
+   * 累积用户分页过程中浏览过的所有视频。
+   * useCollectionArchives 是替换式分页，翻页后 archives 只有当前页 30 条；
+   * 这里用 bvid → archive 的 Map 去重累积，让「加入歌单」能拿到翻过的全部页。
+   * mid/source/id 变化时重置。
+   */
+  const [visitedArchives, setVisitedArchives] = useState<Map<string, BilibiliSeasonVideo>>(
+    () => new Map(),
+  );
+  useEffect(() => {
+    setVisitedArchives(new Map());
+  }, [mid, opened.source, opened.id]);
+  useEffect(() => {
+    if (archives.length === 0) return;
+    setVisitedArchives((prev) => {
+      const next = new Map(prev);
+      archives.forEach((a) => next.set(a.bvid, a));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [archives]);
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   useEffect(() => {
@@ -314,6 +339,16 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
 
   const batches = useMemo(() => computeBatches(headerTotal), [headerTotal]);
   const useBatchedDropdown = batches.length > 0;
+  const collectionTotalPages = Math.max(1, Math.ceil(headerTotal / ARCHIVES_PAGE_SIZE));
+  const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
+
+  const handleRangeConfirm = useCallback(
+    (fromPage: number, toPage: number) => {
+      setRangeDialogOpen(false);
+      void playRange({ fromPage, toPage });
+    },
+    [playRange],
+  );
 
   /** 「全部加载」选项点击后弹 destructive 确认（仅在大合集 DropdownMenu 中暴露） */
   const handlePlayAllWithConfirm = useCallback(() => {
@@ -329,13 +364,13 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
   /**
    * 「加入歌单」按钮：
    * - 不主动触发任何新拉取，直接用"已加载的视频"
-   * - 优先用 useCollectionAllArchives.archives（用户主动点过批次播放积攒的）
-   * - 否则 fallback 当前分页页面 archives（用户进详情自动加载的首页 30 条）
+   * - 数据源取批次拉取（allArchives.archives）与分页累积（visitedArchives）的去重并集
    * - 两者都为空才提示
    */
   const handleAddAll = useCallback(() => {
-    const source = allArchives.archives.length > 0 ? allArchives.archives : archives;
-    if (source.length === 0) {
+    const merged = new Map<string, BilibiliSeasonVideo>(visitedArchives);
+    allArchives.archives.forEach((a) => merged.set(a.bvid, a));
+    if (merged.size === 0) {
       sendNotice({
         type: NoticeType.WARN,
         message: '当前没有可加入歌单的视频',
@@ -343,8 +378,8 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
       });
       return;
     }
-    openAddToFavBatch(source.map((a) => a.bvid));
-  }, [allArchives.archives, archives, openAddToFavBatch, sendNotice]);
+    openAddToFavBatch(Array.from(merged.values()).map((a) => a.bvid));
+  }, [allArchives.archives, visitedArchives, openAddToFavBatch, sendNotice]);
 
   const playAllLabel = useMemo(() => {
     if (allArchives.isLoading) {
@@ -355,9 +390,13 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
     return '以合集为歌单播放';
   }, [allArchives.isLoading, allArchives.loaded, allArchives.total]);
 
-  /** 按钮标签显示"已加载数量"：批量拉取过的优先；否则用当前分页页面条数 */
-  const addToFavLoadedCount =
-    allArchives.archives.length > 0 ? allArchives.archives.length : archives.length;
+  /** 按钮标签显示"已加载数量"：批量拉取与分页累积的去重总数（用 Set 算 bvid 并集） */
+  const addToFavLoadedCount = useMemo(() => {
+    if (visitedArchives.size === 0 && allArchives.archives.length === 0) return 0;
+    const seen = new Set<string>(visitedArchives.keys());
+    allArchives.archives.forEach((a) => seen.add(a.bvid));
+    return seen.size;
+  }, [visitedArchives, allArchives.archives]);
   const addToFavLabel =
     addToFavLoadedCount > 0 ? `加入歌单（${addToFavLoadedCount} 首已加载）` : '加入歌单';
 
@@ -416,6 +455,10 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
                   {b.label}
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuItem onSelect={() => setRangeDialogOpen(true)}>
+                <PlayCircle className="mr-2 h-4 w-4" />
+                自定义范围…
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={handlePlayAllWithConfirm}
@@ -487,11 +530,20 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
         </>
       )}
 
-      <CollectionLoadingDialog
+      <MediaLoadingDialog
         loading={allArchives.isLoading}
         loaded={allArchives.loaded}
         total={allArchives.total}
         onCancel={allArchives.cancel}
+        title="正在加载合集…"
+      />
+      <PageRangeDialog
+        open={rangeDialogOpen}
+        totalPages={collectionTotalPages}
+        pageSize={ARCHIVES_PAGE_SIZE}
+        title="按范围播放合集"
+        onConfirm={handleRangeConfirm}
+        onCancel={() => setRangeDialogOpen(false)}
       />
     </div>
   );

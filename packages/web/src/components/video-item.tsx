@@ -151,19 +151,36 @@ function VideoItemImpl({
   );
 
   const isPlaying = currentTrackId === effectiveTrackId;
+  const isInvalid = video.invalid === true;
 
   const handlePlayClick = useCallback(() => {
+    if (isInvalid) {
+      sendNotice({
+        type: NoticeType.WARN,
+        message: '该视频已被作者删除或不可访问',
+        duration: 2500,
+      });
+      return;
+    }
     if (favId) {
       addSingle(effectiveTrackId, true);
     } else {
       setPlaylist('', [effectiveTrackId], effectiveTrackId, true);
     }
-  }, [addSingle, setPlaylist, favId, effectiveTrackId]);
+  }, [isInvalid, sendNotice, addSingle, setPlaylist, favId, effectiveTrackId]);
 
   const handleAddToPlay = useCallback(() => {
+    if (isInvalid) {
+      sendNotice({
+        type: NoticeType.WARN,
+        message: '该视频已被作者删除或不可访问',
+        duration: 2500,
+      });
+      return;
+    }
     addSingle(effectiveTrackId, false);
     sendNotice({ type: NoticeType.SUCCESS, message: '添加成功', duration: 2000 });
-  }, [addSingle, sendNotice, effectiveTrackId]);
+  }, [isInvalid, addSingle, sendNotice, effectiveTrackId]);
 
   const handleAddToFav = useCallback(() => {
     // 调用方注入了自定义 onAddToFav（如 discovery 搜索结果页传 fromSearch:true）→ 优先委托；
@@ -242,12 +259,13 @@ function VideoItemImpl({
         </div>
       )}
       <div
-        onClick={canPlayDirect ? handleCoverClick : undefined}
-        role={canPlayDirect ? 'button' : undefined}
-        aria-label={canPlayDirect ? '播放' : undefined}
+        onClick={canPlayDirect && !isInvalid ? handleCoverClick : undefined}
+        role={canPlayDirect && !isInvalid ? 'button' : undefined}
+        aria-label={canPlayDirect && !isInvalid ? '播放' : undefined}
         className={cn(
           'relative h-12 w-20 shrink-0 overflow-hidden rounded bg-muted',
-          canPlayDirect && 'cursor-pointer',
+          canPlayDirect && !isInvalid && 'cursor-pointer',
+          isInvalid && 'grayscale',
         )}
       >
         {!imgError && video.pic ? (
@@ -261,6 +279,11 @@ function VideoItemImpl({
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             <PlayCircle className="h-6 w-6" />
+          </div>
+        )}
+        {isInvalid && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 text-white">
+            <span className="text-[10px] font-medium">已失效</span>
           </div>
         )}
         {isPlaying ? (
@@ -280,8 +303,17 @@ function VideoItemImpl({
         </div>
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className={cn('min-w-0 flex-1', isInvalid && 'opacity-60')}>
         <div className="flex min-w-0 items-center gap-1.5">
+          {isInvalid && (
+            <Badge
+              variant="destructive"
+              className="shrink-0 rounded px-1 py-0 text-[10px] font-medium leading-tight"
+              aria-label="该视频已失效"
+            >
+              已失效
+            </Badge>
+          )}
           {isMultiPart && (
             <Badge
               variant="outline"
