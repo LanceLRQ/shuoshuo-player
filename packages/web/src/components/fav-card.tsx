@@ -1,13 +1,15 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
+  AlertTriangle,
   Music,
   MoreVertical,
   PlayCircle,
   Plus,
   RefreshCw,
   Pencil,
+  Sliders,
   Trash2,
   Star,
 } from 'lucide-react';
@@ -40,7 +42,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { MediaLoadingDialog } from '@/components/dialogs/media-loading-dialog';
+import { PageRangeDialog } from '@/components/dialogs/page-range-dialog';
 import { useUIShell } from '@/stores/ui-shell';
+
+const PAGE_SIZE = 30;
 
 interface FavCardProps {
   favId: string;
@@ -64,8 +70,8 @@ function stringToHue(str: string): number {
 /**
  * 收藏歌单卡片：
  * - banner 头部 + stats grid（UPLOADER 有 spaceInfo 时显示）
- * - 24h 内未刷新则在 useEffect 自动触发 readUserVideos('default')
- * - 三种类型差异化菜单（CUSTOM 显示"添加歌曲"，UPLOADER/BILI_FAV 显示"更新前 30/更新全部"）
+ * - 24h 内未刷新则在 useEffect 自动触发 readUserVideos('incremental')
+ * - 三种类型差异化菜单（CUSTOM 显示"添加歌曲"，UPLOADER/BILI_FAV 显示"检查更新 / 按范围拉取 / 重新拉取全部"）
  */
 function FavCardImpl({ favId, fav, className }: FavCardProps) {
   const navigate = useNavigate();
@@ -136,14 +142,16 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
   ]);
 
   // 防重入由 store action 入口保证（见 bilibili-user-videos.ts），useCallback 不再依赖 isLoading
-  // 让引用稳定，下方 useEffect 才能放心把 updateList 列入 deps
   const updateList = useCallback(
-    (mode: 'default' | 'fully' = 'default') => {
+    (
+      mode: 'incremental' | 'range' | 'fully' = 'incremental',
+      opts?: { fromPage?: number; toPage?: number },
+    ) => {
       if (isUploader && fav.mid) {
-        readUserVideos(fav.mid, mode);
+        readUserVideos(fav.mid, mode, opts);
         readUserSpaceInfo(fav.mid);
       } else if (isBiliFav && fav.biliFavFolderId) {
-        readUserFavFolderVideos(fav.biliFavFolderId, mode);
+        readUserFavFolderVideos(fav.biliFavFolderId, mode, opts);
       }
     },
     [
@@ -158,7 +166,6 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
   );
 
   // 24h 自动更新检测：仅 master UP 主歌单（主数据源），其他 UP 主 / B 站收藏夹由用户手动触发更新
-  // 历史问题：原条件覆盖所有 UPLOADER + BILI_FAV，进入任意他人歌单即弹"正在加载投稿列表"，打断用户
   // lastUpdate 取 store 实时值而非 props.fav.update_time —— 后者对 MAIN_FAV_ITEM 写死 0 会永久过期
   const hasVideos = effectiveBvIds.length > 0;
   const masterLastUpdate = userVideoEntry?.update_time ?? 0;
@@ -166,8 +173,52 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
     if (!isMasterUploader) return;
     if (!hasVideos) return;
     if (masterLastUpdate + VIDEO_LIST_REFRESH_THRESHOLD >= timeStampNow()) return;
-    updateList('default');
+    updateList('incremental');
   }, [isMasterUploader, hasVideos, masterLastUpdate, updateList]);
+
+  /* 范围拉取对话框 + 进度对话框相关 state */
+  const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
+  const loaded = useBilibiliUserVideosStore((s) => s.loaded);
+  const progressTotal = useBilibiliUserVideosStore((s) => s.progressTotal);
+  const cancelRefresh = useBilibiliUserVideosStore((s) => s.cancelRefresh);
+  // 取列表总条数（投稿 / 收藏夹分别取）→ 算总页数供 PageRangeDialog
+  const sourceTotal = isUploader
+    ? (userVideoEntry?.count ?? 0)
+    : isBiliFav
+      ? (favFolder?.count ?? 0)
+      : 0;
+  const totalPages = Math.max(1, Math.ceil(sourceTotal / PAGE_SIZE));
+
+  const handleOpenRangeDialog = useCallback(() => {
+    if (sourceTotal === 0) {
+      sendNotice({
+        type: NoticeType.WARN,
+        message: '尚未拿到总条数，请先点「检查更新」获取',
+        duration: 2500,
+      });
+      return;
+    }
+    setRangeDialogOpen(true);
+  }, [sourceTotal, sendNotice]);
+
+  const handleRangeConfirm = useCallback(
+    (fromPage: number, toPage: number) => {
+      setRangeDialogOpen(false);
+      updateList('range', { fromPage, toPage });
+    },
+    [updateList],
+  );
+
+  const handleFullyReload = useCallback(() => {
+    openConfirm({
+      title: '重新拉取全部',
+      description:
+        '将会串行拉取所有页（每页间隔 300ms），耗时较长且对 B 站请求量较大。完成后远端不存在的视频会标记为「已失效」。仅在数据明显异常时使用。',
+      destructive: true,
+      confirmText: '继续',
+      onConfirm: () => updateList('fully'),
+    });
+  }, [openConfirm, updateList]);
 
   const handlePlay = useCallback(() => {
     if (effectiveBvIds.length === 0) {
@@ -369,13 +420,24 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
                   )}
                   {(isUploader || isBiliFav) && (
                     <>
-                      <DropdownMenuItem onSelect={() => updateList('default')} disabled={isLoading}>
+                      <DropdownMenuItem
+                        onSelect={() => updateList('incremental')}
+                        disabled={isLoading}
+                      >
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        更新前 30
+                        检查更新
                       </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => updateList('fully')} disabled={isLoading}>
-                        <Star className="mr-2 h-4 w-4" />
-                        更新整个列表
+                      <DropdownMenuItem onSelect={handleOpenRangeDialog} disabled={isLoading}>
+                        <Sliders className="mr-2 h-4 w-4" />
+                        按范围拉取…
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={handleFullyReload}
+                        disabled={isLoading}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <AlertTriangle className="mr-2 h-4 w-4" />
+                        重新拉取全部
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                     </>
@@ -399,6 +461,28 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
           </div>
         </div>
       </div>
+
+      {/* 范围拉取 + 进度对话框；非 UPLOADER/BILI_FAV 不渲染（CUSTOM 歌单不需要这些） */}
+      {(isUploader || isBiliFav) && (
+        <>
+          <PageRangeDialog
+            open={rangeDialogOpen}
+            totalPages={totalPages}
+            pageSize={PAGE_SIZE}
+            title="按范围拉取"
+            onConfirm={handleRangeConfirm}
+            onCancel={() => setRangeDialogOpen(false)}
+          />
+          <MediaLoadingDialog
+            loading={isLoading}
+            loaded={loaded}
+            total={progressTotal}
+            onCancel={cancelRefresh}
+            title={isUploader ? '正在加载投稿…' : '正在加载收藏夹…'}
+            unit="条"
+          />
+        </>
+      )}
     </div>
   );
 }

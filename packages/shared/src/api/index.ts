@@ -1,5 +1,15 @@
 export { UserApi } from './bilibili/user';
 export { VideoApi } from './bilibili/video';
+export {
+  CollectionApi,
+  fetchUploaderCollections,
+  fetchCollectionArchives,
+} from './bilibili/collection';
+export type {
+  UploaderCollection,
+  UploaderCollectionsResult,
+  CollectionArchivesResult,
+} from './bilibili/collection';
 export { encWbi, extractWbiKey } from './bilibili/wbi';
 export { LyricApi } from './cloud/lyric';
 export { AccountApi } from './cloud/account';

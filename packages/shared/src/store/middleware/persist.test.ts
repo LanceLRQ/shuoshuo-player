@@ -296,6 +296,39 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     expect(snap.floatingLyrics?.textAlign).toBe('left');
   });
 
+  it('ui_profile hydrate 缺失 closeAction 字段时兜底为默认值且 prompted=false', () => {
+    // 模拟老用户：snapshot 完全没这俩字段
+    usePlayerProfileStore.setState({
+      closeAction: 'exit',
+      closeActionFirstRunPrompted: true,
+    });
+    getEntry('ui_profile').hydrate({ theme: 'dark' });
+    expect(usePlayerProfileStore.getState().closeAction).toBe('minimize-to-tray');
+    expect(usePlayerProfileStore.getState().closeActionFirstRunPrompted).toBe(false);
+  });
+
+  it('ui_profile hydrate 保留显式持久化的 closeAction 与 prompted', () => {
+    getEntry('ui_profile').hydrate({
+      closeAction: 'exit',
+      closeActionFirstRunPrompted: true,
+    });
+    expect(usePlayerProfileStore.getState().closeAction).toBe('exit');
+    expect(usePlayerProfileStore.getState().closeActionFirstRunPrompted).toBe(true);
+  });
+
+  it('ui_profile snapshot 包含 closeAction 与 prompted', () => {
+    usePlayerProfileStore.setState({
+      closeAction: 'exit',
+      closeActionFirstRunPrompted: true,
+    });
+    const snap = getEntry('ui_profile').snapshot() as {
+      closeAction?: string;
+      closeActionFirstRunPrompted?: boolean;
+    };
+    expect(snap.closeAction).toBe('exit');
+    expect(snap.closeActionFirstRunPrompted).toBe(true);
+  });
+
   it('lyrics hydrate', () => {
     const lyricMaps = { BV1: { bvid: 'BV1', offset: 0, lrc: '' } };
     getEntry('lyrics').hydrate({ lyricMaps });

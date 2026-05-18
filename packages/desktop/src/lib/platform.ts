@@ -6,6 +6,7 @@ import { TauriShellAdapter } from './tauri-shell-adapter';
 import { TauriFileSaverAdapter } from './tauri-file-saver';
 import { TauriHttpAdapter } from './tauri-http-adapter';
 import { TauriLoggerAdapter } from './tauri-logger-adapter';
+import { TauriTrayEventsAdapter } from './tauri-tray-events-adapter';
 import { transformBilibiliAudioUrl } from './tauri-audio-url-transformer';
 import {
   getCacheStats,
@@ -51,5 +52,7 @@ export function createTauriPlatformBridge(): PlatformBridge {
     // 文件日志：让 logger.warn/error/info 在生产构建里也落盘到
     // $APP_LOCAL_DATA/logs/app-YYYY-MM-DD.log（portable 模式下走 exe_dir/data/logs/）
     logger: new TauriLoggerAdapter(),
+    // 托盘事件：让 web 包内组件订阅 Rust emit 的菜单事件而无需 import @tauri-apps/api
+    trayEvents: new TauriTrayEventsAdapter(),
   };
 }

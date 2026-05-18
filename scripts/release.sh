@@ -225,7 +225,7 @@ cat <<EOF
        https://github.com/LanceLRQ/shuoshuo-player/releases
 
        - 找到 ${TAG} 草稿（标 "Draft"）
-       - 编辑 Release notes：在 "<!-- TODO --->" 处填本版本变更摘要
+       - 编辑 Release notes：在「版本说明」章节的 "<!-- TODO -->" 处填本版本变更摘要
        - 取消勾选 "Set as a draft"
        - 1.x 保留 "Set as a pre-release"；2.0+ 取消该勾选
        - Update release

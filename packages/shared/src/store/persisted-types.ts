@@ -11,7 +11,9 @@
 import type {
   BilibiliSpaceInfo,
   BilibiliVideo,
+  CloseAction,
   CloudServiceSession,
+  CollectionPlayBehavior,
   FavFolderCacheEntry,
   FavListItem,
   FloatingLyricsConfig,
@@ -61,6 +63,12 @@ export interface PersistedPlayerProfileShape {
    * 字段级 partial：从老版本升级或外部 import 可能只带部分键。
    */
   floatingLyrics?: Partial<FloatingLyricsConfig>;
+  /** 主窗口关闭按钮处置方式（仅 Tauri 桌面端生效） */
+  closeAction?: CloseAction;
+  /** 是否已展示过首次引导对话框（仅 Tauri 平台读取） */
+  closeActionFirstRunPrompted?: boolean;
+  /** 「以合集为歌单播放」按钮的队列行为；老用户缺该字段时 fallback DEFAULT_COLLECTION_PLAY_BEHAVIOR */
+  collectionPlayBehavior?: CollectionPlayBehavior;
 }
 
 export interface PersistedLyricsShape {

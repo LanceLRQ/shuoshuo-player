@@ -17,12 +17,12 @@ import {
   NoticeType,
   useUIStore,
 } from '@shuoshuo-player/shared';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { SectionTitle } from './_components';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
 import { useUIShell } from '@/stores/ui-shell';
-import { V1DevSeederCard } from '@/components/migration/v1-dev-seeder-card';
 
 const OFFICIAL_RELEASE_URL = 'https://shuoshuo.sikong.ren/player';
 const GITHUB_URL = 'https://github.com/LanceLRQ/shuoshuo-player';
@@ -144,7 +144,7 @@ export function AboutSettings() {
       {/* 项目简介（引自 README） */}
       <Card>
         <CardHeader>
-          <CardTitle>说说播放器</CardTitle>
+          <SectionTitle>说说播放器</SectionTitle>
         </CardHeader>
         <CardContent className="text-sm leading-relaxed text-muted-foreground">
           <p>
@@ -158,7 +158,7 @@ export function AboutSettings() {
       <Card>
         {/* Header 改为左右对齐：标题左、操作按钮右；移除副标题描述 */}
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>版本与更新</CardTitle>
+          <SectionTitle>版本与更新</SectionTitle>
           {isChromeExtension ? (
             <div className="flex items-center gap-2">
               <Button
@@ -249,9 +249,33 @@ export function AboutSettings() {
         </CardContent>
       </Card>
 
+      {/* 日志（仅桌面端注入 LoggerAdapter；扩展端隐藏整块） */}
+      {loggerAdapter && (
+        <Card>
+          <CardHeader>
+            <SectionTitle className="flex items-center gap-2">
+              <ScrollText className="h-4 w-4" />
+              日志
+            </SectionTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={handleOpenLogDir}>
+                <FolderOpen className="mr-1.5 h-4 w-4" />
+                打开目录
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleClearLogs}>
+                <Trash2 className="mr-1.5 h-4 w-4" />
+                清空当日日志
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>项目链接</CardTitle>
+          <SectionTitle>项目链接</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <Button
@@ -284,34 +308,10 @@ export function AboutSettings() {
         </CardContent>
       </Card>
 
-      {/* 日志（仅桌面端注入 LoggerAdapter；扩展端隐藏整块） */}
-      {loggerAdapter && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ScrollText className="h-4 w-4" />
-              日志
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={handleOpenLogDir}>
-                <FolderOpen className="mr-1.5 h-4 w-4" />
-                打开目录
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleClearLogs}>
-                <Trash2 className="mr-1.5 h-4 w-4" />
-                清空当日日志
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* 隐私安全声明（引自 README） */}
       <Card>
         <CardHeader>
-          <CardTitle>隐私安全声明</CardTitle>
+          <SectionTitle>隐私安全声明</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm leading-relaxed text-muted-foreground">
           <p>
@@ -340,7 +340,7 @@ export function AboutSettings() {
       {/* 项目协议（MIT + 附加条款，引自 README） */}
       <Card>
         <CardHeader>
-          <CardTitle>项目协议</CardTitle>
+          <SectionTitle>项目协议</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-xs leading-relaxed text-muted-foreground">
           <p>
@@ -386,9 +386,6 @@ export function AboutSettings() {
           </p>
         </CardContent>
       </Card>
-
-      {/* 开发者工具：v1 → v2 迁移测试（仅 dev:extension 构建可见，prod 构建 DCE） */}
-      {__DEV_LOG__ && <V1DevSeederCard />}
     </div>
   );
 }

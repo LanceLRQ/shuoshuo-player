@@ -177,4 +177,20 @@ export interface PlatformBridge {
    * 此时入口仅输出 console。
    */
   logger?: LoggerAdapter;
+  /**
+   * 托盘事件适配器（可选，仅 Tauri 端注入）
+   *
+   * 用途：让 web 包内的组件（如 TrayRouteListener）订阅 Rust 端 emit 的托盘菜单事件，
+   * 而无需直接 import @tauri-apps/api/event——web 包不持有 Tauri 依赖。
+   * Chrome 扩展端不注入；调用方应 `?.` 守卫。
+   */
+  trayEvents?: TrayEventsAdapter;
+}
+
+/** 托盘菜单事件订阅；目前仅"打开设置"一个事件 */
+export interface TrayEventsAdapter {
+  /**
+   * 监听托盘菜单"设置…"事件，返回 unsubscribe 函数（同步返回，内部 await 注册 Promise）
+   */
+  onOpenSettings(callback: () => void): () => void;
 }

@@ -15,6 +15,8 @@ import { PagesPickerDialog } from '@/components/dialogs/pages-picker-dialog';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { RiskControlDialog } from '@/components/dialogs/risk-control-dialog';
 import { MigrationGate } from '@/components/migration/migration-gate';
+import { CloseActionOnboardingDialog } from '@/components/dialogs/close-action-onboarding-dialog';
+import { TrayRouteListener } from '@/components/tray-route-listener';
 import { useUIShell } from '@/stores/ui-shell';
 
 // 路由懒加载：每个页面单独 chunk（详见 vite.config manualChunks）
@@ -76,6 +78,8 @@ function RootLayout() {
           <PagesPickerDialog />
           <ConfirmDialog />
           <RiskControlDialog />
+          {/* Tauri 托盘"设置…"菜单 → 跳路由，需在 RouterProvider 子树内才能用 useNavigate */}
+          <TrayRouteListener />
         </>
       }
     >
@@ -159,12 +163,13 @@ function AppShell() {
 }
 
 export default function App() {
-  // MigrationGate 单点挂载：跨三种登录态切换时不卸载/重挂，避免 store selector
-  // 订阅抖动；MigrationGate 内部已有 status==='idle' 守卫，不会渲染脏弹层
+  // MigrationGate / CloseActionOnboardingDialog 单点挂载：跨三种登录态切换时不卸载/重挂，
+  // 避免 store selector 订阅抖动。两者内部均含"不应渲染"守卫，非触发条件下返回 null。
   return (
     <>
       <AppShell />
       <MigrationGate />
+      <CloseActionOnboardingDialog />
     </>
   );
 }

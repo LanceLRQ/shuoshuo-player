@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getPlatformBridge, usePlayerProfileStore } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { HSL_PATTERN, computeEffectivePrimary, computePrimaryForeground } from '@/lib/color';
@@ -107,15 +107,17 @@ export function PlayerLayout({ children, footer, overlays }: PlayerLayoutProps) 
   const gridRows = showMacTrafficLightArea
     ? 'grid-rows-[1.75rem_3.5rem_1fr_5rem]'
     : 'grid-rows-[3.5rem_1fr_5rem]';
-  const dragRegionStyle = { WebkitAppRegion: 'drag' } as CSSProperties;
 
   return (
     <div
       className={`grid h-screen ${gridRows} overflow-hidden bg-muted text-foreground dark:bg-background`}
     >
       {/* macOS traffic light 安全区：仅 Tauri + macOS 时占用 row 0；
-          整条 28px 高，shell 色（与 NavMenu / 根背景同色），整体支持拖动 */}
-      {showMacTrafficLightArea && <div style={dragRegionStyle} aria-hidden />}
+          整条 28px 高，shell 色（与 NavMenu / 根背景同色），整体支持拖动。
+          使用 Tauri v2 标准的 data-tauri-drag-region 属性而非 -webkit-app-region
+          —— 后者是 Electron/Chrome 私有 CSS，WKWebView 不识别，会导致 macOS 下窗口
+          无法通过标题栏拖动。 */}
+      {showMacTrafficLightArea && <div data-tauri-drag-region="" aria-hidden />}
 
       {/* Row 1: TopBar (3.5rem = h-14) */}
       <TopBar menuOpen={menuOpen} onToggleMenu={toggleMenu} />

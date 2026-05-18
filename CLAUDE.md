@@ -99,7 +99,11 @@ pnpm --filter @shuoshuo-player/desktop tauri build    # 单独构建桌面端
 
 后端为 **`shuoshuo-crystal/backend`**（Go + GORM + PostgreSQL，**与 v1 的 cloud-services 不兼容**）：
 
-- 默认 baseURL：`https://shuoshuo.sikong.ren/api`，可被用户在前端"服务设置"页覆盖；空值 fallback 默认值
+- 默认 baseURL：`https://shuoshuo.sikong.ren/api`，可被用户在前端"调试"页（dev 模式）或 Web/扩展端"关于"页覆盖；空值 fallback 默认值
+- baseURL 覆盖入口位置：
+  - **Web / Chrome 扩展（生产 & dev）**：设置页「调试」tab 下「水晶蟹小屋 API 地址」（prod 构建调试 tab 整段 DCE，普通用户看不到）
+  - **Tauri 桌面端 dev 模式**：同上，且 capabilities 已放通 `http://localhost:*` / `127.0.0.1:*` / `0.0.0.0:*`（含 http/https），可切到本地后端
+  - **Tauri 桌面端 prod 构建**：UI 不可见、capabilities 不放通公网通配，地址固定为默认值
 - 响应统一格式：`{ code: 0, data, message? }` 成功，`{ code: 4xxxxxxx, message, type?, payload? }` 错误（**不再有 `errno` 字段**）
 - 鉴权：`Authorization: Bearer <token>`；密码修改后旧 token 通过 `session_key` 自动失效
 - 角色枚举：`User=1`、`Admin=512`、`WebMaster=1024`，权限判定走位与运算 `(role & mask) === mask`
