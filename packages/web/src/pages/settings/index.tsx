@@ -1,15 +1,16 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Palette, Info, MonitorCog, Play } from 'lucide-react';
+import { Palette, Info, MonitorCog, Play, Bug } from 'lucide-react';
 import { detectPlatformType } from '@shuoshuo-player/shared';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AppearanceSettings } from './appearance';
 import { PlaybackSettings } from './playback';
 import { DesktopSettings } from './desktop';
 import { AboutSettings } from './about';
+import { DebugSettings } from './debug';
 
-type Tab = 'appearance' | 'playback' | 'desktop' | 'about';
-const VALID_TABS: Tab[] = ['appearance', 'playback', 'desktop', 'about'];
+type Tab = 'appearance' | 'playback' | 'desktop' | 'about' | 'debug';
+const VALID_TABS: Tab[] = ['appearance', 'playback', 'desktop', 'about', 'debug'];
 
 /**
  * 统一设置页：tab 通过 URL ?tab= 同步，便于左侧导航和外链直达。
@@ -26,13 +27,14 @@ export function SettingsPage() {
   const platform = detectPlatformType();
   const isTauri = platform === 'tauri';
 
-  const availableTabs = useMemo<Tab[]>(
-    () =>
-      isTauri
-        ? ['appearance', 'playback', 'desktop', 'about']
-        : ['appearance', 'playback', 'about'],
-    [isTauri],
-  );
+  const availableTabs = useMemo<Tab[]>(() => {
+    const base: Tab[] = isTauri
+      ? ['appearance', 'playback', 'desktop', 'about']
+      : ['appearance', 'playback', 'about'];
+    // dev 模式（__DEV_LOG__=true）追加调试 tab；prod 构建中此分支整段 DCE
+    if (__DEV_LOG__) base.push('debug');
+    return base;
+  }, [isTauri]);
 
   const rawTab = params.get('tab');
   // 老 tab key 收敛：cache → desktop（音频缓存归属桌面端模块）；cloud → about（水晶蟹小屋归属关于页）
@@ -54,6 +56,10 @@ export function SettingsPage() {
     }
     // 非 Tauri 用户访问 ?tab=desktop → 重定向回 appearance
     if (tab === 'desktop' && !isTauri) {
+      navigate('/settings?tab=appearance', { replace: true });
+    }
+    // prod 构建访问 ?tab=debug（来自 dev 期书签）→ 重定向回 appearance
+    if (tab === 'debug' && !__DEV_LOG__) {
       navigate('/settings?tab=appearance', { replace: true });
     }
   }, [rawTab, tab, isTauri, navigate]);
@@ -98,6 +104,12 @@ export function SettingsPage() {
                 关于
               </TabsTrigger>
             )}
+            {availableTabs.includes('debug') && (
+              <TabsTrigger value="debug">
+                <Bug className="mr-1.5 h-4 w-4" />
+                调试
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
       </div>
@@ -119,6 +131,11 @@ export function SettingsPage() {
           <TabsContent value="about">
             <AboutSettings />
           </TabsContent>
+          {__DEV_LOG__ && (
+            <TabsContent value="debug">
+              <DebugSettings />
+            </TabsContent>
+          )}
         </div>
       </div>
     </Tabs>

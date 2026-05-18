@@ -19,12 +19,10 @@ import {
 } from '@shuoshuo-player/shared';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { SectionTitle } from './_components';
-import { CloudSettings } from './cloud';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
 import { useUIShell } from '@/stores/ui-shell';
-import { V1DevSeederCard } from '@/components/migration/v1-dev-seeder-card';
 
 const OFFICIAL_RELEASE_URL = 'https://shuoshuo.sikong.ren/player';
 const GITHUB_URL = 'https://github.com/LanceLRQ/shuoshuo-player';
@@ -251,6 +249,30 @@ export function AboutSettings() {
         </CardContent>
       </Card>
 
+      {/* 日志（仅桌面端注入 LoggerAdapter；扩展端隐藏整块） */}
+      {loggerAdapter && (
+        <Card>
+          <CardHeader>
+            <SectionTitle className="flex items-center gap-2">
+              <ScrollText className="h-4 w-4" />
+              日志
+            </SectionTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={handleOpenLogDir}>
+                <FolderOpen className="mr-1.5 h-4 w-4" />
+                打开目录
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleClearLogs}>
+                <Trash2 className="mr-1.5 h-4 w-4" />
+                清空当日日志
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <SectionTitle>项目链接</SectionTitle>
@@ -285,33 +307,6 @@ export function AboutSettings() {
           </Button>
         </CardContent>
       </Card>
-
-      {/* 水晶蟹小屋 API 地址（原独立 tab 合并到关于页，紧贴在日志卡片之上） */}
-      <CloudSettings />
-
-      {/* 日志（仅桌面端注入 LoggerAdapter；扩展端隐藏整块） */}
-      {loggerAdapter && (
-        <Card>
-          <CardHeader>
-            <SectionTitle className="flex items-center gap-2">
-              <ScrollText className="h-4 w-4" />
-              日志
-            </SectionTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={handleOpenLogDir}>
-                <FolderOpen className="mr-1.5 h-4 w-4" />
-                打开目录
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleClearLogs}>
-                <Trash2 className="mr-1.5 h-4 w-4" />
-                清空当日日志
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* 隐私安全声明（引自 README） */}
       <Card>
@@ -391,9 +386,6 @@ export function AboutSettings() {
           </p>
         </CardContent>
       </Card>
-
-      {/* 开发者工具：v1 → v2 迁移测试（仅 dev:extension 构建可见，prod 构建 DCE） */}
-      {__DEV_LOG__ && <V1DevSeederCard />}
     </div>
   );
 }

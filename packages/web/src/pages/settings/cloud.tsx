@@ -27,6 +27,9 @@ export function CloudSettings() {
 
   const platform = detectPlatformType();
   const isTauri = platform === 'tauri';
+  // dev 模式下完全解锁（含桌面端）：开发期需要快速切换到本地后端。
+  // 注：dev:desktop 还需 capabilities/default.json 放通 localhost 等本地 host。
+  const locked = isTauri && !__DEV_LOG__;
 
   const handleSave = () => {
     setApiBaseUrl(draft);
@@ -70,12 +73,12 @@ export function CloudSettings() {
             placeholder={DEFAULT_CLOUD_API_BASE_URL}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            disabled={isTauri}
+            disabled={locked}
           />
           <p className="text-xs text-muted-foreground">留空时使用默认地址。</p>
         </div>
 
-        {isTauri && (
+        {locked && (
           <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
@@ -83,16 +86,25 @@ export function CloudSettings() {
             </span>
           </div>
         )}
+        {isTauri && __DEV_LOG__ && (
+          <div className="flex items-start gap-2 rounded-md border border-sky-300 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              桌面端开发模式：仅支持切换到 localhost / 127.0.0.1 / 0.0.0.0 本地后端（受 Tauri HTTP
+              capabilities 限制）。如需切换到公网自部署后端，请用 dev:web。
+            </span>
+          </div>
+        )}
       </CardContent>
       <CardFooter className="gap-2">
-        <Button onClick={handleSave} disabled={isTauri || draft === apiBaseUrl}>
+        <Button onClick={handleSave} disabled={locked || draft === apiBaseUrl}>
           <Save className="mr-1 h-4 w-4" />
           保存
         </Button>
         <Button
           variant="outline"
           onClick={handleReset}
-          disabled={isTauri || (!apiBaseUrl && !draft)}
+          disabled={locked || (!apiBaseUrl && !draft)}
         >
           <RotateCcw className="mr-1 h-4 w-4" />
           恢复默认
