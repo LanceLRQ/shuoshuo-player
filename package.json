@@ -1,6 +1,6 @@
 {
   "name": "shuoshuo-player",
-  "version": "1.9.3",
+  "version": "1.9.5",
   "private": true,
   "type": "module",
   "description": "说说播放器 - 基于 Bilibili 的第三方音乐播放器",

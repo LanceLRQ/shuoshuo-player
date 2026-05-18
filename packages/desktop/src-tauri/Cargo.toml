@@ -1,6 +1,6 @@
 [package]
 name = "shuoshuo-player"
-version = "1.9.3"
+version = "1.9.5"
 description = "说说播放器 - 桌面版"
 authors = []
 edition = "2021"
