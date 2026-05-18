@@ -1,8 +1,0 @@
-shuoshuo-player-pc/src/build
-publish/build.pem
-shuoshuo-player/build
-cloud-services/temp/*
-cloud-services/tmp/*
-env/mongo
-cloud-services/bin/*
-cloud-services/server.yaml
