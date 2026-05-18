@@ -117,6 +117,21 @@ export const useBilibiliUserVideosStore = create<BilibiliUserVideosState>((set, 
     const ui = useUIStore.getState();
     const midKey = String(mid);
 
+    // incremental 模式默认发开始/结束 toast：因 MediaLoadingDialog 有 250ms 显示延迟，
+    // 增量单页瞬间 break 时 dialog 根本不显示，用户无任何反馈。range/fully 多页 + 300ms sleep
+    // 必能让 dialog 正常显示，故不强制发 toast 以免与 dialog 重复打扰。
+    const shouldNotify = effectiveMode === 'incremental';
+    const prevCount = get().infos[midKey]?.video_list.length ?? 0;
+    let fetchFailed = false;
+    let startNoticeId: string | null = null;
+    if (shouldNotify) {
+      startNoticeId = ui.sendNotice({
+        type: NoticeType.INFO,
+        message: '正在检查更新…',
+        duration: 1500,
+      });
+    }
+
     /** 拉单页并 merge 进 store；返回该页 archives + 远端 total，cancel 后返回 null */
     const fetchPage = async (
       pn: number,
@@ -138,6 +153,7 @@ export const useBilibiliUserVideosStore = create<BilibiliUserVideosState>((set, 
         return { videoList, total };
       } catch {
         if (activeFetchId !== fetchId) return null;
+        fetchFailed = true;
         ui.sendNotice({
           type: NoticeType.ERROR,
           message: '获取投稿列表失败',
@@ -226,6 +242,20 @@ export const useBilibiliUserVideosStore = create<BilibiliUserVideosState>((set, 
     } finally {
       if (activeFetchId === fetchId) {
         set({ isLoading: false, loaded: 0, progressTotal: 0 });
+        if (shouldNotify) {
+          // 先清开始 toast，避免「正在检查更新…」与「已是最新」/「获取失败」同时显示
+          if (startNoticeId) ui.removeNotice(startNoticeId);
+          // 成功才发结束通知；fetch 失败时上方 fetchPage 已发错误 toast
+          if (!fetchFailed) {
+            const newCount = get().infos[midKey]?.video_list.length ?? 0;
+            const added = Math.max(0, newCount - prevCount);
+            ui.sendNotice({
+              type: NoticeType.SUCCESS,
+              message: added > 0 ? `已检查完毕，新增 ${added} 首` : '已是最新',
+              duration: 2000,
+            });
+          }
+        }
       }
     }
   },

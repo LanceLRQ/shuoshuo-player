@@ -145,7 +145,7 @@ function FavCardImpl({ favId, fav, className }: FavCardProps) {
   const updateList = useCallback(
     (
       mode: 'incremental' | 'range' | 'fully' = 'incremental',
-      opts?: { fromPage: number; toPage: number },
+      opts?: { fromPage?: number; toPage?: number },
     ) => {
       if (isUploader && fav.mid) {
         readUserVideos(fav.mid, mode, opts);
