@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Music, Star, Video, ListMusic } from 'lucide-react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { Music, Star, Video, ListMusic, Plus } from 'lucide-react';
 import {
   useFavListStore,
   useBilibiliVideosStore,
@@ -14,6 +14,7 @@ import {
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -46,6 +47,7 @@ export function AddToFavDialog() {
   const favList = useFavListStore((s) => s.list);
   const addFavVideo = useFavListStore((s) => s.addFavVideo);
   const addFavVideoByBvids = useFavListStore((s) => s.addFavVideoByBvids);
+  const addFavList = useFavListStore((s) => s.addFavList);
   const videoEntities = useBilibiliVideosStore((s) => s.entities);
   const getVideoByBvid = useBilibiliUserVideosStore((s) => s.getVideoByBvid);
   const sendNotice = useUIStore((s) => s.sendNotice);
@@ -57,6 +59,10 @@ export function AddToFavDialog() {
   const [submitting, setSubmitting] = useState(false);
   /** 单条 + 多 P 模式下的添加模式：整投稿 | 指定 P */
   const [partMode, setPartMode] = useState<'video' | 'page'>('video');
+  /** 快速新建歌单：是否处于「展开输入框」态 */
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const isBatch = bvids.length > 1;
   // 单条入参可能是 trackId（含 :p<n>），解析出 bvid 与 explicitPage
@@ -74,6 +80,9 @@ export function AddToFavDialog() {
       setSelected(new Set());
       setSubmitting(false);
       setPartMode('video');
+      setCreating(false);
+      setNewName('');
+      setCreateError(null);
       return;
     }
     // 单条 + fromSearch 模式下确保视频信息已在 store（用于显示标题）
@@ -121,6 +130,55 @@ export function AddToFavDialog() {
       else next.add(favId);
       return next;
     });
+  };
+
+  const cancelCreate = () => {
+    setCreating(false);
+    setNewName('');
+    setCreateError(null);
+  };
+
+  const handleQuickCreate = () => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      setCreateError('请输入歌单名称');
+      return;
+    }
+    // 与 FavEditDialog 的 zod schema 对齐：长度上限 40
+    if (trimmed.length > 40) {
+      setCreateError('名称过长（最多 40 字符）');
+      return;
+    }
+    const created = addFavList({
+      name: trimmed,
+      type: FavListType.CUSTOM,
+      bv_ids: [],
+    });
+    if (!created) {
+      setCreateError('创建失败');
+      return;
+    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.add(created.id);
+      return next;
+    });
+    setCreating(false);
+    setNewName('');
+    setCreateError(null);
+    sendNotice({ type: NoticeType.SUCCESS, message: '已创建歌单', duration: 1500 });
+  };
+
+  const handleNameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleQuickCreate();
+    } else if (event.key === 'Escape') {
+      // 阻断 Dialog 默认的 Esc 关闭，让 Esc 只用于退出输入态
+      event.preventDefault();
+      event.stopPropagation();
+      cancelCreate();
+    }
   };
 
   const handleConfirm = async () => {
@@ -215,59 +273,109 @@ export function AddToFavDialog() {
           </div>
         )}
 
-        {customLists.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            暂无可添加的自定义歌单，请先创建一个
-          </p>
-        ) : (
-          <ScrollArea className="max-h-[40vh]">
-            <div className="flex flex-col gap-1">
-              {customLists.map((fav) => {
-                const isExcluded = !isBatch && fav.id === excludeId;
-                // 动态检测：目标歌单是否已包含待添加的 TrackId
-                // - 单条模式：歌单的 bv_ids 是否包含 writeTrackIdForSingle
-                // - 批量模式：歌单是否已完全包含所有待添加项（部分包含仍允许，store 内部去重）
-                const containsAll = isBatch
-                  ? bvids.length > 0 && bvids.every((id) => fav.bv_ids.includes(id))
-                  : writeTrackIdForSingle !== undefined &&
-                    fav.bv_ids.includes(writeTrackIdForSingle);
-                const isDisabled = isExcluded || containsAll;
-                const isSelected = selected.has(fav.id);
-                const disabledLabel = isExcluded
-                  ? '已包含'
-                  : containsAll
-                    ? isBatch
-                      ? '已全部包含'
-                      : '已包含'
-                    : null;
-                return (
-                  <button
-                    key={fav.id}
-                    type="button"
-                    disabled={isDisabled || submitting}
-                    onClick={() => toggle(fav.id)}
-                    className={cn(
-                      'flex items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors',
-                      isSelected ? 'border-primary bg-primary/10' : 'border-input',
-                      (isDisabled || submitting) && 'cursor-not-allowed opacity-50',
-                    )}
-                  >
-                    {iconForType(fav.type)}
-                    <div className="flex-1 truncate">
-                      <p className="truncate text-sm font-medium">{fav.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {fav.bv_ids.length} 首
-                      </p>
-                    </div>
-                    {disabledLabel && (
-                      <span className="text-xs text-muted-foreground">{disabledLabel}</span>
-                    )}
-                  </button>
-                );
-              })}
+        <div className="flex flex-col gap-2">
+          {creating ? (
+            <div>
+              <div className="flex items-center gap-2 rounded-md border border-primary/40 px-3 py-2">
+                <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Input
+                  value={newName}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    if (createError) setCreateError(null);
+                  }}
+                  onKeyDown={handleNameKeyDown}
+                  placeholder="输入歌单名称"
+                  maxLength={40}
+                  autoFocus
+                  disabled={submitting}
+                  className="h-8 flex-1"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={cancelCreate}
+                  disabled={submitting}
+                >
+                  取消
+                </Button>
+                <Button type="button" size="sm" onClick={handleQuickCreate} disabled={submitting}>
+                  创建
+                </Button>
+              </div>
+              {createError && <p className="mt-1 px-3 text-xs text-destructive">{createError}</p>}
             </div>
-          </ScrollArea>
-        )}
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              disabled={submitting}
+              className={cn(
+                'flex items-center gap-2 rounded-md border border-dashed border-input px-3 py-2 text-left text-sm text-muted-foreground transition-colors',
+                'hover:bg-accent hover:text-foreground',
+                submitting && 'cursor-not-allowed opacity-50',
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              <span>新建歌单</span>
+            </button>
+          )}
+
+          {customLists.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              暂无可添加的自定义歌单，请先创建一个
+            </p>
+          ) : (
+            <ScrollArea className="max-h-[40vh]">
+              <div className="flex flex-col gap-1">
+                {customLists.map((fav) => {
+                  const isExcluded = !isBatch && fav.id === excludeId;
+                  // 动态检测：目标歌单是否已包含待添加的 TrackId
+                  // - 单条模式：歌单的 bv_ids 是否包含 writeTrackIdForSingle
+                  // - 批量模式：歌单是否已完全包含所有待添加项（部分包含仍允许，store 内部去重）
+                  const containsAll = isBatch
+                    ? bvids.length > 0 && bvids.every((id) => fav.bv_ids.includes(id))
+                    : writeTrackIdForSingle !== undefined &&
+                      fav.bv_ids.includes(writeTrackIdForSingle);
+                  const isDisabled = isExcluded || containsAll;
+                  const isSelected = selected.has(fav.id);
+                  const disabledLabel = isExcluded
+                    ? '已包含'
+                    : containsAll
+                      ? isBatch
+                        ? '已全部包含'
+                        : '已包含'
+                      : null;
+                  return (
+                    <button
+                      key={fav.id}
+                      type="button"
+                      disabled={isDisabled || submitting}
+                      onClick={() => toggle(fav.id)}
+                      className={cn(
+                        'flex items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors',
+                        isSelected ? 'border-primary bg-primary/10' : 'border-input',
+                        (isDisabled || submitting) && 'cursor-not-allowed opacity-50',
+                      )}
+                    >
+                      {iconForType(fav.type)}
+                      <div className="flex-1 truncate">
+                        <p className="truncate text-sm font-medium">{fav.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {fav.bv_ids.length} 首
+                        </p>
+                      </div>
+                      {disabledLabel && (
+                        <span className="text-xs text-muted-foreground">{disabledLabel}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={close} disabled={submitting}>

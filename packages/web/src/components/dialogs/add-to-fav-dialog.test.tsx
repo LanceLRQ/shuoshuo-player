@@ -420,6 +420,90 @@ describe('AddToFavDialog', () => {
     expect(screen.getByText('None').closest('button')).not.toBeDisabled();
   });
 
+  it('快速新建歌单：列表顶部展示「新建歌单」入口', () => {
+    useFavListStore.setState({
+      list: [makeFav('c1', 'Existing', FavListType.CUSTOM)],
+    });
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFav('BV1'));
+
+    expect(screen.getByRole('button', { name: /新建歌单/ })).toBeInTheDocument();
+  });
+
+  it('快速新建歌单：空列表场景下入口行依旧可见', () => {
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFav('BV1'));
+
+    expect(screen.getByText(/暂无可添加的自定义歌单/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /新建歌单/ })).toBeInTheDocument();
+  });
+
+  it('快速新建歌单：输入名称 → 点击创建 → addFavList 被调用，新 id 进入 selected 并参与提交', async () => {
+    const addFavList = vi.fn((item) => ({
+      ...item,
+      id: 'new-fav-1',
+      create_time: 0,
+      update_time: 0,
+    }));
+    const addFavVideo = vi.fn();
+    useFavListStore.setState({ list: [], addFavList, addFavVideo });
+
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFav('BV1'));
+
+    fireEvent.click(screen.getByRole('button', { name: /新建歌单/ }));
+    const input = screen.getByPlaceholderText('输入歌单名称') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '我的新歌单' } });
+    fireEvent.click(screen.getByRole('button', { name: '创建' }));
+
+    expect(addFavList).toHaveBeenCalledWith({
+      name: '我的新歌单',
+      type: FavListType.CUSTOM,
+      bv_ids: [],
+    });
+    expect(useUIStore.getState().notices.find((n) => /已创建歌单/.test(n.message))).toBeDefined();
+
+    // 入口已收起 → 再点确认添加应把新 id 写入
+    fireEvent.click(screen.getByRole('button', { name: '确认添加' }));
+    expect(addFavVideo).toHaveBeenCalledWith('new-fav-1', 'BV1');
+  });
+
+  it('快速新建歌单：名称为空或全空白 → 显示行内错误，不调用 addFavList', () => {
+    const addFavList = vi.fn();
+    useFavListStore.setState({ list: [], addFavList });
+
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFav('BV1'));
+
+    fireEvent.click(screen.getByRole('button', { name: /新建歌单/ }));
+    const input = screen.getByPlaceholderText('输入歌单名称') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: '创建' }));
+
+    expect(addFavList).not.toHaveBeenCalled();
+    expect(screen.getByText('请输入歌单名称')).toBeInTheDocument();
+  });
+
+  it('快速新建歌单：取消按钮收起输入框并清空状态', () => {
+    render(<AddToFavDialog />);
+    act(() => useUIShell.getState().openAddToFav('BV1'));
+
+    fireEvent.click(screen.getByRole('button', { name: /新建歌单/ }));
+    const input = screen.getByPlaceholderText('输入歌单名称');
+    expect(input).toBeInTheDocument();
+
+    // 创建模式下 inline 取消按钮 与 DialogFooter 取消按钮同名，
+    // 用 inline 容器（Input 的父级）定位 inline 取消按钮，避免歧义。
+    const inlineContainer = input.parentElement as HTMLElement;
+    const inlineCancel = Array.from(inlineContainer.querySelectorAll('button')).find(
+      (b) => b.textContent === '取消',
+    ) as HTMLButtonElement;
+    fireEvent.click(inlineCancel);
+
+    expect(screen.queryByPlaceholderText('输入歌单名称')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /新建歌单/ })).toBeInTheDocument();
+  });
+
   it('批量模式：标题/描述切换 + 提交调用 addFavVideoByBvids', async () => {
     const addFavVideoByBvids = vi.fn(async () => ({ success: 3, failed: 0 }));
     useFavListStore.setState({
