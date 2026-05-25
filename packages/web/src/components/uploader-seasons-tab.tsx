@@ -39,6 +39,7 @@ import { MediaLoadingDialog } from '@/components/dialogs/media-loading-dialog';
 import { PageRangeDialog } from '@/components/dialogs/page-range-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -606,60 +607,75 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack, headerSlot }: Seas
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       {headerSlot ? (
         createPortal(headerContent, headerSlot)
       ) : (
         <div className="flex flex-wrap items-center gap-2">{headerContent}</div>
       )}
 
-      {isLoading && archives.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
-          加载中…
-        </div>
-      ) : archives.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
-          合集是空的
-        </div>
-      ) : filteredVisible.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
-          没有找到关键词为"{searchKey}"的结果
-        </div>
-      ) : favViewMode === 'thumbnail' ? (
-        <div className="grid grid-cols-2 gap-3 rounded-md border p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {filteredVisible.map((video) => (
-            <ThumbnailGridCard
-              key={video.bvid}
-              video={video}
-              isPlaying={currentTrackId === video.bvid}
-              onClick={() => addSingle(video.bvid, true)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1 rounded-md border p-2">
-          {filteredVisible.map((video) => (
-            <VideoItem
-              key={video.bvid}
-              video={video}
-              favId={favId}
-              fullCreateTime
-              showAddBtn
-              showAddToPlayBtn
-            />
-          ))}
-        </div>
-      )}
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border">
+        {isLoading && archives.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+            加载中…
+          </div>
+        ) : archives.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+            合集是空的
+          </div>
+        ) : filteredVisible.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+            没有找到关键词为"{searchKey}"的结果
+          </div>
+        ) : favViewMode === 'thumbnail' ? (
+          <div
+            className={cn(
+              'absolute inset-0 grid grid-cols-2 content-start gap-3 overflow-auto p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
+              totalPages > 1 && 'pb-14',
+            )}
+          >
+            {filteredVisible.map((video) => (
+              <ThumbnailGridCard
+                key={video.bvid}
+                video={video}
+                isPlaying={currentTrackId === video.bvid}
+                onClick={() => addSingle(video.bvid, true)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div
+            className={cn(
+              'absolute inset-0 flex flex-col gap-1 overflow-auto p-2',
+              totalPages > 1 && 'pb-14',
+            )}
+          >
+            {filteredVisible.map((video) => (
+              <VideoItem
+                key={video.bvid}
+                video={video}
+                favId={favId}
+                fullCreateTime
+                showAddBtn
+                showAddToPlayBtn
+              />
+            ))}
+          </div>
+        )}
 
-      {totalPages > 1 && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          hasMore={hasMore}
-          disabled={isLoading}
-          onChange={setPage}
-        />
-      )}
+        {/* 底部浮层：分页栏叠在列表上方（半透明+模糊），列表滚动内容末尾留 pb-14 安全区避免被遮挡 */}
+        {totalPages > 1 && (
+          <div className="absolute inset-x-0 bottom-0 border-t bg-background/80 backdrop-blur-sm">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              hasMore={hasMore}
+              disabled={isLoading}
+              onChange={setPage}
+            />
+          </div>
+        )}
+      </div>
 
       <MediaLoadingDialog
         loading={allArchives.isLoading}
@@ -692,29 +708,31 @@ interface PaginationProps {
 
 function Pagination({ page, totalPages, hasMore, disabled, onChange }: PaginationProps) {
   return (
-    <div className="flex items-center justify-center gap-2 py-2">
+    <div className="flex shrink-0 items-center justify-center gap-1.5 py-1">
       <Button
         variant="outline"
         size="sm"
+        className="h-8 gap-1 px-2.5 text-xs"
         onClick={() => onChange(page - 1)}
         disabled={disabled || page <= 1}
         aria-label="上一页"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-3.5 w-3.5" />
         上一页
       </Button>
-      <span className="px-2 text-xs text-muted-foreground">
+      <span className="px-1 text-xs text-muted-foreground">
         {page} / {totalPages}
       </span>
       <Button
         variant="outline"
         size="sm"
+        className="h-8 gap-1 px-2.5 text-xs"
         onClick={() => onChange(page + 1)}
         disabled={disabled || !hasMore}
         aria-label="下一页"
       >
         下一页
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-3.5 w-3.5" />
       </Button>
     </div>
   );
