@@ -24,6 +24,7 @@ import {
   isExplicitPageTrackId,
   urlPrefixFixed,
   formatPlayTime,
+  formatTimeLyric,
   getPlatformBridge,
   type LoopMode,
 } from '@shuoshuo-player/shared';
@@ -61,6 +62,7 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
   const openAddToFav = useUIShell((s) => s.openAddToFav);
   const showLyric = useUIShell((s) => s.showLyric);
   const toggleLyric = useUIShell((s) => s.toggleLyric);
+  const lyricEditing = useUIShell((s) => s.lyricEditing);
   const floatingLyricsEnabled = usePlayerProfileStore((s) => s.floatingLyrics.enabled);
   const toggleFloatingLyrics = usePlayerProfileStore((s) => s.toggleFloatingLyrics);
 
@@ -132,6 +134,15 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
           onMouseEnter={handleProgressMouseEnter}
           onMouseLeave={handleProgressMouseLeave}
         >
+          {/* 歌词编辑模式：时间气泡，跟随滑块显示 */}
+          {lyricEditing && player.duration > 0 && (
+            <div
+              className="absolute -top-6 -translate-x-1/2 rounded-md bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground shadow-sm"
+              style={{ left: `${(player.progress / player.duration) * 100}%` }}
+            >
+              {formatTimeLyric(player.progress * 1000)}
+            </div>
+          )}
           <Slider
             value={[player.progress]}
             max={Math.max(player.duration, 0.01)}
