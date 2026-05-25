@@ -24,6 +24,8 @@ export interface NoticeItem {
   close: boolean;
   /** 操作按钮 */
   action: NoticeAction | null;
+  /** 多操作按钮（非空时优先于 action 渲染；首项为主按钮，其余为次按钮，用于双按钮场景如更新提示） */
+  actions: NoticeAction[] | null;
 }
 
 export type SendNoticePayload = Partial<Omit<NoticeItem, 'message'>> & {
@@ -53,6 +55,7 @@ export const useUIStore = create<UIState>((set) => ({
       duration: notice.duration ?? null,
       close: notice.close ?? true,
       action: notice.action ?? null,
+      actions: notice.actions ?? null,
     };
     set((state) => {
       const idx = state.notices.findIndex((n) => n.id === id);

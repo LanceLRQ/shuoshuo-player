@@ -7,6 +7,7 @@ import {
   setPlatformBridge,
   triggerWbiRefresh,
   useBilibiliUserStore,
+  useUpdateCheckerStore,
 } from '@shuoshuo-player/shared';
 import App from './App';
 import { createTauriPlatformBridge } from '@desktop/lib/platform';
@@ -58,6 +59,12 @@ bootstrapPersistence()
     void triggerWbiRefresh().catch(() => {
       /* noop */
     });
+
+    // 启动 5 秒后跑一次更新检查（store 内部节流 6h），避免与 wbi 初始化抢资源；
+    // UpdateNotifier 据此在桌面端弹「查看详情 / 发布页」双按钮提示
+    setTimeout(() => {
+      void useUpdateCheckerStore.getState().check();
+    }, 5000);
 
     setTimeout(() => {
       if (!useBilibiliUserStore.getState().isInited) {
