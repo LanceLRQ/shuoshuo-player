@@ -56,6 +56,10 @@ interface UIShellState {
   showLyric: boolean;
   toggleLyric: () => void;
   closeLyric: () => void;
+
+  /** 是否有歌词编辑器处于活动编辑态（LyricEditor mount）；供播放核心在曲终时改循环不切歌 */
+  lyricEditing: boolean;
+  setLyricEditing: (editing: boolean) => void;
 }
 
 export interface ConfirmConfig {
@@ -128,4 +132,7 @@ export const useUIShell = create<UIShellState>((set) => ({
   showLyric: false,
   toggleLyric: () => set((s) => ({ showLyric: !s.showLyric })),
   closeLyric: () => set({ showLyric: false }),
+
+  lyricEditing: false,
+  setLyricEditing: (editing) => set({ lyricEditing: editing }),
 }));

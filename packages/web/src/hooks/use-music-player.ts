@@ -21,6 +21,7 @@ import {
   type FetchMusicUrlError,
 } from '@shuoshuo-player/shared';
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
+import { useUIShell } from '@/stores/ui-shell';
 
 interface PlayerState {
   isLoading: boolean;
@@ -209,7 +210,10 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   }, [getPrevIndex, loopMode, updateCurrentPlaying]);
 
   const handleEnd = useCallback(() => {
-    if (loopMode === 'single' && howlRef.current) {
+    // 编辑歌词期间：曲终强制循环当前曲、不切歌，避免触发 LyricEditor 切曲重置丢失未保存编辑。
+    // 用 getState() 即时读取（非订阅），不让编辑态切换重建 handleEnd / 触发播放核心重渲染。
+    const isEditingLyric = useUIShell.getState().lyricEditing;
+    if ((isEditingLyric || loopMode === 'single') && howlRef.current) {
       howlRef.current.seek(0);
       howlRef.current.play();
       return;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatTimeLyric } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import {
@@ -50,21 +50,14 @@ export function LyricTable({
     return idx;
   })();
 
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // 当前行变化时滚动到视图（仅当播放器在驱动）
-  useEffect(() => {
-    if (currentLineIdx < 0) return;
-    const el = containerRef.current?.querySelector<HTMLElement>(`[data-row="${currentLineIdx}"]`);
-    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [currentLineIdx]);
-
   return (
     // 改用原生 overflow-y-auto div：Radix ScrollArea 的 Viewport 内置一层 display:table
     // 包裹，会破坏 sticky 元素的 containing block；用裸 div 作为滚动祖先 sticky 才稳。
     // wrapperClassName=overflow-visible 取消 Table 自带 overflow-auto wrapper，
     // 让 sticky 直接锚定到外层 div。
-    <div ref={containerRef} className="h-full overflow-y-auto">
+    // 不做随播放进度的自动滚动：编辑态下用户需自由翻看/校时间轴，靠双击行对拍即可，
+    // 自动跟随会反复把列表拉回当前播放行，打断编辑。
+    <div className="h-full overflow-y-auto">
       <Table wrapperClassName="overflow-visible">
         <TableHeader className="sticky top-0 z-10 bg-background">
           <TableRow>
@@ -151,7 +144,13 @@ function EditableRow({
     <TableRow
       data-row={idx}
       data-state={selected ? 'selected' : undefined}
-      className={cn(isCurrent && 'bg-primary/10')}
+      // 当前播放行用左色条 + 文字色 + 字重标识：这三者不占用 background-color，
+      // 与选中态 data-[state=selected]:bg-muted 不冲突，全选调时间轴时仍可辨认当前行。
+      // border-l-transparent 常驻占位，避免高亮时行宽跳动。
+      className={cn(
+        'border-l-2 border-l-transparent',
+        isCurrent && 'border-l-primary font-medium text-primary',
+      )}
       onDoubleClick={() => onSeek(line.time)}
     >
       <TableCell>

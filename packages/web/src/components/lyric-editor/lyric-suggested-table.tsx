@@ -79,7 +79,11 @@ export function LyricSuggestedTable({
               <TableRow
                 key={idx}
                 data-state={selectedRows.has(idx) ? 'selected' : undefined}
-                className={cn(idx === currentLineIdx && 'bg-primary/10')}
+                // 与主表一致：左色条 + 文字色标识当前行，不与选中态 bg-muted 抢背景色
+                className={cn(
+                  'border-l-2 border-l-transparent',
+                  idx === currentLineIdx && 'border-l-primary font-medium text-primary',
+                )}
                 onDoubleClick={() => onSeek?.(line.time)}
               >
                 <TableCell>
