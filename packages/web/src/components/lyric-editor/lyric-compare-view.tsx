@@ -17,7 +17,10 @@ interface LyricCompareViewProps {
   // 主列表（左）
   mainLines: LyricLine[];
   mainSelectedRows: Set<number>;
+  setMainSelectedRows: (next: Set<number>) => void;
   currentMillisecond: number;
+  /** 是否正在播放：未播放时禁用跳转按钮 */
+  isPlaying?: boolean;
   onMainSeek: (timeMs: number) => void;
   onMainToggleSelect: (idx: number, selected: boolean) => void;
   onMainToggleSelectAll: (selected: boolean) => void;
@@ -26,6 +29,7 @@ interface LyricCompareViewProps {
   // 暂存列表（右）
   suggestedLines: LyricLine[];
   suggestedSelected: Set<number>;
+  setSuggestedSelected: (next: Set<number>) => void;
   onSuggestedToggleSelect: (idx: number, selected: boolean) => void;
   onSuggestedToggleSelectAll: (selected: boolean) => void;
   onSuggestedSeek?: (timeMs: number) => void;
@@ -55,7 +59,9 @@ export function LyricCompareView(props: LyricCompareViewProps) {
           <LyricTable
             lines={props.mainLines}
             selectedRows={props.mainSelectedRows}
+            setSelectedRows={props.setMainSelectedRows}
             currentMillisecond={props.currentMillisecond}
+            isPlaying={props.isPlaying}
             onSeek={props.onMainSeek}
             onToggleSelect={props.onMainToggleSelect}
             onToggleSelectAll={props.onMainToggleSelectAll}
@@ -150,6 +156,7 @@ export function LyricCompareView(props: LyricCompareViewProps) {
           <LyricSuggestedTable
             lines={props.suggestedLines}
             selectedRows={props.suggestedSelected}
+            setSelectedRows={props.setSuggestedSelected}
             currentMillisecond={props.currentMillisecond}
             onSeek={props.onSuggestedSeek}
             onToggleSelect={props.onSuggestedToggleSelect}

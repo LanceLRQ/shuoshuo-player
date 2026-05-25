@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import type * as React from 'react';
 import { formatTimeLyric } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import {
@@ -10,6 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { LyricLine } from './lyric-table';
+import { useRowRangeSelection } from './use-row-range-selection';
 
 /**
  * 暂存歌词只读表格（compare 视图右列使用）
@@ -23,6 +26,8 @@ import type { LyricLine } from './lyric-table';
 interface LyricSuggestedTableProps {
   lines: LyricLine[];
   selectedRows: Set<number>;
+  /** 选择集 setter：拖动框选 / 修饰键多选直接操作（复选框仍走 onToggleSelect） */
+  setSelectedRows: (next: Set<number>) => void;
   /** 当前播放进度（毫秒），用于行高亮（与主表保持视觉一致） */
   currentMillisecond: number;
   /** 双击行 → 跳转到该时间戳（毫秒），可选 */
@@ -34,6 +39,7 @@ interface LyricSuggestedTableProps {
 export function LyricSuggestedTable({
   lines,
   selectedRows,
+  setSelectedRows,
   currentMillisecond,
   onSeek,
   onToggleSelect,
@@ -49,10 +55,20 @@ export function LyricSuggestedTable({
     return idx;
   })();
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  // 暂存表只读、无 inline 编辑，拖动框选恒可用（disabled 不传）；双击行保留 seek（无编辑冲突）
+  const { getRowHandlers, marquee, suppressNextClick } = useRowRangeSelection({
+    selectedRows,
+    setSelectedRows,
+    rowCount: lines.length,
+    containerRef,
+  });
+
   return (
     // 与 LyricTable 同模式：原生 overflow-y-auto + Table wrapper overflow-visible，
     // sticky thead 锚定到外层 div，不依赖 Radix ScrollArea
-    <div className="h-full overflow-y-auto">
+    // relative：橡皮筋选框的定位锚点
+    <div ref={containerRef} className="relative h-full overflow-y-auto">
       <Table wrapperClassName="overflow-visible">
         <TableHeader className="sticky top-0 z-10 bg-background">
           <TableRow>
@@ -78,13 +94,21 @@ export function LyricSuggestedTable({
             lines.map((line, idx) => (
               <TableRow
                 key={idx}
+                data-row={idx}
                 data-state={selectedRows.has(idx) ? 'selected' : undefined}
                 // 与主表一致：左色条 + 文字色标识当前行，不与选中态 bg-muted 抢背景色
+                // cursor-pointer/select-none：整行可点选、拖动框选不选中文本
                 className={cn(
-                  'border-l-2 border-l-transparent',
+                  'cursor-pointer select-none border-l-2 border-l-transparent',
                   idx === currentLineIdx && 'border-l-primary font-medium text-primary',
                 )}
-                onDoubleClick={() => onSeek?.(line.time)}
+                // 整行：单击选中 / 修饰键多选 / 拖动框选（自动排除复选框）
+                {...getRowHandlers(idx)}
+                // 暂存表无编辑，双击行保留 seek；拖动尾随的 dblclick 守卫
+                onDoubleClick={() => {
+                  if (suppressNextClick()) return;
+                  onSeek?.(line.time);
+                }}
               >
                 <TableCell>
                   <Checkbox
@@ -104,6 +128,18 @@ export function LyricSuggestedTable({
           )}
         </TableBody>
       </Table>
+      {marquee && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute z-0 rounded-sm border border-primary/60 bg-primary/10"
+          style={{
+            left: marquee.left,
+            top: marquee.top,
+            width: marquee.width,
+            height: marquee.height,
+          }}
+        />
+      )}
     </div>
   );
 }
