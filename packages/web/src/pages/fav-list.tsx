@@ -284,6 +284,7 @@ export function FavListPage() {
           items={thumbnailItems}
           currentTrackId={currentTrackId}
           onItemClick={handleThumbnailClick}
+          onItemRemove={isTypeCustom ? (item) => handleRemoveSong(item.trackId) : undefined}
         />
       ) : (
         <div

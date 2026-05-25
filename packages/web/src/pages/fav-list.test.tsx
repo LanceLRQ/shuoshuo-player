@@ -32,11 +32,13 @@ vi.mock('@/components/video-thumbnail-grid', () => ({
   VideoThumbnailGrid: ({
     items,
     onItemClick,
+    onItemRemove,
   }: {
     items: Array<{ video: { bvid: string; title: string }; trackId: string }>;
     onItemClick: (item: { trackId: string; video: { bvid: string } }) => void;
+    onItemRemove?: (item: { trackId: string }) => void;
   }) => (
-    <div data-testid="thumbnail-grid">
+    <div data-testid="thumbnail-grid" data-has-remove={onItemRemove ? 'yes' : 'no'}>
       {items.map((it) => (
         <div
           key={it.trackId}
@@ -313,5 +315,17 @@ describe('FavListPage', () => {
     const cards = screen.getAllByTestId('thumbnail-card');
     fireEvent.click(cards[0]);
     expect(addSingle).toHaveBeenCalledWith('BV1', true);
+  });
+
+  it('缩略图模式：CUSTOM 歌单向网格传入移除回调（卡片右键菜单可移除）', () => {
+    usePlayerProfileStore.setState({ favViewMode: 'thumbnail' });
+    useBilibiliVideosStore.setState({
+      ids: ['BV1'],
+      entities: { BV1: { bvid: 'BV1', title: 'Track A' } as never },
+    });
+    useFavListStore.setState({ list: [makeFav()] });
+
+    renderAt('fav-x');
+    expect(screen.getByTestId('thumbnail-grid')).toHaveAttribute('data-has-remove', 'yes');
   });
 });

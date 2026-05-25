@@ -28,6 +28,8 @@ export interface VideoThumbnailGridProps {
   /** 当前播放 trackId，用于卡片高亮 */
   currentTrackId?: string;
   onItemClick: (item: ThumbnailGridItem) => void;
+  /** 存在则卡片右键菜单显示「移除歌曲」（仅歌单内传入） */
+  onItemRemove?: (item: ThumbnailGridItem) => void;
 }
 
 /**
@@ -41,6 +43,7 @@ export function VideoThumbnailGrid({
   items,
   currentTrackId,
   onItemClick,
+  onItemRemove,
 }: VideoThumbnailGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -100,12 +103,13 @@ export function VideoThumbnailGrid({
               explicitPage={item.explicitPage}
               isPlaying={currentTrackId === item.trackId}
               onClick={() => onItemClick(item)}
+              onRemove={onItemRemove ? () => onItemRemove(item) : undefined}
             />
           ))}
         </div>
       );
     },
-    [items, cols, currentTrackId, onItemClick],
+    [items, cols, currentTrackId, onItemClick, onItemRemove],
   );
 
   return (
