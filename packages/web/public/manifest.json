@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "说说播放器-水晶蟹定制版",
-  "version": "1.9.5",
+  "version": "1.9.6",
   "description": "说说播放器是一款基于Bilibili的第三方音乐播放器，可以将说宝B站视频投稿变成你的歌单，沉浸式享受音乐盛宴",
   "icons": {
     "16": "logo16.png",
