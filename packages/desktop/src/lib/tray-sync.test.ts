@@ -113,7 +113,7 @@ describe('tray-sync', () => {
     expect(togglePlay).toHaveBeenCalledTimes(1);
   });
 
-  it('长标题被截断到 40 字符 + 省略号', async () => {
+  it('长标题被截断到 15 字形 + 省略号', async () => {
     startTraySync();
     vi.advanceTimersByTime(250);
     await Promise.resolve();
@@ -131,8 +131,31 @@ describe('tray-sync', () => {
     const labelCall = mockInvoke.mock.calls.find((c) => c[0] === 'tray_set_track_label');
     expect(labelCall).toBeDefined();
     const label = labelCall![1].label as string;
-    expect(label.length).toBeLessThanOrEqual(40);
+    expect(Array.from(label).length).toBeLessThanOrEqual(15);
     expect(label.endsWith('…')).toBe(true);
+  });
+
+  it('含 emoji 的长标题按码点截断，不产生半个代理对', async () => {
+    startTraySync();
+    vi.advanceTimersByTime(250);
+    await Promise.resolve();
+    mockInvoke.mockClear();
+
+    const emojiTitle = '🎵'.repeat(20); // 每个 emoji 占 2 个 UTF-16 code unit
+    useBilibiliVideosStore.setState({
+      ids: ['BV4'],
+      entities: { BV4: makeVideo('BV4', emojiTitle, '') },
+    });
+    usePlayingListStore.setState({ current: 'BV4' });
+    vi.advanceTimersByTime(250);
+    await Promise.resolve();
+
+    const labelCall = mockInvoke.mock.calls.find((c) => c[0] === 'tray_set_track_label');
+    expect(labelCall).toBeDefined();
+    const label = labelCall![1].label as string;
+    expect(Array.from(label).length).toBeLessThanOrEqual(15);
+    // 不含孤立代理项（slice 截半 emoji 的产物）
+    expect(/\p{Surrogate}/u.test(label)).toBe(false);
   });
 
   it('同标签重复变化时去重（不触发额外 invoke）', async () => {

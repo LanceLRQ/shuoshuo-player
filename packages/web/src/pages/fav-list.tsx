@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import Fuse from 'fuse.js';
@@ -17,6 +17,8 @@ import {
   useBilibiliVideosStore,
   useFavListStore,
   useFavoritesStore,
+  usePlayerProfileStore,
+  usePlayingListStore,
   useUIStore,
   selectSortedBvids,
   parseTrackId,
@@ -27,6 +29,8 @@ import {
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { VideoItem } from '@/components/video-item';
+import { ViewModeToggle } from '@/components/view-mode-toggle';
+import { VideoThumbnailGrid, type ThumbnailGridItem } from '@/components/video-thumbnail-grid';
 import { FavCard } from '@/components/fav-card';
 import { UploaderSeasonsTab } from '@/components/uploader-seasons-tab';
 import { Input } from '@/components/ui/input';
@@ -67,6 +71,8 @@ export function FavListPage() {
   const [searchKey, setSearchKey] = useState('');
   const [favoritesOrder, setFavoritesOrder] = useState<FavoritesOrder>('desc');
   const parentRef = useRef<HTMLDivElement>(null);
+  // 合集详情 header 通过 Portal 提到 Tab 行，与「视频投稿/合集」Tab 合并成一行；此为 portal 目标容器
+  const [seasonHeaderSlot, setSeasonHeaderSlot] = useState<HTMLDivElement | null>(null);
 
   const favList = useFavListStore((s) => s.list);
   const removeFavVideo = useFavListStore((s) => s.removeFavVideo);
@@ -79,6 +85,10 @@ export function FavListPage() {
 
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openConfirm = useUIShell((s) => s.openConfirm);
+
+  const favViewMode = usePlayerProfileStore((s) => s.favViewMode);
+  const setFavViewMode = usePlayerProfileStore((s) => s.setFavViewMode);
+  const currentTrackId = usePlayingListStore((s) => s.current);
 
   // 切换 favId 时清空搜索框
   useEffect(() => {
@@ -167,6 +177,22 @@ export function FavListPage() {
     overscan: 5,
   });
 
+  // 缩略图网格条目（保留 trackId 与 explicitPage：CUSTOM/favorites 条目可能含 :p<n>）
+  const thumbnailItems = useMemo<ThumbnailGridItem[]>(
+    () =>
+      filteredVideos.map((r) => ({
+        video: r.video,
+        trackId: r.trackId,
+        explicitPage: r.explicitPage,
+      })),
+    [filteredVideos],
+  );
+
+  // 点击缩略图：复用 VideoItem 同款语义——favId 存在时 addSingle 加载整张歌单并播放该条
+  const handleThumbnailClick = useCallback((item: ThumbnailGridItem) => {
+    usePlayingListStore.getState().addSingle(item.trackId, true);
+  }, []);
+
   const handleRemoveSong = (trackId: string) => {
     if (!isTypeCustom) return;
     const isFav = isFavoritesPage;
@@ -194,111 +220,127 @@ export function FavListPage() {
     );
   }
 
-  /* "视频投稿"区块（搜索栏 + 列表/空态），单独抽取以便 UPLOADER 类型嵌入 Tab、其他类型直接渲染 */
-  const videosSection: ReactNode = (
-    <>
-      {favVideoList.length > 0 && (
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="搜索歌曲（标题 / 作者 / 简介）"
-              value={searchKey}
-              onChange={(e) => setSearchKey(e.target.value)}
-              className="pl-9"
-            />
-            {searchKey && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                onClick={() => setSearchKey('')}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-          {isFavoritesPage && (
+  /* 搜索栏内容（搜索框 + 排序 + 视图切换 + 命中）：UPLOADER 与 Tabs 合并一行，其他类型独立成行 */
+  const searchBarContent: ReactNode =
+    favVideoList.length > 0 ? (
+      <>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="搜索歌曲（标题 / 作者 / 简介）"
+            value={searchKey}
+            onChange={(e) => setSearchKey(e.target.value)}
+            className="pl-9"
+          />
+          {searchKey && (
             <Button
-              variant="outline"
-              size="sm"
-              className="h-9 shrink-0 gap-1"
-              onClick={() => setFavoritesOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              onClick={() => setSearchKey('')}
             >
-              {favoritesOrder === 'desc' ? (
-                <ArrowDownNarrowWide className="h-3.5 w-3.5" />
-              ) : (
-                <ArrowUpNarrowWide className="h-3.5 w-3.5" />
-              )}
-              {favoritesOrder === 'desc' ? '最新收藏在前' : '最早收藏在前'}
+              <X className="h-3 w-3" />
             </Button>
           )}
-          {searchKey && (
-            <span className="text-xs text-muted-foreground">
-              命中 {filteredVideos.length} / {favVideoList.length}
-            </span>
-          )}
         </div>
-      )}
-      {filteredVideos.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-          {searchKey ? (
-            <>
-              <AlertCircle className="h-6 w-6" />
-              没有找到关键词为"{searchKey}"的结果
-            </>
-          ) : (
-            <>
-              <FolderOpen className="h-6 w-6" />
-              {favVideoList.length === 0 ? '歌单是空的' : '没有可显示的视频'}
-            </>
-          )}
-        </div>
-      ) : (
-        <div
-          ref={parentRef}
-          className="flex-1 overflow-auto rounded-md border"
-          style={{ contain: 'strict' }}
-        >
-          <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              position: 'relative',
-              width: '100%',
-            }}
+        {isFavoritesPage && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0 gap-1"
+            onClick={() => setFavoritesOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
           >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const row = filteredVideos[virtualRow.index];
-              return (
-                <div
-                  key={virtualRow.key}
-                  data-index={virtualRow.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  <div className="px-2 py-1">
-                    <VideoItem
-                      video={row.video}
-                      explicitPage={row.explicitPage}
-                      favId={favId}
-                      fullCreateTime
-                      showAuthor={isTypeCustom}
-                      showRemoveBtn={isTypeCustom}
-                      onRemove={() => handleRemoveSong(row.trackId)}
-                    />
-                  </div>
+            {favoritesOrder === 'desc' ? (
+              <ArrowDownNarrowWide className="h-3.5 w-3.5" />
+            ) : (
+              <ArrowUpNarrowWide className="h-3.5 w-3.5" />
+            )}
+            {favoritesOrder === 'desc' ? '最新收藏在前' : '最早收藏在前'}
+          </Button>
+        )}
+        <ViewModeToggle value={favViewMode} onChange={setFavViewMode} />
+        {searchKey && (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            命中 {filteredVideos.length} / {favVideoList.length}
+          </span>
+        )}
+      </>
+    ) : null;
+
+  /* 列表/空态区块（list 虚拟滚动 或 thumbnail 网格） */
+  const listSection: ReactNode =
+    filteredVideos.length === 0 ? (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        {searchKey ? (
+          <>
+            <AlertCircle className="h-6 w-6" />
+            没有找到关键词为"{searchKey}"的结果
+          </>
+        ) : (
+          <>
+            <FolderOpen className="h-6 w-6" />
+            {favVideoList.length === 0 ? '歌单是空的' : '没有可显示的视频'}
+          </>
+        )}
+      </div>
+    ) : favViewMode === 'thumbnail' ? (
+      <VideoThumbnailGrid
+        items={thumbnailItems}
+        currentTrackId={currentTrackId}
+        onItemClick={handleThumbnailClick}
+        onItemRemove={isTypeCustom ? (item) => handleRemoveSong(item.trackId) : undefined}
+      />
+    ) : (
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-auto rounded-md border"
+        style={{ contain: 'strict' }}
+      >
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            position: 'relative',
+            width: '100%',
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const row = filteredVideos[virtualRow.index];
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <div className="px-2 py-1">
+                  <VideoItem
+                    video={row.video}
+                    explicitPage={row.explicitPage}
+                    favId={favId}
+                    fullCreateTime
+                    showAuthor={isTypeCustom}
+                    showRemoveBtn={isTypeCustom}
+                    onRemove={() => handleRemoveSong(row.trackId)}
+                  />
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
+    );
+
+  /* 非 UPLOADER 类型：搜索行（独立成行）+ 列表 */
+  const videosSection: ReactNode = (
+    <>
+      {searchBarContent && <div className="flex items-center gap-2">{searchBarContent}</div>}
+      {listSection}
     </>
   );
 
@@ -329,10 +371,24 @@ export function FavListPage() {
           onValueChange={handleTabChange}
           className="flex min-h-0 flex-1 flex-col gap-4"
         >
-          <TabsList className="w-fit">
-            <TabsTrigger value="videos">视频投稿</TabsTrigger>
-            <TabsTrigger value="seasons">合集</TabsTrigger>
-          </TabsList>
+          {/*
+           * Tab 与右侧内容合并一行：
+           *   视频投稿 Tab → 右侧搜索栏；合集 Tab → 右侧是 SeasonDetail 经 Portal 提上来的合集详情 header。
+           * flex-wrap 让窄屏（扩展弹窗 ~400px）下右侧内容回落到第二行。
+           */}
+          <div className="flex flex-wrap items-center gap-2">
+            <TabsList className="w-fit shrink-0">
+              <TabsTrigger value="videos">视频投稿</TabsTrigger>
+              <TabsTrigger value="seasons">合集</TabsTrigger>
+            </TabsList>
+            {tab === 'videos' && searchBarContent}
+            {tab === 'seasons' && (
+              <div
+                ref={setSeasonHeaderSlot}
+                className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+              />
+            )}
+          </div>
           {/*
            * forceMount 让两个 Tab 内容常驻 DOM（仅由 CSS hidden 控制显隐）。
            * 默认行为下 Radix Tabs.Content 在 inactive 时会 unmount，导致：
@@ -344,14 +400,14 @@ export function FavListPage() {
             forceMount
             className="mt-0 flex min-h-0 flex-1 flex-col gap-4 data-[state=inactive]:hidden"
           >
-            {videosSection}
+            {listSection}
           </TabsContent>
           <TabsContent
             value="seasons"
             forceMount
             className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
           >
-            <UploaderSeasonsTab mid={uploaderMid} favId={favId} />
+            <UploaderSeasonsTab mid={uploaderMid} favId={favId} headerSlot={seasonHeaderSlot} />
           </TabsContent>
         </Tabs>
       ) : (

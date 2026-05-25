@@ -100,6 +100,10 @@ export interface PlayerProfile {
    * 与播放器循环模式、单条点击行为正交，仅作用于合集详情顶部"以合集为歌单播放"按钮。
    */
   collectionPlayBehavior: CollectionPlayBehavior;
+  /** 首页「最新投稿」列表的展示模式；老用户缺该字段时 fallback DEFAULT_HOME_VIEW_MODE */
+  homeViewMode: VideoListViewMode;
+  /** 歌单页列表的展示模式（所有歌单共享一个偏好）；fallback DEFAULT_FAV_VIEW_MODE */
+  favViewMode: VideoListViewMode;
 }
 
 /** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致；#FF6687 中粉） */
@@ -132,3 +136,12 @@ export type CollectionPlayBehavior = 'replace' | 'append';
 
 /** 默认：替换当前队列。符合"现在听这个合集"的直觉用法 */
 export const DEFAULT_COLLECTION_PLAY_BEHAVIOR: CollectionPlayBehavior = 'replace';
+
+/** 视频列表展示模式：'list' 单行列表 / 'thumbnail' 3:2 封面网格 */
+export type VideoListViewMode = 'list' | 'thumbnail';
+
+/** 首页默认缩略图（封面优先，符合"浏览最新投稿"的直觉） */
+export const DEFAULT_HOME_VIEW_MODE: VideoListViewMode = 'thumbnail';
+
+/** 歌单默认列表（信息密度优先，符合"管理 / 检索歌曲"的场景） */
+export const DEFAULT_FAV_VIEW_MODE: VideoListViewMode = 'list';

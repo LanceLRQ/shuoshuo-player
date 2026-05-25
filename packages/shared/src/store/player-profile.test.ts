@@ -2,7 +2,9 @@ import { usePlayerProfileStore } from './player-profile';
 import {
   DEFAULT_CLOSE_ACTION,
   DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+  DEFAULT_FAV_VIEW_MODE,
   DEFAULT_FLOATING_LYRICS,
+  DEFAULT_HOME_VIEW_MODE,
 } from '../types';
 
 function reset() {
@@ -15,6 +17,8 @@ function reset() {
     closeAction: DEFAULT_CLOSE_ACTION,
     closeActionFirstRunPrompted: false,
     collectionPlayBehavior: DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+    homeViewMode: DEFAULT_HOME_VIEW_MODE,
+    favViewMode: DEFAULT_FAV_VIEW_MODE,
   });
 }
 
@@ -230,6 +234,29 @@ describe('usePlayerProfileStore', () => {
       // @ts-expect-error 测试非法值
       usePlayerProfileStore.getState().setCollectionPlayBehavior('queue');
       expect(usePlayerProfileStore.getState().collectionPlayBehavior).toBe('append');
+    });
+  });
+
+  describe('视图模式偏好（home / fav）', () => {
+    it('默认值：home=thumbnail / fav=list', () => {
+      expect(usePlayerProfileStore.getState().homeViewMode).toBe(DEFAULT_HOME_VIEW_MODE);
+      expect(usePlayerProfileStore.getState().favViewMode).toBe(DEFAULT_FAV_VIEW_MODE);
+      expect(DEFAULT_HOME_VIEW_MODE).toBe('thumbnail');
+      expect(DEFAULT_FAV_VIEW_MODE).toBe('list');
+    });
+
+    it('setHomeViewMode / setFavViewMode 切换合法枚举', () => {
+      usePlayerProfileStore.getState().setHomeViewMode('list');
+      expect(usePlayerProfileStore.getState().homeViewMode).toBe('list');
+      usePlayerProfileStore.getState().setFavViewMode('thumbnail');
+      expect(usePlayerProfileStore.getState().favViewMode).toBe('thumbnail');
+    });
+
+    it('非法值被忽略（防御导入脏数据）', () => {
+      usePlayerProfileStore.getState().setHomeViewMode('list');
+      // @ts-expect-error 测试非法值
+      usePlayerProfileStore.getState().setHomeViewMode('grid');
+      expect(usePlayerProfileStore.getState().homeViewMode).toBe('list');
     });
   });
 

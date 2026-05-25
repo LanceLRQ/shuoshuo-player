@@ -7,12 +7,16 @@ import { Button } from '@/components/ui/button';
 
 interface CarouselProps<T> {
   slides: T[];
-  /** 渲染单张幻灯片 */
-  renderSlide: (item: T, index: number) => React.ReactNode;
+  /** 渲染单张幻灯片；isSelected 标识是否为当前居中的焦点张 */
+  renderSlide: (item: T, index: number, isSelected: boolean) => React.ReactNode;
   /** 自动播放间隔（ms），默认 4000，与 v1 对齐 */
   autoplayDelay?: number;
   /** 是否启用循环（默认 true） */
   loop?: boolean;
+  /** 对齐方式：'start' 左对齐（默认），'center' 居中并在两侧 peek 相邻张 */
+  align?: 'start' | 'center';
+  /** 每张 slide 外层 wrapper 的宽度/间距类；默认整宽 */
+  slideClassName?: string;
   className?: string;
   onSlideClick?: (item: T, index: number) => void;
 }
@@ -22,10 +26,12 @@ export function Carousel<T>({
   renderSlide,
   autoplayDelay = 4000,
   loop = true,
+  align = 'start',
+  slideClassName = 'flex-[0_0_100%]',
   className,
   onSlideClick,
 }: CarouselProps<T>) {
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop }, [
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop, align }, [
     Autoplay({ delay: autoplayDelay, stopOnInteraction: false }),
   ]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -73,10 +79,10 @@ export function Carousel<T>({
           {slides.map((slide, index) => (
             <div
               key={index}
-              className="min-w-0 flex-[0_0_100%] cursor-pointer"
+              className={cn('min-w-0 cursor-pointer', slideClassName)}
               onClick={() => onSlideClick?.(slide, index)}
             >
-              {renderSlide(slide, index)}
+              {renderSlide(slide, index, index === selectedIndex)}
             </div>
           ))}
         </div>

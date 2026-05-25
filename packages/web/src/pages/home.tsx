@@ -7,6 +7,7 @@ import {
   useBilibiliUserVideosStore,
   useBilibiliVideosStore,
   usePlayingListStore,
+  usePlayerProfileStore,
   useUIStore,
   timeStampNow,
   urlPrefixFixed,
@@ -15,6 +16,9 @@ import {
 } from '@shuoshuo-player/shared';
 import { VideoItem } from '@/components/video-item';
 import { Carousel } from '@/components/carousel';
+import { ViewModeToggle } from '@/components/view-mode-toggle';
+import { VideoThumbnailGrid, type ThumbnailGridItem } from '@/components/video-thumbnail-grid';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -42,6 +46,9 @@ export function HomePage() {
 
   const videoEntities = useBilibiliVideosStore((s) => s.entities);
   const setPlaylist = usePlayingListStore((s) => s.setPlaylist);
+  const currentTrackId = usePlayingListStore((s) => s.current);
+  const homeViewMode = usePlayerProfileStore((s) => s.homeViewMode);
+  const setHomeViewMode = usePlayerProfileStore((s) => s.setHomeViewMode);
   const loaded = useBilibiliUserVideosStore((s) => s.loaded);
   const progressTotal = useBilibiliUserVideosStore((s) => s.progressTotal);
   const cancelRefresh = useBilibiliUserVideosStore((s) => s.cancelRefresh);
@@ -57,8 +64,8 @@ export function HomePage() {
     return list.map((it) => videoEntities[it.bvid]).filter((v): v is BilibiliVideo => Boolean(v));
   }, [videoListInfo, videoEntities]);
 
-  // 顶部轮播：最新 5 条（按 created 倒序）
-  const carouselSlides = useMemo(() => allVideos.slice(0, 5), [allVideos]);
+  // 顶部轮播：最新 10 条（按 created 倒序）
+  const carouselSlides = useMemo(() => allVideos.slice(0, 10), [allVideos]);
 
   // 范围拉取所需总页数（B 站接口 count 字段）
   const sourceTotal = videoListInfo?.count ?? 0;
@@ -93,6 +100,21 @@ export function HomePage() {
     const trackIds = allVideos.map((v) => v.bvid);
     setPlaylist(MAIN_FAV_ID, trackIds, video.bvid, true);
   };
+
+  // 缩略图网格条目（home 用纯 bvid 作 trackId）
+  const thumbnailItems = useMemo<ThumbnailGridItem[]>(
+    () => allVideos.map((v) => ({ video: v, trackId: v.bvid })),
+    [allVideos],
+  );
+
+  // 点击缩略图：与轮播点击同款——替换播放队列为全量投稿并立即播放该条
+  const handleThumbnailClick = useCallback(
+    (item: ThumbnailGridItem) => {
+      const trackIds = allVideos.map((v) => v.bvid);
+      setPlaylist(MAIN_FAV_ID, trackIds, item.video.bvid, true);
+    },
+    [allVideos, setPlaylist],
+  );
 
   const handleOpenRangeDialog = useCallback(() => {
     if (sourceTotal === 0) {
@@ -134,9 +156,16 @@ export function HomePage() {
             slides={carouselSlides}
             autoplayDelay={4000}
             loop
+            align="center"
+            slideClassName="flex-[0_0_auto] px-1.5"
             onSlideClick={handleSlideClick}
-            renderSlide={(video) => (
-              <div className="relative h-56 w-full overflow-hidden rounded-md sm:h-64">
+            renderSlide={(video, _index, isSelected) => (
+              <div
+                className={cn(
+                  'relative aspect-video h-44 overflow-hidden rounded-xl transition-all duration-300 sm:h-56',
+                  isSelected ? 'opacity-100 shadow-lg' : 'opacity-55',
+                )}
+              >
                 <img
                   src={urlPrefixFixed(video.pic)}
                   alt={video.title}
@@ -154,67 +183,73 @@ export function HomePage() {
 
       {/* 标题 + split button（主键直点 incremental，▾ 展开范围/全部） */}
       <div className="flex shrink-0 items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">最新投稿</h2>
-          {spaceInfo?.name && <p className="text-xs text-muted-foreground">{spaceInfo.name}</p>}
-        </div>
-        <div className="inline-flex shrink-0">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isLoading}
-            onClick={() => void readUserVideos(MASTER_MID, 'incremental')}
-            className="rounded-r-none border-r-0"
-          >
-            {isLoading ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-1 h-4 w-4" />
-            )}
-            检查更新
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={isLoading}
-                className="rounded-l-none px-2"
-                aria-label="更多刷新选项"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[180px]">
-              <DropdownMenuItem
-                onSelect={() => void readUserVideos(MASTER_MID, 'incremental')}
-                disabled={isLoading}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                检查更新
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={handleOpenRangeDialog} disabled={isLoading}>
-                <Sliders className="mr-2 h-4 w-4" />
-                按范围拉取…
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={handleFullyReload}
-                disabled={isLoading}
-                className="text-destructive focus:text-destructive"
-              >
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                重新拉取全部
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <h2 className="text-lg font-semibold">最新投稿</h2>
+        <div className="flex shrink-0 items-center gap-2">
+          <ViewModeToggle value={homeViewMode} onChange={setHomeViewMode} />
+          <div className="inline-flex">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isLoading}
+              onClick={() => void readUserVideos(MASTER_MID, 'incremental')}
+              className="rounded-r-none border-r-0"
+            >
+              {isLoading ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-1 h-4 w-4" />
+              )}
+              检查更新
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isLoading}
+                  className="rounded-l-none px-2"
+                  aria-label="更多刷新选项"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[180px]">
+                <DropdownMenuItem
+                  onSelect={() => void readUserVideos(MASTER_MID, 'incremental')}
+                  disabled={isLoading}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  检查更新
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleOpenRangeDialog} disabled={isLoading}>
+                  <Sliders className="mr-2 h-4 w-4" />
+                  按范围拉取…
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={handleFullyReload}
+                  disabled={isLoading}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  重新拉取全部
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
-      {/* 视频列表区：全量虚拟滚动；列表区独占剩余高度，顶部轮播+标题保持固定 */}
+      {/* 视频列表区：列表模式虚拟滚动 / 缩略图模式网格；顶部轮播+标题保持固定 */}
       {allVideos.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           {isLoading ? '正在拉取最新投稿…' : '暂无视频，请点击「检查更新」'}
         </div>
+      ) : homeViewMode === 'thumbnail' ? (
+        <VideoThumbnailGrid
+          items={thumbnailItems}
+          currentTrackId={currentTrackId}
+          onItemClick={handleThumbnailClick}
+        />
       ) : (
         <div
           ref={parentRef}

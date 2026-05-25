@@ -296,6 +296,24 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     expect(snap.floatingLyrics?.textAlign).toBe('left');
   });
 
+  it('ui_profile hydrate 缺 home/favViewMode 时兜底默认（thumbnail / list）', () => {
+    // 模拟老用户快照不含视图模式字段
+    usePlayerProfileStore.setState({ homeViewMode: 'list', favViewMode: 'thumbnail' });
+    getEntry('ui_profile').hydrate({ theme: 'dark' });
+    expect(usePlayerProfileStore.getState().homeViewMode).toBe('thumbnail');
+    expect(usePlayerProfileStore.getState().favViewMode).toBe('list');
+  });
+
+  it('ui_profile snapshot 包含 home/favViewMode 字段', () => {
+    usePlayerProfileStore.setState({ homeViewMode: 'list', favViewMode: 'thumbnail' });
+    const snap = getEntry('ui_profile').snapshot() as {
+      homeViewMode?: string;
+      favViewMode?: string;
+    };
+    expect(snap.homeViewMode).toBe('list');
+    expect(snap.favViewMode).toBe('thumbnail');
+  });
+
   it('ui_profile hydrate 缺失 closeAction 字段时兜底为默认值且 prompted=false', () => {
     // 模拟老用户：snapshot 完全没这俩字段
     usePlayerProfileStore.setState({

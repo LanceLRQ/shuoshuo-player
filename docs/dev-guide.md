@@ -23,6 +23,7 @@
 - 主窗口右键 →「检查元素」打开 DevTools，体验与 Chrome 一致
 - Rust 端日志：`println!` / `tracing` 输出到 `pnpm dev:desktop` 终端
 - Cookie 存储：`tauri-plugin-store` 写入 `bilibili_cookies.json`，路径取决于平台 app data dir
+  - 落盘内容经 XOR 流混淆（防肉眼 / 文本扫描，非真加密），直接打开文件看不到明文；旧明文文件首次启动自动迁移
   - macOS: `~/Library/Application Support/<bundle-id>/`
   - Windows: `%APPDATA%/<bundle-id>/`
   - Linux: `~/.local/share/<bundle-id>/`

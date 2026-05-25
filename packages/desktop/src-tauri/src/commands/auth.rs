@@ -7,9 +7,11 @@
 // 3. Cookie 持久化前剥离 session=false 标记，否则关闭应用后 cookie 丢失
 // 4. 登出后清除 CookieState + 关主窗 + 重新弹登录窗口（v1 行为）
 //
-// CookieState 当前以 in-memory + tauri-plugin-store 文件 bilibili_cookies.json 落地；
+// CookieState 当前以 in-memory + tauri-plugin-store 文件 bilibili_cookies.json 落地，
+// 落盘前对 cookie 列表做 XOR 流混淆（详见本文件 obfuscate_cookies）；
 // reqwest cookie store 共享将在 spider 命令实装时统一接通（批 4）。
 
+use base64::Engine;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_store::StoreExt;
@@ -17,6 +19,20 @@ use tauri_plugin_store::StoreExt;
 const BILIBILI_LOGIN_URL: &str = "https://passport.bilibili.com/pc/passport/login";
 const COOKIES_STORE_FILE_NAME: &str = "bilibili_cookies.json";
 const COOKIES_STORE_KEY: &str = "cookies";
+
+/// cookie 混淆格式版本前缀（bilibili player cookie v1）。
+/// restore 时凭 JSON 值类型 + 此前缀区分新混淆串与 v2 早期明文数组。
+const COOKIES_OBFUSCATE_PREFIX: &str = "BPC1:";
+
+/// 固定 32B 混淆 key。
+///
+/// 不绑机器（区别于 audio_cache 的 machine-uid 派生 key），以保证 portable 模式下
+/// data 目录连同混淆文件拷到另一台机器仍可解。安全立场同 audio_cache：仅做"防肉眼 /
+/// 防文本扫描"的误识别防护，不是真加密——开源 + 本地应用密钥无处安放，加密拦不住逆向。
+const COOKIES_OBFUSCATE_KEY: [u8; 32] = [
+    0x3a, 0x9f, 0x71, 0xc4, 0x18, 0xe6, 0x5d, 0x2b, 0x84, 0xf0, 0x6c, 0x39, 0xa7, 0x1e, 0xd2, 0x58,
+    0x0b, 0x95, 0x4f, 0xe3, 0x77, 0x2c, 0xb8, 0x61, 0xda, 0x07, 0x93, 0x4e, 0xc1, 0x35, 0xa9, 0x6f,
+];
 
 /// portable 模式：返回 <exe_dir>/data/bilibili_cookies.json 绝对路径；
 /// 非 portable 模式：返回相对名（plugin-store 走 app_data_dir）
@@ -59,11 +75,55 @@ pub fn strip_sessions(cookies: &mut [CookieRecord]) {
     }
 }
 
+/// 就地 XOR：32B key 循环 + 位置混入（`^ i as u8`），让 SESSDATA 这类长字符串
+/// 不暴露 32 字节周期的重复 pattern。XOR 无 padding 且对称，混淆与解混是同一运算。
+fn xor_cookies_in_place(buf: &mut [u8]) {
+    for (i, b) in buf.iter_mut().enumerate() {
+        *b ^= COOKIES_OBFUSCATE_KEY[i & 0x1F] ^ (i as u8);
+    }
+}
+
+/// cookie 列表 → 带版本前缀的混淆 base64 字符串
+fn obfuscate_cookies(cookies: &[CookieRecord]) -> Result<String, String> {
+    let mut bytes = serde_json::to_vec(cookies).map_err(|e| e.to_string())?;
+    xor_cookies_in_place(&mut bytes);
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("{COOKIES_OBFUSCATE_PREFIX}{encoded}"))
+}
+
+/// 带版本前缀的混淆字符串 → cookie 列表（仅处理新混淆格式）
+fn deobfuscate_cookies(s: &str) -> Result<Vec<CookieRecord>, String> {
+    let encoded = s
+        .strip_prefix(COOKIES_OBFUSCATE_PREFIX)
+        .ok_or_else(|| "cookie 混淆前缀缺失".to_string())?;
+    let mut bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|e| e.to_string())?;
+    xor_cookies_in_place(&mut bytes);
+    serde_json::from_slice(&bytes).map_err(|e| e.to_string())
+}
+
+/// 解析 store 中持久化的 cookie 值，兼容两种磁盘格式。
+///
+/// 返回的 `bool` 为 true 表示命中 v2 早期明文数组（legacy），由调用方负责立即覆写迁移，
+/// 消除磁盘上残留的明文 SESSDATA。
+/// - JSON String（`"BPC1:..."`）→ 新混淆格式，false
+/// - JSON Array → v2 早期明文数组，true
+fn parse_stored_cookies(raw: serde_json::Value) -> Result<(Vec<CookieRecord>, bool), String> {
+    match raw {
+        serde_json::Value::String(s) => Ok((deobfuscate_cookies(&s)?, false)),
+        other => {
+            let cookies = serde_json::from_value(other).map_err(|e| e.to_string())?;
+            Ok((cookies, true))
+        }
+    }
+}
+
 /// 运行时 cookie 缓存（启动时从 bilibili_cookies.json 回放）
 #[derive(Default)]
 pub struct CookieState(pub Mutex<Vec<CookieRecord>>);
 
-/// 把 CookieState 当前内容剥离 session 后写入 bilibili_cookies.json
+/// 把 CookieState 当前内容剥离 session、XOR 混淆后写入 bilibili_cookies.json
 pub fn persist_cookies<R: Runtime>(
     app: &AppHandle<R>,
     state: &CookieState,
@@ -72,14 +132,12 @@ pub fn persist_cookies<R: Runtime>(
     strip_sessions(&mut cookies);
 
     let store = app.store(cookies_store_path()).map_err(|e| e.to_string())?;
-    store.set(
-        COOKIES_STORE_KEY.to_string(),
-        serde_json::to_value(&cookies).map_err(|e| e.to_string())?,
-    );
+    store.set(COOKIES_STORE_KEY.to_string(), obfuscate_cookies(&cookies)?);
     store.save().map_err(|e| e.to_string())
 }
 
-/// 从 bilibili_cookies.json 回放到 CookieState（应用启动时调用）
+/// 从 bilibili_cookies.json 回放到 CookieState（应用启动时调用）。
+/// 兼容读取 v2 早期明文数组格式，命中时立即覆写为混淆格式完成迁移。
 pub fn restore_cookies<R: Runtime>(
     app: &AppHandle<R>,
     state: &CookieState,
@@ -89,9 +147,15 @@ pub fn restore_cookies<R: Runtime>(
         Some(v) => v,
         None => return Ok(()),
     };
-    let cookies: Vec<CookieRecord> = serde_json::from_value(raw).map_err(|e| e.to_string())?;
-    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
-    *guard = cookies;
+    let (cookies, is_legacy_plaintext) = parse_stored_cookies(raw)?;
+    {
+        let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+        *guard = cookies;
+    }
+    // 命中 v2 早期明文格式 → 立即覆写为混淆格式，消除磁盘上残留的明文 SESSDATA
+    if is_legacy_plaintext {
+        persist_cookies(app, state).ok();
+    }
     Ok(())
 }
 
@@ -240,7 +304,10 @@ pub async fn bilibili_logout<R: Runtime>(app: AppHandle<R>) -> Result<(), String
 
 #[cfg(test)]
 mod tests {
-    use super::{strip_session, strip_sessions, CookieRecord};
+    use super::{
+        deobfuscate_cookies, obfuscate_cookies, parse_stored_cookies, strip_session,
+        strip_sessions, CookieRecord, COOKIES_OBFUSCATE_PREFIX,
+    };
 
     fn rec(name: &str, session: bool) -> CookieRecord {
         CookieRecord {
@@ -286,5 +353,49 @@ mod tests {
         let json = r#"{"name":"x","value":"y","domain":null,"path":null}"#;
         let parsed: CookieRecord = serde_json::from_str(json).unwrap();
         assert!(!parsed.session);
+    }
+
+    #[test]
+    fn obfuscate_deobfuscate_roundtrip() {
+        let cookies = vec![rec("SESSDATA", false), rec("buvid3", false)];
+        let blob = obfuscate_cookies(&cookies).unwrap();
+        let back = deobfuscate_cookies(&blob).unwrap();
+        assert_eq!(cookies, back);
+    }
+
+    #[test]
+    fn obfuscated_blob_hides_plaintext() {
+        let mut c = rec("SESSDATA", false);
+        c.value = "super-secret-token-value".into();
+        let blob = obfuscate_cookies(std::slice::from_ref(&c)).unwrap();
+        assert!(blob.starts_with(COOKIES_OBFUSCATE_PREFIX));
+        // 混淆串里不得出现明文 token 值与字段名
+        assert!(!blob.contains("super-secret-token-value"));
+        assert!(!blob.contains("SESSDATA"));
+    }
+
+    #[test]
+    fn deobfuscate_rejects_missing_prefix() {
+        // 无版本前缀的字符串应被拒绝，而非误解码
+        assert!(deobfuscate_cookies("not-a-valid-blob").is_err());
+    }
+
+    #[test]
+    fn parse_stored_new_format_string() {
+        let cookies = vec![rec("SESSDATA", false)];
+        let blob = obfuscate_cookies(&cookies).unwrap();
+        let (parsed, is_legacy) = parse_stored_cookies(serde_json::Value::String(blob)).unwrap();
+        assert_eq!(parsed, cookies);
+        assert!(!is_legacy);
+    }
+
+    #[test]
+    fn parse_stored_legacy_plaintext_array() {
+        // v2 早期明文数组应被识别为 legacy，触发迁移覆写
+        let cookies = vec![rec("SESSDATA", false), rec("DedeUserID", false)];
+        let raw = serde_json::to_value(&cookies).unwrap();
+        let (parsed, is_legacy) = parse_stored_cookies(raw).unwrap();
+        assert_eq!(parsed, cookies);
+        assert!(is_legacy);
     }
 }

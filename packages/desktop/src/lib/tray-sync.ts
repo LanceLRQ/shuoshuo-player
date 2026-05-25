@@ -7,8 +7,8 @@ import {
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 import { setTrayPlayState, setTrayTrackLabel } from './tray-bridge';
 
-/** 标题最长 40 字符，超出加省略号，避免菜单变形（macOS menubar 宽度敏感） */
-const MAX_TRACK_LABEL_LENGTH = 40;
+/** 标题最长 15 字形，超出加省略号，避免菜单变形（macOS menubar 宽度敏感） */
+const MAX_TRACK_LABEL_LENGTH = 15;
 
 /** 标题/作者更新的尾沿节流窗口；切歌瞬间多次 setState 合并为一次 invoke */
 const LABEL_PUSH_THROTTLE_MS = 200;
@@ -36,9 +36,11 @@ function deriveTrackLabel(
   const video = entities[bvid];
   if (!video?.title) return '';
   const author = video.author ? ` - ${video.author}` : '';
-  let label = `♪ ${video.title}${author}`;
-  if (label.length > MAX_TRACK_LABEL_LENGTH) {
-    label = `${label.slice(0, MAX_TRACK_LABEL_LENGTH - 1)}…`;
+  const label = `♪ ${video.title}${author}`;
+  // 按 Unicode 码点截断：B 站标题常含 emoji，按 UTF-16 slice 会截断代理对产生乱码
+  const chars = Array.from(label);
+  if (chars.length > MAX_TRACK_LABEL_LENGTH) {
+    return `${chars.slice(0, MAX_TRACK_LABEL_LENGTH - 1).join('')}…`;
   }
   return label;
 }

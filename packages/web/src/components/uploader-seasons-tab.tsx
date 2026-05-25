@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -8,6 +9,8 @@ import {
   ListMusic,
   ListPlus,
   PlayCircle,
+  Search,
+  X,
 } from 'lucide-react';
 import {
   NoticeType,
@@ -30,14 +33,19 @@ import {
 import { useUIShell } from '@/stores/ui-shell';
 import { SeasonCard } from '@/components/season-card';
 import { VideoItem } from '@/components/video-item';
+import { ViewModeToggle } from '@/components/view-mode-toggle';
+import { ThumbnailGridCard } from '@/components/thumbnail-grid-card';
 import { MediaLoadingDialog } from '@/components/dialogs/media-loading-dialog';
 import { PageRangeDialog } from '@/components/dialogs/page-range-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 /* ───────── 批次配置 ───────── */
@@ -83,6 +91,8 @@ interface UploaderSeasonsTabProps {
   mid: string;
   /** 当前所属歌单 ID，透传给 VideoItem 用于单条点击 addSingle 行为 */
   favId: string;
+  /** 合集详情 header 的 Portal 目标（父级 Tab 行的 slot）；缺省时 header 内联渲染 */
+  headerSlot?: HTMLElement | null;
 }
 
 const COLLECTION_QUERY_RE = /^(season|series):(\d+)$/;
@@ -106,7 +116,7 @@ function parseCollectionQuery(raw: string | null): OpenedCollection | null {
  * series API 详情接口本身不返回 meta，需要从列表态把 name/cover/description 透传过去
  * 才能让 header 立即显示正确标题（而不是 "加载中…"）。
  */
-export function UploaderSeasonsTab({ mid, favId }: UploaderSeasonsTabProps) {
+export function UploaderSeasonsTab({ mid, favId, headerSlot }: UploaderSeasonsTabProps) {
   const [params, setParams] = useSearchParams();
   const opened = parseCollectionQuery(params.get('collection'));
   const collections = useUploaderCollections(mid);
@@ -139,6 +149,7 @@ export function UploaderSeasonsTab({ mid, favId }: UploaderSeasonsTabProps) {
         fallback={openedCollection}
         favId={favId}
         onBack={handleBack}
+        headerSlot={headerSlot}
       />
     );
   }
@@ -211,9 +222,11 @@ interface SeasonDetailProps {
   fallback?: UploaderCollection;
   favId: string;
   onBack: () => void;
+  /** 合集详情 header 的 Portal 目标（父级 Tab 行的 slot）；缺省时内联渲染 */
+  headerSlot?: HTMLElement | null;
 }
 
-function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProps) {
+function SeasonDetail({ mid, opened, fallback, favId, onBack, headerSlot }: SeasonDetailProps) {
   const fallbackMeta = useMemo(
     () =>
       fallback
@@ -238,10 +251,16 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
 
   const setPlaylist = usePlayingListStore((s) => s.setPlaylist);
   const addSingle = usePlayingListStore((s) => s.addSingle);
+  const currentTrackId = usePlayingListStore((s) => s.current);
   const collectionPlayBehavior = usePlayerProfileStore((s) => s.collectionPlayBehavior);
+  const favViewMode = usePlayerProfileStore((s) => s.favViewMode);
+  const setFavViewMode = usePlayerProfileStore((s) => s.setFavViewMode);
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openAddToFavBatch = useUIShell((s) => s.openAddToFavBatch);
   const openConfirm = useUIShell((s) => s.openConfirm);
+
+  // 合集详情内搜索：仅过滤当前页已加载的视频（不发起新请求）
+  const [searchKey, setSearchKey] = useState('');
 
   /**
    * 累积用户分页过程中浏览过的所有视频。
@@ -280,6 +299,17 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
     () => pickVideosFields(archives, 'season') as BilibiliVideo[],
     [archives],
   );
+
+  // 当前页本地过滤（标题 / 作者），不触发接口
+  const filteredVisible = useMemo<BilibiliVideo[]>(() => {
+    const kw = searchKey.trim().toLowerCase();
+    if (!kw) return visibleVideos;
+    return visibleVideos.filter((v) => {
+      const title = v.title?.toLowerCase() ?? '';
+      const author = v.author?.toLowerCase() ?? '';
+      return title.includes(kw) || author.includes(kw);
+    });
+  }, [visibleVideos, searchKey]);
 
   /**
    * 全量拉取的公共流程：防重入 + 触发 trigger + 空集合兜底通知。
@@ -423,7 +453,7 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
         ? `加载中 ${allArchives.loaded}/${allArchives.total}`
         : '加载中…';
     }
-    return '以合集为歌单播放';
+    return '播放合集';
   }, [allArchives.isLoading, allArchives.loaded, allArchives.total]);
 
   /** 按钮标签显示"已加载数量"：批量拉取与分页累积的去重总数（用 Set 算 bvid 并集） */
@@ -436,60 +466,98 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
   // 精简文案：窄屏下「加入歌单（150 首已加载）」会把按钮撑到 ~180px 挤压标题区
   const addToFavLabel = addToFavLoadedCount > 0 ? `加入歌单 (${addToFavLoadedCount})` : '加入歌单';
 
-  return (
-    <div className="flex flex-1 flex-col gap-3">
-      {/*
-       * 紧凑型 header：返回箭头 + 小封面 + 标题 + 数量 + 两个操作按钮。
-       * 容器用 flex-wrap：窄屏（Chrome 扩展弹窗 ~400px）下操作按钮组自动换到第二行，
-       * 避免按钮长文案把 min-w-0 标题区挤压到 0px。
-       * description 折叠到标题的 title 属性（hover tooltip），避免占用纵向空间。
-       */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onBack}
-          className="h-8 w-8 shrink-0"
-          aria-label="返回合集列表"
+  /*
+   * 合集详情 header（返回 + 封面 + 合集名·N首 + 收窄搜索框 + 视图切换 + 「播放合集」整合按钮）。
+   * 优先通过 Portal 提到父级 Tab 行（headerSlot），与「视频投稿/合集」Tab 合并成一行；
+   * 无 slot 时回退内联渲染。description 折叠到标题 title（hover tooltip）不占纵向空间。
+   */
+  const headerContent = (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onBack}
+        className="h-9 w-9 shrink-0"
+        aria-label="返回合集列表"
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </Button>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
+        {headerCover ? (
+          <img
+            src={bilibiliThumbUrl(urlPrefixFixed(headerCover), 80, 80)}
+            alt={headerName}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <ListMusic className="h-4 w-4 text-muted-foreground" />
+        )}
+      </div>
+      {/* 合集名 · N首 同一行：标题 truncate 吸收弹性空间，「N首」常驻不截断 */}
+      <div className="flex min-w-0 flex-1 basis-[120px] items-center gap-1.5">
+        <h3
+          className="min-w-0 truncate text-sm font-semibold leading-tight"
+          title={description || headerName}
         >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
-          {headerCover ? (
-            <img
-              src={bilibiliThumbUrl(urlPrefixFixed(headerCover), 80, 80)}
-              alt={headerName}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <ListMusic className="h-4 w-4 text-muted-foreground" />
+          {headerName}
+        </h3>
+        <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground mt-1">
+          {headerTotal} 首
+        </span>
+      </div>
+
+      {archives.length > 0 && (
+        <div className="relative w-40 shrink-0 sm:w-52">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="搜索当前页（标题 / 作者）"
+            value={searchKey}
+            onChange={(e) => setSearchKey(e.target.value)}
+            className="h-9 pl-9"
+          />
+          {searchKey && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              onClick={() => setSearchKey('')}
+            >
+              <X className="h-3 w-3" />
+            </Button>
           )}
         </div>
-        {/* basis-[140px]：保证标题区有最小宽度，否则 flex-wrap 不会触发换行 */}
-        <div className="min-w-0 flex-1 basis-[140px]">
-          <h3
-            className="truncate text-sm font-semibold leading-tight"
-            title={description || headerName}
-          >
-            {headerName}
-          </h3>
-          <p className="truncate text-xs text-muted-foreground">{headerTotal} 首</p>
-        </div>
-        {/* 操作按钮组：宽屏时 ml-auto 右对齐，窄屏 flex-wrap 后整组换到第二行 */}
-        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
-          {showActionDropdown ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" disabled={allArchives.isLoading} className="shrink-0">
-                  <PlayCircle className="mr-1 h-4 w-4" />
-                  {playAllLabel}
-                  <ChevronDown className="ml-1 h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+      )}
+      {archives.length > 0 && <ViewModeToggle value={favViewMode} onChange={setFavViewMode} />}
+
+      {/* 「播放合集」整合按钮：主体=播放整个合集；▾ 下拉分「播放」「加入歌单」两组 */}
+      <div className="inline-flex shrink-0">
+        <Button
+          size="sm"
+          onClick={isHighRisk ? handlePlayAllWithConfirm : handlePlayAll}
+          disabled={allArchives.isLoading}
+          className="rounded-r-none border-r-0"
+        >
+          <PlayCircle className="mr-1 h-4 w-4" />
+          {playAllLabel}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              disabled={allArchives.isLoading}
+              className="rounded-l-none px-2"
+              aria-label="播放与加入歌单更多选项"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {showActionDropdown && (
+              <>
+                <DropdownMenuLabel>播放</DropdownMenuLabel>
                 {batches.map((b) => (
                   <DropdownMenuItem
-                    key={`${b.fromPage}-${b.toPage}`}
+                    key={`play-${b.fromPage}-${b.toPage}`}
                     onSelect={() => playRange({ fromPage: b.fromPage, toPage: b.toPage })}
                   >
                     <PlayCircle className="mr-2 h-4 w-4" />
@@ -501,128 +569,113 @@ function SeasonDetail({ mid, opened, fallback, favId, onBack }: SeasonDetailProp
                   自定义范围…
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+              </>
+            )}
+            {showActionDropdown && <DropdownMenuLabel>加入歌单</DropdownMenuLabel>}
+            <DropdownMenuItem onSelect={handleAddCurrentLoaded}>
+              <ListPlus className="mr-2 h-4 w-4" />
+              {addToFavLabel}
+            </DropdownMenuItem>
+            {showActionDropdown && (
+              <>
+                {batches.map((b) => (
+                  <DropdownMenuItem
+                    key={`add-${b.fromPage}-${b.toPage}`}
+                    onSelect={() => handleAddRange(b.fromPage, b.toPage)}
+                  >
+                    <ListPlus className="mr-2 h-4 w-4" />
+                    加入 {b.label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem onSelect={() => setRangeDialog({ open: true, mode: 'add' })}>
+                  <ListPlus className="mr-2 h-4 w-4" />
+                  自定义范围…
+                </DropdownMenuItem>
                 <DropdownMenuItem
-                  onSelect={isHighRisk ? handlePlayAllWithConfirm : handlePlayAll}
+                  onSelect={isHighRisk ? handleAddAllConfirm : handleAddAllDirect}
                   className={isHighRisk ? 'text-destructive focus:text-destructive' : undefined}
                 >
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                  全部 {headerTotal} 首{isHighRisk && '（高风险）'}
+                  <ListPlus className="mr-2 h-4 w-4" />
+                  全部 {headerTotal} 首加入歌单{isHighRisk && '（高风险）'}
                 </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button
-              size="sm"
-              onClick={handlePlayAll}
-              disabled={allArchives.isLoading}
-              className="shrink-0"
-            >
-              <PlayCircle className="mr-1 h-4 w-4" />
-              {playAllLabel}
-            </Button>
-          )}
-          {showActionDropdown ? (
-            // Split button：主按钮直接「加入当前已加载」；右侧 ▾ 展开范围 / 全部
-            <div className="inline-flex shrink-0">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleAddCurrentLoaded}
-                disabled={allArchives.isLoading}
-                className="rounded-r-none border-r-0"
-              >
-                <ListPlus className="mr-1 h-4 w-4" />
-                {addToFavLabel}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={allArchives.isLoading}
-                    className="rounded-l-none px-2"
-                    aria-label="加入歌单更多选项"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {batches.map((b) => (
-                    <DropdownMenuItem
-                      key={`add-${b.fromPage}-${b.toPage}`}
-                      onSelect={() => handleAddRange(b.fromPage, b.toPage)}
-                    >
-                      <ListPlus className="mr-2 h-4 w-4" />
-                      加入 {b.label}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuItem onSelect={() => setRangeDialog({ open: true, mode: 'add' })}>
-                    <ListPlus className="mr-2 h-4 w-4" />
-                    自定义范围…
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={isHighRisk ? handleAddAllConfirm : handleAddAllDirect}
-                    className={isHighRisk ? 'text-destructive focus:text-destructive' : undefined}
-                  >
-                    <ListPlus className="mr-2 h-4 w-4" />
-                    全部 {headerTotal} 首{isHighRisk && '（高风险）'}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleAddCurrentLoaded}
-              disabled={allArchives.isLoading}
-              className="shrink-0"
-            >
-              <ListPlus className="mr-1 h-4 w-4" />
-              {addToFavLabel}
-            </Button>
-          )}
-        </div>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+    </>
+  );
 
-      {isLoading && archives.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
-          加载中…
-        </div>
-      ) : archives.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
-          合集是空的
-        </div>
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      {headerSlot ? (
+        createPortal(headerContent, headerSlot)
       ) : (
-        <div className="flex flex-col gap-1 rounded-md border p-2">
-          {visibleVideos.map((video) => (
-            <VideoItem
-              key={video.bvid}
-              video={video}
-              favId={favId}
-              fullCreateTime
-              showAddBtn
-              showAddToPlayBtn
-            />
-          ))}
-        </div>
+        <div className="flex flex-wrap items-center gap-2">{headerContent}</div>
       )}
 
-      {totalPages > 1 && (
-        <>
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            hasMore={hasMore}
-            disabled={isLoading}
-            onChange={setPage}
-          />
-          <p className="text-center text-xs text-muted-foreground">
-            此处仅供浏览；批量播放 / 加入歌单请用上方按钮
-          </p>
-        </>
-      )}
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border">
+        {isLoading && archives.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+            加载中…
+          </div>
+        ) : archives.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+            合集是空的
+          </div>
+        ) : filteredVisible.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+            没有找到关键词为"{searchKey}"的结果
+          </div>
+        ) : favViewMode === 'thumbnail' ? (
+          <div
+            className={cn(
+              'absolute inset-0 grid grid-cols-2 content-start gap-3 overflow-auto p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
+              totalPages > 1 && 'pb-14',
+            )}
+          >
+            {filteredVisible.map((video) => (
+              <ThumbnailGridCard
+                key={video.bvid}
+                video={video}
+                isPlaying={currentTrackId === video.bvid}
+                onClick={() => addSingle(video.bvid, true)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div
+            className={cn(
+              'absolute inset-0 flex flex-col gap-1 overflow-auto p-2',
+              totalPages > 1 && 'pb-14',
+            )}
+          >
+            {filteredVisible.map((video) => (
+              <VideoItem
+                key={video.bvid}
+                video={video}
+                favId={favId}
+                fullCreateTime
+                showAddBtn
+                showAddToPlayBtn
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 底部浮层：分页栏叠在列表上方（半透明+模糊），列表滚动内容末尾留 pb-14 安全区避免被遮挡 */}
+        {totalPages > 1 && (
+          <div className="absolute inset-x-0 bottom-0 border-t bg-background/80 backdrop-blur-sm">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              hasMore={hasMore}
+              disabled={isLoading}
+              onChange={setPage}
+            />
+          </div>
+        )}
+      </div>
 
       <MediaLoadingDialog
         loading={allArchives.isLoading}
@@ -655,29 +708,31 @@ interface PaginationProps {
 
 function Pagination({ page, totalPages, hasMore, disabled, onChange }: PaginationProps) {
   return (
-    <div className="flex items-center justify-center gap-2 py-2">
+    <div className="flex shrink-0 items-center justify-center gap-1.5 py-1">
       <Button
         variant="outline"
         size="sm"
+        className="h-8 gap-1 px-2.5 text-xs"
         onClick={() => onChange(page - 1)}
         disabled={disabled || page <= 1}
         aria-label="上一页"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-3.5 w-3.5" />
         上一页
       </Button>
-      <span className="px-2 text-xs text-muted-foreground">
+      <span className="px-1 text-xs text-muted-foreground">
         {page} / {totalPages}
       </span>
       <Button
         variant="outline"
         size="sm"
+        className="h-8 gap-1 px-2.5 text-xs"
         onClick={() => onChange(page + 1)}
         disabled={disabled || !hasMore}
         aria-label="下一页"
       >
         下一页
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-3.5 w-3.5" />
       </Button>
     </div>
   );
