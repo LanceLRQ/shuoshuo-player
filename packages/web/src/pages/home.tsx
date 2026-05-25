@@ -183,10 +183,7 @@ export function HomePage() {
 
       {/* 标题 + split button（主键直点 incremental，▾ 展开范围/全部） */}
       <div className="flex shrink-0 items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">最新投稿</h2>
-          {spaceInfo?.name && <p className="text-xs text-muted-foreground">{spaceInfo.name}</p>}
-        </div>
+        <h2 className="text-lg font-semibold">最新投稿</h2>
         <div className="flex shrink-0 items-center gap-2">
           <ViewModeToggle value={homeViewMode} onChange={setHomeViewMode} />
           <div className="inline-flex">

@@ -167,7 +167,7 @@ describe('HomePage', () => {
     expect(readUserVideos).not.toHaveBeenCalled();
   });
 
-  it('显示空间名（spaceInfo.name）作为标题副文本', () => {
+  it('渲染「最新投稿」标题，不再显示 UP 主空间名副文本', () => {
     useBilibiliUserVideosStore.setState({
       space: { [MASTER_MID]: { name: '说说Crystal' } as never },
       readUserVideos: vi.fn(async () => {}),
@@ -175,8 +175,8 @@ describe('HomePage', () => {
     });
 
     renderHome();
-    expect(screen.getByText('说说Crystal')).toBeInTheDocument();
     expect(screen.getByText('最新投稿')).toBeInTheDocument();
+    expect(screen.queryByText('说说Crystal')).not.toBeInTheDocument();
   });
 
   it('默认缩略图模式：网格渲染全部投稿（不再硬限 30 条）', () => {
