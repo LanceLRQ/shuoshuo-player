@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import Fuse from 'fuse.js';
@@ -17,6 +17,8 @@ import {
   useBilibiliVideosStore,
   useFavListStore,
   useFavoritesStore,
+  usePlayerProfileStore,
+  usePlayingListStore,
   useUIStore,
   selectSortedBvids,
   parseTrackId,
@@ -27,6 +29,8 @@ import {
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
 import { VideoItem } from '@/components/video-item';
+import { ViewModeToggle } from '@/components/view-mode-toggle';
+import { VideoThumbnailGrid, type ThumbnailGridItem } from '@/components/video-thumbnail-grid';
 import { FavCard } from '@/components/fav-card';
 import { UploaderSeasonsTab } from '@/components/uploader-seasons-tab';
 import { Input } from '@/components/ui/input';
@@ -79,6 +83,10 @@ export function FavListPage() {
 
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openConfirm = useUIShell((s) => s.openConfirm);
+
+  const favViewMode = usePlayerProfileStore((s) => s.favViewMode);
+  const setFavViewMode = usePlayerProfileStore((s) => s.setFavViewMode);
+  const currentTrackId = usePlayingListStore((s) => s.current);
 
   // 切换 favId 时清空搜索框
   useEffect(() => {
@@ -167,6 +175,22 @@ export function FavListPage() {
     overscan: 5,
   });
 
+  // 缩略图网格条目（保留 trackId 与 explicitPage：CUSTOM/favorites 条目可能含 :p<n>）
+  const thumbnailItems = useMemo<ThumbnailGridItem[]>(
+    () =>
+      filteredVideos.map((r) => ({
+        video: r.video,
+        trackId: r.trackId,
+        explicitPage: r.explicitPage,
+      })),
+    [filteredVideos],
+  );
+
+  // 点击缩略图：复用 VideoItem 同款语义——favId 存在时 addSingle 加载整张歌单并播放该条
+  const handleThumbnailClick = useCallback((item: ThumbnailGridItem) => {
+    usePlayingListStore.getState().addSingle(item.trackId, true);
+  }, []);
+
   const handleRemoveSong = (trackId: string) => {
     if (!isTypeCustom) return;
     const isFav = isFavoritesPage;
@@ -233,6 +257,7 @@ export function FavListPage() {
               {favoritesOrder === 'desc' ? '最新收藏在前' : '最早收藏在前'}
             </Button>
           )}
+          <ViewModeToggle value={favViewMode} onChange={setFavViewMode} />
           {searchKey && (
             <span className="text-xs text-muted-foreground">
               命中 {filteredVideos.length} / {favVideoList.length}
@@ -254,6 +279,12 @@ export function FavListPage() {
             </>
           )}
         </div>
+      ) : favViewMode === 'thumbnail' ? (
+        <VideoThumbnailGrid
+          items={thumbnailItems}
+          currentTrackId={currentTrackId}
+          onItemClick={handleThumbnailClick}
+        />
       ) : (
         <div
           ref={parentRef}

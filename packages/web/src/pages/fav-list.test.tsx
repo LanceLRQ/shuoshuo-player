@@ -5,6 +5,8 @@ import {
   useBilibiliVideosStore,
   useFavListStore,
   useFavoritesStore,
+  usePlayerProfileStore,
+  usePlayingListStore,
   useUIStore,
   FavListType,
 } from '@shuoshuo-player/shared';
@@ -22,6 +24,29 @@ vi.mock('@/components/video-item', () => ({
   VideoItem: ({ video }: { video: { bvid: string; title: string } }) => (
     <div data-testid="video-item" data-bvid={video.bvid}>
       {video.title}
+    </div>
+  ),
+}));
+// 缩略图网格 mock：全量渲染卡片，规避真实虚拟化在 jsdom 下数量不稳定
+vi.mock('@/components/video-thumbnail-grid', () => ({
+  VideoThumbnailGrid: ({
+    items,
+    onItemClick,
+  }: {
+    items: Array<{ video: { bvid: string; title: string }; trackId: string }>;
+    onItemClick: (item: { trackId: string; video: { bvid: string } }) => void;
+  }) => (
+    <div data-testid="thumbnail-grid">
+      {items.map((it) => (
+        <div
+          key={it.trackId}
+          data-testid="thumbnail-card"
+          data-bvid={it.video.bvid}
+          onClick={() => onItemClick(it)}
+        >
+          {it.video.title}
+        </div>
+      ))}
     </div>
   ),
 }));
@@ -49,6 +74,8 @@ function reset() {
   useBilibiliVideosStore.setState({ ids: [], entities: {} });
   useUIStore.setState({ notices: [] });
   useFavoritesStore.setState({ entries: {} });
+  // 歌单视图模式默认 list；显式重置避免测试间污染
+  usePlayerProfileStore.setState({ favViewMode: 'list' });
 }
 
 function makeFav(overrides: Record<string, unknown> = {}) {
@@ -250,5 +277,41 @@ describe('FavListPage', () => {
 
     renderAt('b1');
     expect(screen.getByTestId('fav-card')).toBeInTheDocument();
+  });
+
+  it('缩略图模式渲染网格、列表项让位', () => {
+    usePlayerProfileStore.setState({ favViewMode: 'thumbnail' });
+    useBilibiliVideosStore.setState({
+      ids: ['BV1', 'BV2'],
+      entities: {
+        BV1: { bvid: 'BV1', title: 'Track A' } as never,
+        BV2: { bvid: 'BV2', title: 'Track B' } as never,
+      },
+    });
+    useFavListStore.setState({ list: [makeFav()] });
+
+    renderAt('fav-x');
+    expect(screen.getByTestId('thumbnail-grid')).toBeInTheDocument();
+    expect(screen.getAllByTestId('thumbnail-card')).toHaveLength(2);
+    expect(screen.queryByTestId('video-item')).not.toBeInTheDocument();
+  });
+
+  it('缩略图模式点击卡片调用 addSingle(trackId, true)', () => {
+    usePlayerProfileStore.setState({ favViewMode: 'thumbnail' });
+    const addSingle = vi.fn();
+    usePlayingListStore.setState({ addSingle });
+    useBilibiliVideosStore.setState({
+      ids: ['BV1', 'BV2'],
+      entities: {
+        BV1: { bvid: 'BV1', title: 'Track A' } as never,
+        BV2: { bvid: 'BV2', title: 'Track B' } as never,
+      },
+    });
+    useFavListStore.setState({ list: [makeFav()] });
+
+    renderAt('fav-x');
+    const cards = screen.getAllByTestId('thumbnail-card');
+    fireEvent.click(cards[0]);
+    expect(addSingle).toHaveBeenCalledWith('BV1', true);
   });
 });

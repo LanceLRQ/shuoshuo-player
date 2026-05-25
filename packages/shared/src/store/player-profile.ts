@@ -9,11 +9,14 @@ import type {
   FloatingLyricsColor,
   LoopMode,
   PlayerProfile,
+  VideoListViewMode,
 } from '../types';
 import {
   DEFAULT_CLOSE_ACTION,
   DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+  DEFAULT_FAV_VIEW_MODE,
   DEFAULT_FLOATING_LYRICS,
+  DEFAULT_HOME_VIEW_MODE,
   DEFAULT_PRIMARY_COLOR,
 } from '../types';
 
@@ -24,6 +27,11 @@ const CLOSE_ACTION_SET: ReadonlySet<CloseAction> = new Set<CloseAction>([
 
 const COLLECTION_PLAY_BEHAVIOR_SET: ReadonlySet<CollectionPlayBehavior> =
   new Set<CollectionPlayBehavior>(['replace', 'append']);
+
+const VIEW_MODE_SET: ReadonlySet<VideoListViewMode> = new Set<VideoListViewMode>([
+  'list',
+  'thumbnail',
+]);
 
 const FLOATING_LYRICS_ALIGN_SET: ReadonlySet<FloatingLyricsAlign> = new Set([
   'left',
@@ -106,6 +114,10 @@ interface PlayerProfileState extends PlayerProfile {
    * 设置「以合集为歌单播放」按钮的队列行为；非法枚举值忽略以防御导入脏数据。
    */
   setCollectionPlayBehavior: (behavior: CollectionPlayBehavior) => void;
+  /** 设置首页列表展示模式；非白名单值忽略以防御导入脏数据 */
+  setHomeViewMode: (mode: VideoListViewMode) => void;
+  /** 设置歌单列表展示模式（所有歌单共享）；非白名单值忽略以防御导入脏数据 */
+  setFavViewMode: (mode: VideoListViewMode) => void;
   /** 解析 'auto' 主题为实际 light/dark（依赖 prefers-color-scheme） */
   getEffectiveTheme: () => 'light' | 'dark';
 }
@@ -121,6 +133,8 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   closeAction: DEFAULT_CLOSE_ACTION,
   closeActionFirstRunPrompted: false,
   collectionPlayBehavior: DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+  homeViewMode: DEFAULT_HOME_VIEW_MODE,
+  favViewMode: DEFAULT_FAV_VIEW_MODE,
 
   setTheme: (theme) => set({ theme }),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(1, volume)) }),
@@ -148,6 +162,15 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   setCollectionPlayBehavior: (behavior) => {
     if (!COLLECTION_PLAY_BEHAVIOR_SET.has(behavior)) return;
     set({ collectionPlayBehavior: behavior });
+  },
+
+  setHomeViewMode: (mode) => {
+    if (!VIEW_MODE_SET.has(mode)) return;
+    set({ homeViewMode: mode });
+  },
+  setFavViewMode: (mode) => {
+    if (!VIEW_MODE_SET.has(mode)) return;
+    set({ favViewMode: mode });
   },
 
   getEffectiveTheme: () => {

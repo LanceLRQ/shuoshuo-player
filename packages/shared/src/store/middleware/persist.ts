@@ -25,7 +25,9 @@ import type { FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
 import {
   DEFAULT_CLOSE_ACTION,
   DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+  DEFAULT_FAV_VIEW_MODE,
   DEFAULT_FLOATING_LYRICS,
+  DEFAULT_HOME_VIEW_MODE,
 } from '../../types';
 import type {
   PersistedBilibiliUserVideosShape,
@@ -243,6 +245,8 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         closeAction: data.closeAction ?? DEFAULT_CLOSE_ACTION,
         closeActionFirstRunPrompted: data.closeActionFirstRunPrompted ?? false,
         collectionPlayBehavior: data.collectionPlayBehavior ?? DEFAULT_COLLECTION_PLAY_BEHAVIOR,
+        homeViewMode: data.homeViewMode ?? DEFAULT_HOME_VIEW_MODE,
+        favViewMode: data.favViewMode ?? DEFAULT_FAV_VIEW_MODE,
       });
     },
     snapshot() {
@@ -258,6 +262,8 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         closeAction: s.closeAction,
         closeActionFirstRunPrompted: s.closeActionFirstRunPrompted,
         collectionPlayBehavior: s.collectionPlayBehavior,
+        homeViewMode: s.homeViewMode,
+        favViewMode: s.favViewMode,
       };
     },
     subscribe(cb) {

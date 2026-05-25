@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import {
   MASTER_UP_INFO,
   useBilibiliUserVideosStore,
   useBilibiliVideosStore,
+  usePlayerProfileStore,
   usePlayingListStore,
   useUIStore,
 } from '@shuoshuo-player/shared';
@@ -61,6 +62,29 @@ vi.mock('@/components/carousel', () => ({
     </div>
   ),
 }));
+// 缩略图网格 mock：全量渲染卡片，规避真实虚拟化在 jsdom 下数量不稳定
+vi.mock('@/components/video-thumbnail-grid', () => ({
+  VideoThumbnailGrid: ({
+    items,
+    onItemClick,
+  }: {
+    items: Array<{ video: { bvid: string; title: string }; trackId: string }>;
+    onItemClick: (item: { trackId: string; video: { bvid: string } }) => void;
+  }) => (
+    <div data-testid="thumbnail-grid">
+      {items.map((it) => (
+        <div
+          key={it.trackId}
+          data-testid="thumbnail-card"
+          data-bvid={it.video.bvid}
+          onClick={() => onItemClick(it)}
+        >
+          {it.video.title}
+        </div>
+      ))}
+    </div>
+  ),
+}));
 
 const MASTER_MID = String(MASTER_UP_INFO.mid);
 
@@ -74,6 +98,8 @@ function reset() {
   useBilibiliVideosStore.setState({ ids: [], entities: {} });
   usePlayingListStore.setState({ favId: '', trackIds: [], current: '', playNext: false });
   useUIStore.setState({ notices: [] });
+  // 视图模式默认值（首页 thumbnail）；显式重置避免测试间污染
+  usePlayerProfileStore.setState({ homeViewMode: 'thumbnail' });
 }
 
 function makeVideoEntries(count: number) {
@@ -153,7 +179,7 @@ describe('HomePage', () => {
     expect(screen.getByText('最新投稿')).toBeInTheDocument();
   });
 
-  it('全量视频走虚拟滚动渲染（不再硬限 30 条）', () => {
+  it('默认缩略图模式：网格渲染全部投稿（不再硬限 30 条）', () => {
     const { entities, list } = makeVideoEntries(35);
     useBilibiliVideosStore.setState({ ids: Object.keys(entities), entities });
     useBilibiliUserVideosStore.setState({
@@ -170,11 +196,68 @@ describe('HomePage', () => {
     });
 
     renderHome();
-    // jsdom 下虚拟滚动基于 ResizeObserver mock，渲染数量不稳定；
-    // 关键验证：① 容器存在 ② 最新一条（最靠前）会出现在初始可视区
-    const items = screen.queryAllByTestId('video-item');
-    expect(items.length).toBeGreaterThanOrEqual(0);
-    expect(screen.getByText('视频 0')).toBeInTheDocument();
+    // 默认 thumbnail：网格（mock）全量渲染 35 条，不渲染列表项
+    const cards = screen.getAllByTestId('thumbnail-card');
+    expect(cards).toHaveLength(35);
+    expect(cards[0]).toHaveAttribute('data-bvid', 'BV0000000000');
+    expect(screen.queryByTestId('video-item')).not.toBeInTheDocument();
+  });
+
+  it('切换到列表模式时网格让位给 VideoItem 列表', () => {
+    usePlayerProfileStore.setState({ homeViewMode: 'list' });
+    const { entities, list } = makeVideoEntries(5);
+    useBilibiliVideosStore.setState({ ids: Object.keys(entities), entities });
+    useBilibiliUserVideosStore.setState({
+      infos: {
+        [MASTER_MID]: {
+          update_time: Math.floor(Date.now() / 1000),
+          video_list: list,
+          count: 5,
+          update_type: 'default',
+        } as never,
+      },
+      readUserVideos: vi.fn(),
+      readUserSpaceInfo: vi.fn(),
+    });
+
+    renderHome();
+    // 列表模式不渲染缩略图网格（VideoItem 数量受 jsdom 虚拟滚动影响，不强断言）
+    expect(screen.queryByTestId('thumbnail-grid')).not.toBeInTheDocument();
+  });
+
+  it('点击视图切换按钮更新 homeViewMode 偏好', () => {
+    renderHome();
+    expect(usePlayerProfileStore.getState().homeViewMode).toBe('thumbnail');
+    fireEvent.click(screen.getByLabelText('列表视图'));
+    expect(usePlayerProfileStore.getState().homeViewMode).toBe('list');
+    fireEvent.click(screen.getByLabelText('缩略图视图'));
+    expect(usePlayerProfileStore.getState().homeViewMode).toBe('thumbnail');
+  });
+
+  it('点击缩略图卡片：替换队列为全量投稿并播放该条', () => {
+    const { entities, list } = makeVideoEntries(10);
+    useBilibiliVideosStore.setState({ ids: Object.keys(entities), entities });
+    useBilibiliUserVideosStore.setState({
+      infos: {
+        [MASTER_MID]: {
+          update_time: Math.floor(Date.now() / 1000),
+          video_list: list,
+          count: 10,
+          update_type: 'default',
+        } as never,
+      },
+      readUserVideos: vi.fn(),
+      readUserSpaceInfo: vi.fn(),
+    });
+
+    renderHome();
+    const cards = screen.getAllByTestId('thumbnail-card');
+    fireEvent.click(cards[2]);
+    const state = usePlayingListStore.getState();
+    expect(state.favId).toBe('main');
+    expect(state.trackIds).toHaveLength(10);
+    expect(state.current).toBe('BV0000000002');
+    expect(state.playNext).toBe(true);
   });
 
   it('Carousel 显示前 10 条 + 点击 slide 触发 setPlaylist', () => {

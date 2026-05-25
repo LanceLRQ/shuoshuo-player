@@ -20,6 +20,7 @@ import type {
   LoopMode,
   LyricEntry,
   VideoListCacheEntry,
+  VideoListViewMode,
 } from '../types';
 import type { MusicUrlCacheEntry } from './music-url-cache';
 import type { UpdateInfo } from '../api/update';
@@ -69,6 +70,10 @@ export interface PersistedPlayerProfileShape {
   closeActionFirstRunPrompted?: boolean;
   /** 「以合集为歌单播放」按钮的队列行为；老用户缺该字段时 fallback DEFAULT_COLLECTION_PLAY_BEHAVIOR */
   collectionPlayBehavior?: CollectionPlayBehavior;
+  /** 首页列表展示模式；老用户缺该字段时 hydrate fallback DEFAULT_HOME_VIEW_MODE */
+  homeViewMode?: VideoListViewMode;
+  /** 歌单列表展示模式；fallback DEFAULT_FAV_VIEW_MODE */
+  favViewMode?: VideoListViewMode;
 }
 
 export interface PersistedLyricsShape {
