@@ -15,6 +15,7 @@ import {
 } from '@shuoshuo-player/shared';
 import { VideoItem } from '@/components/video-item';
 import { Carousel } from '@/components/carousel';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -57,8 +58,8 @@ export function HomePage() {
     return list.map((it) => videoEntities[it.bvid]).filter((v): v is BilibiliVideo => Boolean(v));
   }, [videoListInfo, videoEntities]);
 
-  // 顶部轮播：最新 5 条（按 created 倒序）
-  const carouselSlides = useMemo(() => allVideos.slice(0, 5), [allVideos]);
+  // 顶部轮播：最新 10 条（按 created 倒序）
+  const carouselSlides = useMemo(() => allVideos.slice(0, 10), [allVideos]);
 
   // 范围拉取所需总页数（B 站接口 count 字段）
   const sourceTotal = videoListInfo?.count ?? 0;
@@ -134,9 +135,16 @@ export function HomePage() {
             slides={carouselSlides}
             autoplayDelay={4000}
             loop
+            align="center"
+            slideClassName="flex-[0_0_auto] px-1.5"
             onSlideClick={handleSlideClick}
-            renderSlide={(video) => (
-              <div className="relative h-56 w-full overflow-hidden rounded-md sm:h-64">
+            renderSlide={(video, _index, isSelected) => (
+              <div
+                className={cn(
+                  'relative aspect-video h-44 overflow-hidden rounded-xl transition-all duration-300 sm:h-56',
+                  isSelected ? 'opacity-100 shadow-lg' : 'opacity-55',
+                )}
+              >
                 <img
                   src={urlPrefixFixed(video.pic)}
                   alt={video.title}

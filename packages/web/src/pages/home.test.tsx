@@ -177,7 +177,7 @@ describe('HomePage', () => {
     expect(screen.getByText('视频 0')).toBeInTheDocument();
   });
 
-  it('Carousel 显示前 5 条 + 点击 slide 触发 setPlaylist', () => {
+  it('Carousel 显示前 10 条 + 点击 slide 触发 setPlaylist', () => {
     const { entities, list } = makeVideoEntries(10);
     useBilibiliVideosStore.setState({ ids: Object.keys(entities), entities });
     useBilibiliUserVideosStore.setState({
@@ -195,7 +195,7 @@ describe('HomePage', () => {
 
     renderHome();
     const slides = screen.getAllByTestId('carousel-slide');
-    expect(slides).toHaveLength(5);
+    expect(slides).toHaveLength(10);
 
     fireEvent.click(slides[2]);
 
