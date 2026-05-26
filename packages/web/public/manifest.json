@@ -22,8 +22,7 @@
   "permissions": [
     "storage",
     "unlimitedStorage",
-    "declarativeNetRequest",
-    "alarms"
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "*://*.acgvideo.com/*",
@@ -31,10 +30,8 @@
     "*://*.bilivideo.cn/*",
     "*://*.bilibili.com/*",
     "*://*.hdslb.com/*",
-    "*://*.cgvideo.com/*",
     "*://*.akamaized.net/*",
     "*://*.mountaintoys.cn/*",
-    "*://*.y.qq.com/*",
     "*://shuoshuo.sikong.ren/*",
     "*://download.hutao.wiki/*",
     "*://api.github.com/*"
