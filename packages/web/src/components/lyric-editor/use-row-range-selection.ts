@@ -4,8 +4,9 @@ import type * as React from 'react';
 /**
  * 歌词表「拖动框选 + Ctrl/Cmd/Shift 多选」交互 hook。
  *
- * 仅服务歌词编辑器三表（主表 / 暂存表 / 对比视图），交互限制在「左侧选择列」：
- * 与歌词文字格、时间格的编辑/跳播放区域物理隔离，互不误触。
+ * 仅服务歌词编辑器三表（主表 / 暂存表 / 对比视图）。整行均可触发拖动框选；
+ * 复选框、输入框、跳转按钮等交互元素通过 closest() 排除，由元素自身处理。
+ * 长按超过 LONG_PRESS_MS 后才允许触发拖动，防止 cmd+click 等修饰键操作误触。
  *
  * 事件用 Mouse 而非 Pointer：jsdom 对 PointerEvent 支持有限，Mouse 交互等价且测试更稳。
  */
