@@ -48,6 +48,7 @@ import { useUIShell } from '@/stores/ui-shell';
 import { PlayingQueue } from './playing-queue';
 import { PartSelector } from './part-selector';
 import { FloatingLyrics } from './floating-lyrics';
+import sliderThumbImg from '@/assets/slider-thumb.webp';
 
 const LOOP_MODE_TIPS: Record<LoopMode, string> = {
   single: '单曲循环',
@@ -193,6 +194,7 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
             step={0.1}
             onValueChange={handleSeek}
             aria-label="播放进度"
+            thumbSrc={sliderThumbImg}
             className={cn(
               // focus-visible 仅匹配「键盘」focus（鼠标点击不触发），避免点击拖拽后 thumb
               // 因获得 focus 而持久显示；鼠标用户由 showProgressThumb 状态完全控制
