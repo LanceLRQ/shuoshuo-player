@@ -14,6 +14,7 @@ export { useUpdateCheckerStore } from './update-checker';
 export { useFavoritesStore, selectSortedBvids } from './favorites';
 export type { FavoritesOrder } from './favorites';
 export { useVideoPagePrefStore } from './video-page-pref';
+export { useLiveSlicerCacheStore } from './live-slicer-cache';
 export type {
   NoticeItem,
   SendNoticePayload,
@@ -41,4 +42,5 @@ export type {
   PersistedUpdateCheckerShape,
   PersistedFavoritesShape,
   PersistedVideoPagePrefShape,
+  PersistedLiveSlicerCacheShape,
 } from './persisted-types';

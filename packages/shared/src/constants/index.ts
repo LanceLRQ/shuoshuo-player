@@ -15,6 +15,7 @@ export const PERSIST_KEYS = [
   'update_checker',
   'favorites',
   'video_page_pref',
+  'live_slicer_cache',
 ] as const;
 
 /** 可导出的 store key（cloud_service 出于安全不导出） */
@@ -86,6 +87,15 @@ export const PERSIST_THROTTLE_MS = 1000;
 
 /** 视频列表自动刷新阈值（秒，超过则提示更新；24 小时） */
 export const VIDEO_LIST_REFRESH_THRESHOLD = 86400;
+
+/** 直播切片主播信息缓存自动刷新阈值（秒，24 小时） */
+export const LIVE_SLICER_CARD_REFRESH_THRESHOLD = 86400;
+
+/** 直播切片缓存刷新并发上限（避免 B 站 IP 维度风控） */
+export const LIVE_SLICER_CARD_FETCH_CONCURRENCY = 3;
+
+/** 直播切片缓存刷新单请求最小间隔（毫秒） */
+export const LIVE_SLICER_CARD_FETCH_INTERVAL_MS = 400;
 
 /** B 站空间信息字段拾取 */
 export const BILIBILI_SPACE_INFO_FIELDS = [

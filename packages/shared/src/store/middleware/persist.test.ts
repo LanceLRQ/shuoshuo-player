@@ -142,7 +142,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     return entry;
   }
 
-  it('注册表覆盖 11 个 PERSIST_KEYS', () => {
+  it('注册表覆盖 12 个 PERSIST_KEYS', () => {
     const keys = STORE_PERSIST_REGISTRY.map((e) => e.key).sort();
     expect(keys).toEqual(
       [
@@ -157,6 +157,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
         'update_checker',
         'favorites',
         'video_page_pref',
+        'live_slicer_cache',
       ].sort(),
     );
   });

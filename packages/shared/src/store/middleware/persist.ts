@@ -20,6 +20,7 @@ import { useMusicUrlCacheStore, type MusicUrlCacheEntry } from '../music-url-cac
 import { useUpdateCheckerStore } from '../update-checker';
 import { useFavoritesStore } from '../favorites';
 import { useVideoPagePrefStore } from '../video-page-pref';
+import { useLiveSlicerCacheStore } from '../live-slicer-cache';
 import { hasPageSuffix, trackIdToBvid } from '../../utils/track-id';
 import type { FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
 import {
@@ -41,6 +42,7 @@ import type {
   PersistedPlayingListShape,
   PersistedUpdateCheckerShape,
   PersistedVideoPagePrefShape,
+  PersistedLiveSlicerCacheShape,
 } from '../persisted-types';
 
 /** 持久化数据的根 key（带 v2 命名空间，与 v1 裸名 fav_list/lyrics 等彻底隔离） */
@@ -374,6 +376,20 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     },
     subscribe(cb) {
       return useVideoPagePrefStore.subscribe(cb);
+    },
+  },
+  {
+    key: 'live_slicer_cache',
+    hydrate(raw) {
+      const data = asRecord(raw) as PersistedLiveSlicerCacheShape | null;
+      if (!data) return;
+      useLiveSlicerCacheStore.setState({ entries: data.entries ?? {}, isRefreshing: false });
+    },
+    snapshot() {
+      return useLiveSlicerCacheStore.getState().persistSnapshot();
+    },
+    subscribe(cb) {
+      return useLiveSlicerCacheStore.subscribe(cb);
     },
   },
 ];

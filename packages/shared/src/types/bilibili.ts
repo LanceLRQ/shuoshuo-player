@@ -70,6 +70,50 @@ export interface BilibiliSpaceInfo {
   };
 }
 
+/** B 站用户名片（/x/web-interface/card 响应，免 WBI 免登录，含粉丝数 + 投稿数） */
+export interface BilibiliUserCard {
+  card: {
+    mid: string;
+    name: string;
+    face: string;
+    sign: string;
+    fans: number;
+    friend: number;
+    attention: number;
+  };
+  /** 粉丝数（根级，与 card.fans 等价） */
+  follower: number;
+  /** 用户稿件数 */
+  archive_count: number;
+  /** 获赞数 */
+  like_num: number;
+}
+
+/**
+ * 直播切片主播本地缓存条目
+ *
+ * 更新感知用投稿数差分：缓存上次 archiveCount，本次变大即判定有新投稿，
+ * 复用同一次 card 请求、零额外接口。lastUpdatedAt 是「发现变化的时刻」近似，
+ * 非 B 站真实发布时间；删旧发新净值持平会漏检（切片场景可接受）。
+ */
+export interface LiveSlicerCacheEntry {
+  mid: string;
+  /** 取 card 最新值，展示优先于云端 LiveSlicerMan.name */
+  name: string;
+  face: string;
+  follower: number;
+  /** 当前投稿数（差分基线） */
+  archiveCount: number;
+  /** 上次成功拉取时刻（秒） */
+  lastFetchedAt: number;
+  /** 上次检测到投稿数「增加」的时刻（秒，0=从未） */
+  lastUpdatedAt: number;
+  /** 上次新增数量（角标 +N） */
+  lastDelta: number;
+  /** 有未读更新，用户点该卡片后清除 */
+  hasUnread: boolean;
+}
+
 /** 视频列表缓存条目 */
 export interface VideoListCacheEntry {
   update_time: number;

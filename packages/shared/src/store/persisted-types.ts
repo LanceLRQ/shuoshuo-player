@@ -17,6 +17,7 @@ import type {
   FavFolderCacheEntry,
   FavListItem,
   FloatingLyricsConfig,
+  LiveSlicerCacheEntry,
   LoopMode,
   LyricEntry,
   VideoListCacheEntry,
@@ -105,4 +106,9 @@ export interface PersistedFavoritesShape {
 export interface PersistedVideoPagePrefShape {
   /** bvid → 默认 P（>= 2） */
   defaultPage?: Record<string, number>;
+}
+
+export interface PersistedLiveSlicerCacheShape {
+  /** mid → 直播切片主播缓存条目 */
+  entries?: Record<string, LiveSlicerCacheEntry>;
 }
