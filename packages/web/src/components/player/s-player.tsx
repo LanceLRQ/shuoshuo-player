@@ -128,6 +128,9 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
   const [showQueue, setShowQueue] = useState(false);
   const [showPartSelector, setShowPartSelector] = useState(false);
   const [showQuality, setShowQuality] = useState(false);
+  // 拖动进度条时只更新本地显示值（不实时 seek 音频，避免快速拖动频繁 seek 导致鬼畜）；
+  // 释放（onValueCommit）才真正 seek。null 表示未在拖动，thumb 跟随实时播放进度。
+  const [seekingValue, setSeekingValue] = useState<number | null>(null);
 
   const cur = player.currentVideo;
   const currentTrackQuality = cur ? trackQualityMap[cur.bvid] : undefined;
@@ -135,8 +138,15 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
   const LoopIcon = loopMode === 'single' ? Repeat1 : loopMode === 'random' ? Shuffle : Repeat;
   const VolumeIcon = volume === 0 ? VolumeX : Volume2;
 
-  const handleSeek = (vals: number[]) => {
+  // 拖动中：仅更新本地显示值，让 thumb 跟手，不触碰音频
+  const handleSeekChange = (vals: number[]) => {
+    if (vals[0] !== undefined) setSeekingValue(vals[0]);
+  };
+
+  // 释放（或键盘单步结束）：一次性 seek 到目标位置并退出拖动态
+  const handleSeekCommit = (vals: number[]) => {
     if (vals[0] !== undefined) player.seek(vals[0]);
+    setSeekingValue(null);
   };
 
   const handleVolumeChange = (vals: number[]) => {
@@ -189,10 +199,11 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
             </div>
           )}
           <Slider
-            value={[player.progress]}
+            value={[seekingValue ?? player.progress]}
             max={Math.max(player.duration, 0.01)}
             step={0.1}
-            onValueChange={handleSeek}
+            onValueChange={handleSeekChange}
+            onValueCommit={handleSeekCommit}
             aria-label="播放进度"
             thumbSrc={sliderThumbImg}
             className={cn(
