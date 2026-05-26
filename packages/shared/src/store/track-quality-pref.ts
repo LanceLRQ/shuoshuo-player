@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import type { AudioQualityPreference } from '../types';
+import { AUDIO_QUALITY_PREFERENCES, type AudioQualityPreference } from '../types';
+
+/** 合法档位集合（防御 setState 直接灌入的脏值），单一来源见 AUDIO_QUALITY_PREFERENCES */
+const AUDIO_QUALITY_PREFERENCE_SET: ReadonlySet<string> = new Set(AUDIO_QUALITY_PREFERENCES);
 
 /**
  * 单曲音频音质偏好（按 bvid 覆盖全局默认音质）
@@ -29,7 +32,7 @@ export const useTrackQualityPrefStore = create<TrackQualityPrefState>((set, get)
   quality: {},
 
   setQuality: (bvid, quality) => {
-    if (!bvid) return;
+    if (!bvid || !AUDIO_QUALITY_PREFERENCE_SET.has(quality)) return;
     set((state) => ({
       quality: { ...state.quality, [bvid]: quality },
     }));

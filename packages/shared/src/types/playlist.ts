@@ -24,12 +24,21 @@ export interface FavListItem {
 export type LoopMode = 'single' | 'loop' | 'random';
 
 /**
- * 默认音频音质偏好：
+ * 默认音频音质偏好（合法档位的单一来源；store 校验 / 持久化过滤均引用此数组）：
  * - 'auto'：账号权限内最高可用（大会员可达 Hi-Res / 杜比，普通用户落到 192K）
  * - 'hires' / 'dolby'：大会员专属，无权限或视频无该流时自动降级到常规音质
  * - 'high' / 'medium' / 'low'：常规 192K / 132K / 64K
  */
-export type AudioQualityPreference = 'auto' | 'hires' | 'dolby' | 'high' | 'medium' | 'low';
+export const AUDIO_QUALITY_PREFERENCES = [
+  'auto',
+  'hires',
+  'dolby',
+  'high',
+  'medium',
+  'low',
+] as const;
+
+export type AudioQualityPreference = (typeof AUDIO_QUALITY_PREFERENCES)[number];
 
 /** 默认音质偏好：自动取最高可用 */
 export const DEFAULT_AUDIO_QUALITY: AudioQualityPreference = 'auto';

@@ -13,6 +13,7 @@ import type {
   VideoListViewMode,
 } from '../types';
 import {
+  AUDIO_QUALITY_PREFERENCES,
   DEFAULT_AUDIO_QUALITY,
   DEFAULT_CLOSE_ACTION,
   DEFAULT_COLLECTION_PLAY_BEHAVIOR,
@@ -35,14 +36,7 @@ const VIEW_MODE_SET: ReadonlySet<VideoListViewMode> = new Set<VideoListViewMode>
   'thumbnail',
 ]);
 
-const AUDIO_QUALITY_SET: ReadonlySet<AudioQualityPreference> = new Set<AudioQualityPreference>([
-  'auto',
-  'hires',
-  'dolby',
-  'high',
-  'medium',
-  'low',
-]);
+const AUDIO_QUALITY_SET: ReadonlySet<AudioQualityPreference> = new Set(AUDIO_QUALITY_PREFERENCES);
 
 const FLOATING_LYRICS_ALIGN_SET: ReadonlySet<FloatingLyricsAlign> = new Set([
   'left',

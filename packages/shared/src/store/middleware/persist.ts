@@ -25,6 +25,7 @@ import { useTrackQualityPrefStore } from '../track-quality-pref';
 import { hasPageSuffix, trackIdToBvid } from '../../utils/track-id';
 import type { AudioQualityPreference, FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
 import {
+  AUDIO_QUALITY_PREFERENCES,
   DEFAULT_AUDIO_QUALITY,
   DEFAULT_CLOSE_ACTION,
   DEFAULT_COLLECTION_PLAY_BEHAVIOR,
@@ -48,15 +49,8 @@ import type {
   PersistedTrackQualityPrefShape,
 } from '../persisted-types';
 
-/** 单曲音质偏好的合法档位（hydrate 防脏数据过滤用） */
-const AUDIO_QUALITY_PREF_VALUES: ReadonlySet<string> = new Set([
-  'auto',
-  'hires',
-  'dolby',
-  'high',
-  'medium',
-  'low',
-]);
+/** 单曲音质偏好的合法档位（hydrate 防脏数据过滤用），档位单一来源见 AUDIO_QUALITY_PREFERENCES */
+const AUDIO_QUALITY_PREF_VALUES: ReadonlySet<string> = new Set(AUDIO_QUALITY_PREFERENCES);
 
 /** 持久化数据的根 key（带 v2 命名空间，与 v1 裸名 fav_list/lyrics 等彻底隔离） */
 export const PERSIST_DATA_KEY = `${SSP_V2_NAMESPACE}player_data`;
