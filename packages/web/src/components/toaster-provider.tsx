@@ -1,6 +1,35 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { Toaster, toast } from 'sonner';
-import { useUIStore, NoticeType, usePlayerProfileStore } from '@shuoshuo-player/shared';
+import {
+  useUIStore,
+  NoticeType,
+  usePlayerProfileStore,
+  type NoticeAction,
+} from '@shuoshuo-player/shared';
+import { cn } from '@/lib/utils';
+
+/** 把多操作按钮渲染成 sonner action 可接收的 ReactNode（首项主按钮，其余次按钮） */
+function renderActions(actions: NoticeAction[]) {
+  return (
+    <span className="flex shrink-0 items-center gap-2">
+      {actions.map((a, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={a.onClick}
+          className={cn(
+            'h-7 shrink-0 whitespace-nowrap rounded-md px-3 text-xs font-medium transition-colors',
+            i === 0
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+          )}
+        >
+          {a.label}
+        </button>
+      ))}
+    </span>
+  );
+}
 
 /**
  * sonner 全局 Provider + 桥接 useUIStore.notices。
@@ -35,12 +64,17 @@ export function ToasterProvider() {
         // （手动关闭 / toast.dismiss 程控）；duration=Infinity 不触发 onAutoClose（常驻语义保持）
         // removeNotice 是 filter 实现，多路径同 id 重复调用幂等
         const cleanup = () => removeNotice(notice.id);
+        // 多按钮（notice.actions）优先：渲染成自定义 ReactNode；否则回退单 action 对象
+        const action =
+          notice.actions && notice.actions.length > 0
+            ? renderActions(notice.actions)
+            : notice.action
+              ? { label: notice.action.label, onClick: notice.action.onClick }
+              : undefined;
         const opts: Parameters<typeof toast>[1] = {
           id: notice.id,
           duration: notice.duration === null ? Infinity : notice.duration,
-          action: notice.action
-            ? { label: notice.action.label, onClick: notice.action.onClick }
-            : undefined,
+          action,
           dismissible: notice.close,
           onAutoClose: cleanup,
           onDismiss: cleanup,
@@ -64,7 +98,18 @@ export function ToasterProvider() {
     return () => unsub();
   }, []);
 
-  return <Toaster richColors position="top-center" theme={theme} closeButton expand />;
+  // 略加宽至 400px：双按钮更新提示在默认 356px 下会把按钮挤换行；
+  // 文案过长时让其自然换行，按钮已 whitespace-nowrap 不受影响
+  return (
+    <Toaster
+      richColors
+      position="top-center"
+      theme={theme}
+      closeButton
+      expand
+      style={{ '--width': '400px' } as CSSProperties}
+    />
+  );
 }
 
 /**

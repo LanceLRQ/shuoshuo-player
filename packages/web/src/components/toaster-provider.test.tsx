@@ -1,3 +1,4 @@
+import { isValidElement } from 'react';
 import { render, act } from '@testing-library/react';
 import { useUIStore, NoticeType } from '@shuoshuo-player/shared';
 import { ToasterProvider, useNotice } from './toaster-provider';
@@ -162,6 +163,36 @@ describe('ToasterProvider', () => {
       act(() => opts.onAutoClose());
     }
     expect(useUIStore.getState().notices).toHaveLength(0);
+  });
+
+  it('notice.actions 存在时，action 渲染为多按钮 ReactNode', () => {
+    render(<ToasterProvider />);
+    act(() => {
+      useUIStore.getState().sendNotice({
+        type: NoticeType.INFO,
+        message: 'multi',
+        actions: [
+          { label: 'A', onClick: vi.fn() },
+          { label: 'B', onClick: vi.fn() },
+        ],
+      });
+    });
+    const opts = toastMock.info.mock.calls[0][1];
+    expect(isValidElement(opts.action)).toBe(true);
+  });
+
+  it('仅 notice.action 时回退为单 action 对象（非 ReactNode）', () => {
+    render(<ToasterProvider />);
+    act(() => {
+      useUIStore.getState().sendNotice({
+        type: NoticeType.INFO,
+        message: 'single',
+        action: { label: 'X', onClick: vi.fn() },
+      });
+    });
+    const opts = toastMock.info.mock.calls[0][1];
+    expect(isValidElement(opts.action)).toBe(false);
+    expect(opts.action).toMatchObject({ label: 'X' });
   });
 });
 

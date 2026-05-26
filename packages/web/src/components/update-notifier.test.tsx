@@ -46,6 +46,16 @@ function resetStores() {
   useUIStore.setState({ notices: [] });
 }
 
+// detectPlatformType 通过 window 上的标记区分平台；测试里按需注入，afterEach 清理
+function setPlatform(kind: 'chrome-extension' | 'tauri') {
+  const w = window as unknown as {
+    __TAURI_INTERNALS__?: unknown;
+    chrome?: { runtime?: { id?: string } };
+  };
+  if (kind === 'tauri') w.__TAURI_INTERNALS__ = {};
+  if (kind === 'chrome-extension') w.chrome = { runtime: { id: 'test-ext-id' } };
+}
+
 beforeEach(() => {
   resetStores();
   setPlatformBridge(makeBridge(vi.fn(async () => {})));
@@ -53,6 +63,10 @@ beforeEach(() => {
 
 afterEach(() => {
   resetPlatformBridge();
+  const w = window as unknown as { __TAURI_INTERNALS__?: unknown; chrome?: unknown };
+  delete w.__TAURI_INTERNALS__;
+  delete w.chrome;
+  window.location.hash = '';
 });
 
 describe('UpdateNotifier', () => {
@@ -150,5 +164,107 @@ describe('UpdateNotifier', () => {
     rerender(<UpdateNotifier />);
 
     expect(useUIStore.getState().notices).toHaveLength(1);
+  });
+
+  it('Chrome 扩展平台：弹双按钮（Chrome 商店 + 国内下载），首项跳商店', async () => {
+    const openSpy = vi.fn(async () => {});
+    setPlatformBridge(makeBridge(openSpy));
+    setPlatform('chrome-extension');
+
+    useUpdateCheckerStore.setState({
+      lastCheckedAt: null,
+      latestKnown: makeInfo('9.0.0'),
+      ignoredVersions: [],
+      isChecking: false,
+    });
+
+    render(<UpdateNotifier />);
+
+    const notice = useUIStore.getState().notices[0];
+    expect(notice).toBeDefined();
+    expect(notice.action).toBeNull();
+    expect(notice.actions).toHaveLength(2);
+    expect(notice.actions?.[0].label).toBe('Chrome 商店');
+    expect(notice.actions?.[1].label).toBe('国内下载');
+
+    await act(async () => {
+      notice.actions?.[0].onClick();
+    });
+
+    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('chromewebstore.google.com'));
+    // 点击任一按钮 = 隐式忽略 + 移除提示
+    expect(useUpdateCheckerStore.getState().ignoredVersions).toContain('9.0.0');
+    expect(useUIStore.getState().notices).toHaveLength(0);
+  });
+
+  it('Chrome 扩展平台：次按钮「国内下载」跳官方发布页', async () => {
+    const openSpy = vi.fn(async () => {});
+    setPlatformBridge(makeBridge(openSpy));
+    setPlatform('chrome-extension');
+
+    useUpdateCheckerStore.setState({
+      lastCheckedAt: null,
+      latestKnown: makeInfo('9.0.0'),
+      ignoredVersions: [],
+      isChecking: false,
+    });
+
+    render(<UpdateNotifier />);
+
+    const notice = useUIStore.getState().notices[0];
+    await act(async () => {
+      notice.actions?.[1].onClick();
+    });
+
+    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('shuoshuo.sikong.ren/player'));
+  });
+
+  it('桌面端平台：弹双按钮（查看详情 + 发布页），首项导航关于页', async () => {
+    const openSpy = vi.fn(async () => {});
+    setPlatformBridge(makeBridge(openSpy));
+    setPlatform('tauri');
+
+    useUpdateCheckerStore.setState({
+      lastCheckedAt: null,
+      latestKnown: makeInfo('9.0.0'),
+      ignoredVersions: [],
+      isChecking: false,
+    });
+
+    render(<UpdateNotifier />);
+
+    const notice = useUIStore.getState().notices[0];
+    expect(notice.actions).toHaveLength(2);
+    expect(notice.actions?.[0].label).toBe('查看详情');
+    expect(notice.actions?.[1].label).toBe('发布页');
+
+    await act(async () => {
+      notice.actions?.[0].onClick();
+    });
+
+    expect(window.location.hash).toBe('#/settings?tab=about');
+    expect(useUIStore.getState().notices).toHaveLength(0);
+  });
+
+  it('桌面端平台：发布页按钮跳 GitHub release_url', async () => {
+    const openSpy = vi.fn(async () => {});
+    setPlatformBridge(makeBridge(openSpy));
+    setPlatform('tauri');
+
+    useUpdateCheckerStore.setState({
+      lastCheckedAt: null,
+      latestKnown: makeInfo('9.0.0'),
+      ignoredVersions: [],
+      isChecking: false,
+    });
+
+    render(<UpdateNotifier />);
+
+    const notice = useUIStore.getState().notices[0];
+    await act(async () => {
+      notice.actions?.[1].onClick();
+    });
+
+    expect(openSpy).toHaveBeenCalledWith('https://github.com/x/9.0.0');
   });
 });

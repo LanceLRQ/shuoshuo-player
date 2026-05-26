@@ -28,6 +28,7 @@ function makeProps(over: Partial<React.ComponentProps<typeof LyricCompareView>> 
   return {
     mainLines: MAIN,
     mainSelectedRows: new Set<number>(),
+    setMainSelectedRows: vi.fn(),
     currentMillisecond: 0,
     onMainSeek: vi.fn(),
     onMainToggleSelect: vi.fn(),
@@ -35,6 +36,7 @@ function makeProps(over: Partial<React.ComponentProps<typeof LyricCompareView>> 
     onMainUpdateLine: vi.fn(),
     suggestedLines: SUGGESTED,
     suggestedSelected: new Set<number>(),
+    setSuggestedSelected: vi.fn(),
     onSuggestedToggleSelect: vi.fn(),
     onSuggestedToggleSelectAll: vi.fn(),
     onOverwrite: vi.fn(),

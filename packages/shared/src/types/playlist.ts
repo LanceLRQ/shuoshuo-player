@@ -23,6 +23,26 @@ export interface FavListItem {
 /** 循环模式 */
 export type LoopMode = 'single' | 'loop' | 'random';
 
+/**
+ * 默认音频音质偏好（合法档位的单一来源；store 校验 / 持久化过滤均引用此数组）：
+ * - 'auto'：账号权限内最高可用（大会员可达 Hi-Res / 杜比，普通用户落到 192K）
+ * - 'hires' / 'dolby'：大会员专属，无权限或视频无该流时自动降级到常规音质
+ * - 'high' / 'medium' / 'low'：常规 192K / 132K / 64K
+ */
+export const AUDIO_QUALITY_PREFERENCES = [
+  'auto',
+  'hires',
+  'dolby',
+  'high',
+  'medium',
+  'low',
+] as const;
+
+export type AudioQualityPreference = (typeof AUDIO_QUALITY_PREFERENCES)[number];
+
+/** 默认音质偏好：自动取最高可用 */
+export const DEFAULT_AUDIO_QUALITY: AudioQualityPreference = 'auto';
+
 /** 悬浮歌词水平对齐 */
 export type FloatingLyricsAlign = 'left' | 'center' | 'right';
 /** 悬浮歌词字重 */
@@ -104,6 +124,11 @@ export interface PlayerProfile {
   homeViewMode: VideoListViewMode;
   /** 歌单页列表的展示模式（所有歌单共享一个偏好）；fallback DEFAULT_FAV_VIEW_MODE */
   favViewMode: VideoListViewMode;
+  /**
+   * 默认音频音质偏好。取流时按此选流，账号无权限 / 视频无该流时自动降级到可播放音质。
+   * 仅影响下次切歌 / 切 P（不打断当前播放）。老用户缺该字段时 fallback DEFAULT_AUDIO_QUALITY。
+   */
+  defaultAudioQuality: AudioQualityPreference;
 }
 
 /** 默认强调色（与 packages/web/src/styles/globals.css 中 --primary 一致；#FF6687 中粉） */

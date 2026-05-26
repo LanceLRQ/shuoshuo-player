@@ -8,6 +8,10 @@ export interface VideoViewInfo extends BilibiliVideo {
 export interface VideoPlayUrlResponse {
   dash?: {
     audio: DashAudioStream[];
+    /** 杜比全景声伴音（大会员，type: 1 普通 / 2 全景；视频无杜比时为 null） */
+    dolby?: { type?: number; audio: DashAudioStream[] | null } | null;
+    /** Hi-Res 无损伴音（大会员，display 控制按钮显示；视频无无损时为 null） */
+    flac?: { display?: boolean; audio: DashAudioStream | null } | null;
   };
   durl?: Array<{ url: string; backup_url: string[] }>;
 }

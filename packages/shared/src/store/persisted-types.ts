@@ -9,6 +9,7 @@
  * STORE_PERSIST_REGISTRY.hydrate 收窄并落 setState。
  */
 import type {
+  AudioQualityPreference,
   BilibiliSpaceInfo,
   BilibiliVideo,
   CloseAction,
@@ -17,6 +18,7 @@ import type {
   FavFolderCacheEntry,
   FavListItem,
   FloatingLyricsConfig,
+  LiveSlicerCacheEntry,
   LoopMode,
   LyricEntry,
   VideoListCacheEntry,
@@ -74,6 +76,8 @@ export interface PersistedPlayerProfileShape {
   homeViewMode?: VideoListViewMode;
   /** 歌单列表展示模式；fallback DEFAULT_FAV_VIEW_MODE */
   favViewMode?: VideoListViewMode;
+  /** 默认音频音质偏好；老用户缺该字段时 fallback DEFAULT_AUDIO_QUALITY */
+  defaultAudioQuality?: AudioQualityPreference;
 }
 
 export interface PersistedLyricsShape {
@@ -105,4 +109,14 @@ export interface PersistedFavoritesShape {
 export interface PersistedVideoPagePrefShape {
   /** bvid → 默认 P（>= 2） */
   defaultPage?: Record<string, number>;
+}
+
+export interface PersistedLiveSlicerCacheShape {
+  /** mid → 直播切片主播缓存条目 */
+  entries?: Record<string, LiveSlicerCacheEntry>;
+}
+
+export interface PersistedTrackQualityPrefShape {
+  /** bvid → 单曲覆盖音质偏好 */
+  quality?: Record<string, AudioQualityPreference>;
 }

@@ -1,14 +1,16 @@
 import { VideoApi } from '../api';
-import { AUDIO_QUALITY, CLICK_STAT_THROTTLE, CLICK_STAT_DELAY_MS } from '../constants';
+import { AUDIO_QUALITY, BILI_FNVAL, CLICK_STAT_THROTTLE, CLICK_STAT_DELAY_MS } from '../constants';
 import { getPlatformBridge } from '../platform';
 import { useRiskControlStore } from '../store/risk-control';
 import { useMusicUrlCacheStore } from '../store/music-url-cache';
 import { useBilibiliVideosStore } from '../store/bilibili-videos';
+import { usePlayerProfileStore } from '../store/player-profile';
+import { useTrackQualityPrefStore } from '../store/track-quality-pref';
 import { pickVideosFields } from './bilibili';
 import { timeStampNow } from './format';
 import { logger } from './logger';
 import { buildTrackId } from './track-id';
-import type { DashAudioStream } from '../types';
+import type { AudioQualityPreference, DashAudioStream } from '../types';
 import type { VideoViewInfo } from '../api/bilibili/video';
 
 /**
@@ -216,6 +218,38 @@ function pickPlayableUrl(audioInfo: DashAudioStream | undefined): string {
 }
 
 /**
+ * 按「音质偏好 × 降级轮次」生成候选音质 id 优先级列表（命中第一个可用即用）。
+ *
+ * - attempt=0：按用户偏好起档，找不到逐级降到更低档（高保真档拿不到自动回落常规）
+ * - attempt>=1：onloaderror 降级重试，强制跳过高保真，只在常规中低档找（高保真加载失败多为流问题）
+ */
+function resolveOrderedQualityIds(preference: AudioQualityPreference, attempt: number): number[] {
+  const { HIRES, DOLBY, HIGH, MEDIUM, LOW } = AUDIO_QUALITY;
+  if (attempt >= 2) return [LOW];
+  if (attempt === 1) return [MEDIUM, LOW];
+  switch (preference) {
+    case 'auto':
+    case 'hires':
+      return [HIRES, DOLBY, HIGH, MEDIUM, LOW];
+    case 'dolby':
+      return [DOLBY, HIGH, MEDIUM, LOW];
+    case 'high':
+      return [HIGH, MEDIUM, LOW];
+    case 'medium':
+      return [MEDIUM, LOW];
+    case 'low':
+      return [LOW];
+    default:
+      return [HIGH, MEDIUM, LOW];
+  }
+}
+
+/** 高保真偏好需 fnval=4048 才能让接口返回 dash.flac/dolby；常规档只要 DASH=16 */
+function isHiFiPreference(preference: AudioQualityPreference): boolean {
+  return preference === 'auto' || preference === 'hires' || preference === 'dolby';
+}
+
+/**
  * 从 bili_videos store 解析指定 page 的 cid，避免 fetchMusicUrl 中重复调 view 接口
  *
  * 自 A5 起 URL 缓存 key 升级为 `bvid:cid`，缓存不再独立保存 cid；
@@ -308,8 +342,17 @@ async function attemptFetchMusicUrl(
       logger.debug('[BILI-API]', 'fetchMusicUrl cid hit (skip view)', { bvid: bvId, cid, page });
     }
 
+    // 高保真偏好（auto/hires/dolby）需 fnval=4048 才返回 dash.flac/dolby；
+    // 常规档与降级重试（attempt>0）只要 DASH=16，减小风控面、加快返回。
+    // 单曲覆盖（按 bvid）优先于全局默认音质；两者都不打断当前播放，下次取流生效
+    const preference =
+      useTrackQualityPrefStore.getState().getQuality(bvId) ??
+      usePlayerProfileStore.getState().defaultAudioQuality;
+    const fnval =
+      attempt === 0 && isHiFiPreference(preference) ? BILI_FNVAL.DASH_ALL : BILI_FNVAL.DASH;
+
     const playInfo = await VideoApi.getVideoPlayurl({
-      params: { cid, fnval: 16, bvid: bvId },
+      params: { cid, fnval, bvid: bvId },
     });
 
     // 风控检测：B 站对异常 wbi 签名 / 缺 Cookie / 频繁请求会返回 code=0 但 data 只含
@@ -324,28 +367,21 @@ async function attemptFetchMusicUrl(
       throw createRiskControlError(voucher);
     }
 
+    // 统一音频流池：常规 dash.audio + 杜比 dash.dolby.audio + Hi-Res dash.flac.audio
     const audioList = playInfo?.dash?.audio ?? [];
+    const dolbyAudioList = playInfo?.dash?.dolby?.audio ?? [];
+    const flacAudio = playInfo?.dash?.flac?.audio ?? undefined;
+    const allAudio: DashAudioStream[] = [
+      ...audioList,
+      ...dolbyAudioList,
+      ...(flacAudio ? [flacAudio] : []),
+    ];
     const findById = (id: number): DashAudioStream | undefined =>
-      audioList.find((a) => a?.id === id);
-    // 标准音质优先 → 任意 dash.audio → flac → dolby → durl
-    const dashExtra = playInfo?.dash as
-      | {
-          flac?: { audio?: DashAudioStream } | null;
-          dolby?: { audio?: DashAudioStream[] } | null;
-        }
-      | undefined;
-    const flacAudio = dashExtra?.flac?.audio;
-    const dolbyAudio = dashExtra?.dolby?.audio?.[0];
-    const durl = (playInfo as { durl?: Array<{ url: string; backup_url?: string[] }> })?.durl;
+      allAudio.find((a) => a?.id === id);
+    const durl = playInfo?.durl;
 
-    // 按 attempt 决定候选音质优先级：升一级即跳过更高一档（用于 onloaderror 后强制走低码率）
-    // attempt=0: HIGH → MEDIUM → LOW
-    // attempt=1: MEDIUM → LOW
-    // attempt=2: LOW
-    const orderedIds: number[] = [];
-    if (attempt <= 0) orderedIds.push(AUDIO_QUALITY.HIGH);
-    if (attempt <= 1) orderedIds.push(AUDIO_QUALITY.MEDIUM);
-    if (attempt <= 2) orderedIds.push(AUDIO_QUALITY.LOW);
+    // 按「偏好 × attempt」选目标音质，命中第一个即用，全不命中回落流池首项
+    const orderedIds = resolveOrderedQualityIds(preference, attempt);
     let audio: DashAudioStream | undefined;
     for (const id of orderedIds) {
       const hit = findById(id);
@@ -355,15 +391,17 @@ async function attemptFetchMusicUrl(
       }
     }
     if (!audio) {
-      audio = audioList[0] || flacAudio || dolbyAudio;
+      audio = allAudio[0];
     }
 
     logger.debug('[BILI-API]', 'playInfo parsed', {
       bvid: bvId,
       attempt,
-      audio_ids: audioList.map((a) => a?.id),
+      preference,
+      fnval,
+      audio_ids: allAudio.map((a) => a?.id),
       has_flac: Boolean(flacAudio),
-      has_dolby: Boolean(dolbyAudio),
+      has_dolby: dolbyAudioList.length > 0,
       durl_count: durl?.length ?? 0,
       picked_id: audio?.id,
       has_base_url: Boolean(audio?.base_url),

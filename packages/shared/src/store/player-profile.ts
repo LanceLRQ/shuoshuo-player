@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  AudioQualityPreference,
   CloseAction,
   CollectionPlayBehavior,
   FloatingLyricsConfig,
@@ -12,6 +13,8 @@ import type {
   VideoListViewMode,
 } from '../types';
 import {
+  AUDIO_QUALITY_PREFERENCES,
+  DEFAULT_AUDIO_QUALITY,
   DEFAULT_CLOSE_ACTION,
   DEFAULT_COLLECTION_PLAY_BEHAVIOR,
   DEFAULT_FAV_VIEW_MODE,
@@ -32,6 +35,8 @@ const VIEW_MODE_SET: ReadonlySet<VideoListViewMode> = new Set<VideoListViewMode>
   'list',
   'thumbnail',
 ]);
+
+const AUDIO_QUALITY_SET: ReadonlySet<AudioQualityPreference> = new Set(AUDIO_QUALITY_PREFERENCES);
 
 const FLOATING_LYRICS_ALIGN_SET: ReadonlySet<FloatingLyricsAlign> = new Set([
   'left',
@@ -118,6 +123,8 @@ interface PlayerProfileState extends PlayerProfile {
   setHomeViewMode: (mode: VideoListViewMode) => void;
   /** 设置歌单列表展示模式（所有歌单共享）；非白名单值忽略以防御导入脏数据 */
   setFavViewMode: (mode: VideoListViewMode) => void;
+  /** 设置默认音频音质偏好；非白名单值忽略以防御导入脏数据 */
+  setDefaultAudioQuality: (quality: AudioQualityPreference) => void;
   /** 解析 'auto' 主题为实际 light/dark（依赖 prefers-color-scheme） */
   getEffectiveTheme: () => 'light' | 'dark';
 }
@@ -135,6 +142,7 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   collectionPlayBehavior: DEFAULT_COLLECTION_PLAY_BEHAVIOR,
   homeViewMode: DEFAULT_HOME_VIEW_MODE,
   favViewMode: DEFAULT_FAV_VIEW_MODE,
+  defaultAudioQuality: DEFAULT_AUDIO_QUALITY,
 
   setTheme: (theme) => set({ theme }),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(1, volume)) }),
@@ -171,6 +179,11 @@ export const usePlayerProfileStore = create<PlayerProfileState>((set, get) => ({
   setFavViewMode: (mode) => {
     if (!VIEW_MODE_SET.has(mode)) return;
     set({ favViewMode: mode });
+  },
+
+  setDefaultAudioQuality: (quality) => {
+    if (!AUDIO_QUALITY_SET.has(quality)) return;
+    set({ defaultAudioQuality: quality });
   },
 
   getEffectiveTheme: () => {

@@ -15,6 +15,8 @@ export const PERSIST_KEYS = [
   'update_checker',
   'favorites',
   'video_page_pref',
+  'live_slicer_cache',
+  'track_quality_pref',
 ] as const;
 
 /** 可导出的 store key（cloud_service 出于安全不导出） */
@@ -27,6 +29,7 @@ export const EXPORT_KEYS = [
   'lyrics',
   'favorites',
   'video_page_pref',
+  'track_quality_pref',
 ] as const;
 
 /** 主 UP 主信息 */
@@ -87,6 +90,15 @@ export const PERSIST_THROTTLE_MS = 1000;
 /** 视频列表自动刷新阈值（秒，超过则提示更新；24 小时） */
 export const VIDEO_LIST_REFRESH_THRESHOLD = 86400;
 
+/** 直播切片主播信息缓存自动刷新阈值（秒，24 小时） */
+export const LIVE_SLICER_CARD_REFRESH_THRESHOLD = 86400;
+
+/** 直播切片缓存刷新并发上限（避免 B 站 IP 维度风控） */
+export const LIVE_SLICER_CARD_FETCH_CONCURRENCY = 3;
+
+/** 直播切片缓存刷新单请求最小间隔（毫秒） */
+export const LIVE_SLICER_CARD_FETCH_INTERVAL_MS = 400;
+
 /** B 站空间信息字段拾取 */
 export const BILIBILI_SPACE_INFO_FIELDS = [
   'name',
@@ -100,12 +112,27 @@ export const BILIBILI_SPACE_INFO_FIELDS = [
 
 /** 音频品质 ID 映射（B 站 DASH 音频流） */
 export const AUDIO_QUALITY = {
+  /** Hi-Res 无损（大会员专属，位于 dash.flac） */
+  HIRES: 30251,
+  /** 杜比全景声（大会员专属，位于 dash.dolby） */
+  DOLBY: 30250,
   /** 192 Kbps */
   HIGH: 30280,
   /** 132 Kbps */
   MEDIUM: 30232,
   /** 64 Kbps */
   LOW: 30216,
+} as const;
+
+/**
+ * B 站 playurl 的 fnval 视频流格式标识（位掩码，见 docs/video/videostream_url.md）。
+ * 取高保真音频（杜比/Hi-Res）必须用 DASH_ALL，否则接口不返回 dash.flac/dolby。
+ */
+export const BILI_FNVAL = {
+  /** DASH 基础格式：仅返回常规音频（64K/132K/192K），免大会员 */
+  DASH: 16,
+  /** 所有可用 DASH 流的或运算结果：按账号权限返回全部流（含杜比/Hi-Res/4K/8K） */
+  DASH_ALL: 4048,
 } as const;
 
 /** 云服务 API 默认 baseURL（用户未在设置中覆盖时 fallback） */

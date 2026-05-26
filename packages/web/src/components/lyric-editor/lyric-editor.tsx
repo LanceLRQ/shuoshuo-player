@@ -21,6 +21,7 @@ import { LyricTable, type LyricLine } from './lyric-table';
 import { LyricCompareView } from './lyric-compare-view';
 import { LyricSourceEditorDialog } from './lyric-source-editor-dialog';
 import { LyricSearchDialog } from '@/components/dialogs/lyric-search-dialog';
+import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 import { useUIShell } from '@/stores/ui-shell';
 
 interface LyricEditorProps {
@@ -75,6 +76,16 @@ export function LyricEditor({
   const isAdmin = useCloudServiceStore((s) => s.isAdmin());
   const sendNotice = useUIStore((s) => s.sendNotice);
   const openConfirm = useUIShell((s) => s.openConfirm);
+  const setLyricEditing = useUIShell((s) => s.setLyricEditing);
+  const isPlaying = usePlayerRuntimeStore((s) => s.isPlaying);
+
+  // 编辑器活动期间置「正在编辑歌词」全局标记：播放核心据此在曲终时循环当前曲、不切歌，
+  // 避免未保存的编辑工作被自动切歌静默丢失。两个挂载点（歌词面板内嵌 / 云服务弹窗）都是
+  // 条件渲染（真 mount/unmount），cleanup 可靠复位。
+  useEffect(() => {
+    setLyricEditing(true);
+    return () => setLyricEditing(false);
+  }, [setLyricEditing]);
 
   const [lines, setLines] = useState<LyricLine[]>(() => parseInitial(lyricEntry?.lyricText ?? ''));
   const [history, setHistory] = useState<LyricLine[][]>([]);
@@ -451,13 +462,16 @@ export function LyricEditor({
           <LyricCompareView
             mainLines={lines}
             mainSelectedRows={selectedRows}
+            setMainSelectedRows={setSelectedRows}
             currentMillisecond={currentMillisecond}
+            isPlaying={isPlaying}
             onMainSeek={handleSeek}
             onMainToggleSelect={handleToggleSelect}
             onMainToggleSelectAll={handleToggleSelectAll}
             onMainUpdateLine={handleUpdateLine}
             suggestedLines={suggested}
             suggestedSelected={suggestedSelected}
+            setSuggestedSelected={setSuggestedSelected}
             onSuggestedToggleSelect={handleSuggestedToggleSelect}
             onSuggestedToggleSelectAll={handleSuggestedToggleSelectAll}
             onSuggestedSeek={handleSeek}
@@ -470,7 +484,9 @@ export function LyricEditor({
           <LyricTable
             lines={lines}
             selectedRows={selectedRows}
+            setSelectedRows={setSelectedRows}
             currentMillisecond={currentMillisecond}
+            isPlaying={isPlaying}
             onSeek={handleSeek}
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAll}

@@ -12,6 +12,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof LyricSuggested
   return {
     lines: LINES,
     selectedRows: new Set<number>(),
+    setSelectedRows: vi.fn(),
     currentMillisecond: 0,
     onToggleSelect: vi.fn(),
     onToggleSelectAll: vi.fn(),

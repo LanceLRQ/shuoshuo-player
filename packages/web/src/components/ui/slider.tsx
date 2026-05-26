@@ -4,8 +4,11 @@ import { cn } from '@/lib/utils';
 
 const Slider = React.forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
->(({ className, orientation = 'horizontal', ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> & {
+    /** 自定义 thumb 图片（如播放进度条用角色图）；不传则用默认主色圆点 */
+    thumbSrc?: string;
+  }
+>(({ className, orientation = 'horizontal', thumbSrc, ...props }, ref) => (
   <SliderPrimitive.Root
     ref={ref}
     orientation={orientation}
@@ -34,7 +37,23 @@ const Slider = React.forwardRef<
         )}
       />
     </SliderPrimitive.Track>
-    <SliderPrimitive.Thumb className="-mt-0.5 block h-4 w-4 rounded-full bg-primary shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
+    {/* -mt-px 精确抵消 Root 的 border-t-[1px]：负 margin 等于 border 宽度，让 thumb 与 track
+        居中对齐。早期用 -mt-0.5（-2px）过补偿了 1px，该固定像素在 Windows 分数 DPI 缩放下
+        subpixel 舍入被放大，导致 thumb 明显偏离轨道；用 1px（=border 宽度）则按 DPI 成比例补偿。
+        thumbSrc 模式：thumb 占位仍保持 h-4 w-4（不撑高 Root，保证 track 位置与对齐不变），
+        图片以 absolute 居中溢出显示，命中区域与默认圆点一致。 */}
+    {thumbSrc ? (
+      <SliderPrimitive.Thumb className="-mt-px relative block h-4 w-4 rounded-full outline-none transition-colors focus:outline-none focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50">
+        <img
+          src={thumbSrc}
+          alt=""
+          draggable={false}
+          className="pointer-events-none absolute left-1/2 top-1/2 h-6 w-6 max-w-none -translate-x-1/2 -translate-y-1/2 select-none object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
+        />
+      </SliderPrimitive.Thumb>
+    ) : (
+      <SliderPrimitive.Thumb className="-mt-px block h-4 w-4 rounded-full bg-primary shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
+    )}
   </SliderPrimitive.Root>
 ));
 Slider.displayName = SliderPrimitive.Root.displayName;

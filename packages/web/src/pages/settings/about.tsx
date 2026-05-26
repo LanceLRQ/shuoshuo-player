@@ -23,13 +23,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
 import { useUIShell } from '@/stores/ui-shell';
-
-const OFFICIAL_RELEASE_URL = 'https://shuoshuo.sikong.ren/player';
-const GITHUB_URL = 'https://github.com/LanceLRQ/shuoshuo-player';
-const RELEASES_URL = 'https://github.com/LanceLRQ/shuoshuo-player/releases';
-const LICENSE_URL = 'https://github.com/LanceLRQ/shuoshuo-player/blob/main/LICENSE';
-const CHROME_STORE_URL =
-  'https://chromewebstore.google.com/detail/%E8%AF%B4%E8%AF%B4%E6%92%AD%E6%94%BE%E5%99%A8-%E6%B0%B4%E6%99%B6%E8%9F%B9%E5%AE%9A%E5%88%B6%E7%89%88/odfgnejgeebbccohpgjdmbklaoicndpb';
+import {
+  OFFICIAL_RELEASE_URL,
+  GITHUB_URL,
+  RELEASES_URL,
+  LICENSE_URL,
+  CHROME_STORE_URL,
+} from '@/lib/links';
 
 function formatTimestamp(iso: string | null): string {
   if (!iso) return '从未检查';

@@ -22,6 +22,7 @@ import {
   type BilibiliVideo,
 } from '@shuoshuo-player/shared';
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
+import { useUIShell } from '@/stores/ui-shell';
 
 // === Mock fetchMusicUrl 与 LyricApi（避免真实 axios 请求） ===
 vi.mock('@shuoshuo-player/shared', async () => {
@@ -442,6 +443,129 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(howlerState.lastInstance!.seek).toHaveBeenCalledWith(0);
     expect(howlerState.lastInstance!.play).toHaveBeenCalledTimes(1);
     expect(usePlayingListStore.getState().current).toBe('BV1Test00001');
+  });
+
+  // 回归：onend 必须读取最新 loopMode（修复前 onend 闭包捕获创建实例那刻的旧 loopMode，
+  // 播放途中切到单曲循环仍会跳下一首，跳过去后才进入单曲循环）
+  it('onend 取最新 loopMode（stale closure 回归）：播放途中 loop→single，onend 循环当前曲不切歌', async () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1Test00001', 'BV1Test00002'],
+      entities: {
+        BV1Test00001: TEST_VIDEO,
+        BV1Test00002: { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Track 2' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'main',
+      trackIds: ['BV1Test00001', 'BV1Test00002'],
+      current: 'BV1Test00001',
+      playNext: false,
+    });
+    usePlayerProfileStore.setState({ volume: 0.5, autoPlay: true, loopMode: 'loop' });
+
+    renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    // 播放途中切到单曲循环：Howl 实例不重建，onend 必须读到最新 loopMode
+    await act(async () => {
+      usePlayerProfileStore.setState({ loopMode: 'single' });
+    });
+
+    howlerState.lastInstance!.play.mockClear();
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+
+    expect(howlerState.lastInstance!.seek).toHaveBeenCalledWith(0);
+    expect(howlerState.lastInstance!.play).toHaveBeenCalledTimes(1);
+    expect(usePlayingListStore.getState().current).toBe('BV1Test00001');
+  });
+
+  it('onend 取最新 loopMode：播放途中 single→loop，onend 切下一首', async () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1Test00001', 'BV1Test00002'],
+      entities: {
+        BV1Test00001: TEST_VIDEO,
+        BV1Test00002: { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Track 2' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'main',
+      trackIds: ['BV1Test00001', 'BV1Test00002'],
+      current: 'BV1Test00001',
+      playNext: false,
+    });
+    usePlayerProfileStore.setState({ volume: 0.5, autoPlay: true, loopMode: 'single' });
+
+    renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    await act(async () => {
+      usePlayerProfileStore.setState({ loopMode: 'loop' });
+    });
+
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+
+    expect(usePlayingListStore.getState().current).toBe('BV1Test00002');
+  });
+
+  it('onend (编辑歌词态) 触发：即使 loop 模式也 seek(0) + play()，不切歌', async () => {
+    // 多曲 loop 队列：正常会切下一首，但编辑歌词时应强制循环当前曲避免丢失未保存编辑
+    useBilibiliVideosStore.setState({
+      ids: ['BV1Test00001', 'BV1Test00002'],
+      entities: {
+        BV1Test00001: TEST_VIDEO,
+        BV1Test00002: { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Track 2' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'main',
+      trackIds: ['BV1Test00001', 'BV1Test00002'],
+      current: 'BV1Test00001',
+      playNext: false,
+    });
+    useUIShell.setState({ lyricEditing: true });
+
+    try {
+      renderHook(() => useMusicPlayer());
+
+      await act(async () => {
+        usePlayingListStore.setState({ playNext: true });
+      });
+      await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+
+      howlerState.lastInstance!.play.mockClear();
+      act(() => {
+        howlerState.lastCb.onplay?.();
+      });
+      act(() => {
+        howlerState.lastCb.onend?.();
+      });
+
+      expect(howlerState.lastInstance!.seek).toHaveBeenCalledWith(0);
+      expect(howlerState.lastInstance!.play).toHaveBeenCalled();
+      // 当前曲目未变（编辑态拦截了切歌）
+      expect(usePlayingListStore.getState().current).toBe('BV1Test00001');
+    } finally {
+      // 复位，避免污染同 describe 内后续用例
+      useUIShell.setState({ lyricEditing: false });
+    }
   });
 
   it('onplayerror 触发：注册 unlock once（行为不抛错）', async () => {

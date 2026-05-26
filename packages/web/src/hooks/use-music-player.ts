@@ -21,6 +21,7 @@ import {
   type FetchMusicUrlError,
 } from '@shuoshuo-player/shared';
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
+import { useUIShell } from '@/stores/ui-shell';
 
 interface PlayerState {
   isLoading: boolean;
@@ -132,6 +133,9 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   const initHowlRef = useRef<
     ((video: BilibiliVideo, page: number, attempt?: number) => Promise<void>) | null
   >(null);
+  // onend 通过 ref 调最新 handleEnd：loopMode 变化会重建 handleEnd，但不会重建已在播放的 Howl，
+  // 直接闭包捕获会让 onend 永远用创建实例那刻的旧 loopMode（设了单曲循环仍跳下一首的 stale bug）
+  const handleEndRef = useRef<(() => void) | null>(null);
   // 并发哨兵：快速切歌时旧的 fetchMusicUrl 仍可能 resolve，凭 gen 比对丢弃所有 stale 路径
   const initGenRef = useRef(0);
   // 当前实际播放的 P（与 store.current 解耦：分 P 连播时只动 ref 不动 store，避免污染用户视角的 TrackId）
@@ -209,7 +213,10 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   }, [getPrevIndex, loopMode, updateCurrentPlaying]);
 
   const handleEnd = useCallback(() => {
-    if (loopMode === 'single' && howlRef.current) {
+    // 编辑歌词期间：曲终强制循环当前曲、不切歌，避免触发 LyricEditor 切曲重置丢失未保存编辑。
+    // 用 getState() 即时读取（非订阅），不让编辑态切换重建 handleEnd / 触发播放核心重渲染。
+    const isEditingLyric = useUIShell.getState().lyricEditing;
+    if ((isEditingLyric || loopMode === 'single') && howlRef.current) {
       howlRef.current.seek(0);
       howlRef.current.play();
       return;
@@ -474,7 +481,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
         // stale 的 onend 绝不能触发 goNext，否则会越过用户的切歌意图
         onend: () => {
           if (gen !== initGenRef.current) return;
-          handleEnd();
+          handleEndRef.current?.();
         },
         onplayerror: () => {
           if (gen !== initGenRef.current) return;
@@ -497,13 +504,18 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       // 立即播放（首次 onplay 触发后清除 playNext）
       howl.play();
     },
-    [autoPlay, biliMid, clearPlayNext, goNext, handleEnd, sendNotice, startRaf, stopRaf, volume],
+    [autoPlay, biliMid, clearPlayNext, goNext, sendNotice, startRaf, stopRaf, volume],
   );
 
   // 把最新 initHowl 引用挂到 ref，给 onloaderror 内部递归重试用（避免 useCallback 循环依赖）
   useEffect(() => {
     initHowlRef.current = initHowl;
   }, [initHowl]);
+
+  // 把最新 handleEnd 挂到 ref，供 Howl onend 调用，避免实例绑定旧 loopMode 闭包
+  useEffect(() => {
+    handleEndRef.current = handleEnd;
+  }, [handleEnd]);
 
   // 监听 playNext 信号 + currentTrackId / currentVideo 变化
   // deps 加 currentTrackId 是为了让"同 bvid 切 P"（例如 BV1 → BV1:p3）也触发 effect 重跑

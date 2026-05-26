@@ -1,5 +1,5 @@
 import { buildBilibiliApiCall } from '../client';
-import type { BilibiliUserInfo, BilibiliSpaceInfo } from '../../types';
+import type { BilibiliUserInfo, BilibiliSpaceInfo, BilibiliUserCard } from '../../types';
 
 interface UserVideoListResponse {
   list: { vlist: Array<{ bvid: string; created: number; [k: string]: unknown }> };
@@ -30,6 +30,11 @@ export const UserApi = {
   /** 当前登录用户信息（/x/web-interface/nav） */
   getUserInfo: buildBilibiliApiCall<BilibiliUserInfo>({
     url: 'https://api.bilibili.com/x/web-interface/nav',
+  }),
+
+  /** 用户名片（/x/web-interface/card，免 WBI 免登录，含 follower + archive_count） */
+  getUserCard: buildBilibiliApiCall<BilibiliUserCard>({
+    url: 'https://api.bilibili.com/x/web-interface/card',
   }),
 
   /** UP 主视频列表（WBI） */
