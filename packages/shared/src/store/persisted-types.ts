@@ -9,6 +9,7 @@
  * STORE_PERSIST_REGISTRY.hydrate 收窄并落 setState。
  */
 import type {
+  AudioQualityPreference,
   BilibiliSpaceInfo,
   BilibiliVideo,
   CloseAction,
@@ -75,6 +76,8 @@ export interface PersistedPlayerProfileShape {
   homeViewMode?: VideoListViewMode;
   /** 歌单列表展示模式；fallback DEFAULT_FAV_VIEW_MODE */
   favViewMode?: VideoListViewMode;
+  /** 默认音频音质偏好；老用户缺该字段时 fallback DEFAULT_AUDIO_QUALITY */
+  defaultAudioQuality?: AudioQualityPreference;
 }
 
 export interface PersistedLyricsShape {

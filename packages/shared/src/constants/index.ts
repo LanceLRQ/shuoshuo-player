@@ -110,12 +110,27 @@ export const BILIBILI_SPACE_INFO_FIELDS = [
 
 /** 音频品质 ID 映射（B 站 DASH 音频流） */
 export const AUDIO_QUALITY = {
+  /** Hi-Res 无损（大会员专属，位于 dash.flac） */
+  HIRES: 30251,
+  /** 杜比全景声（大会员专属，位于 dash.dolby） */
+  DOLBY: 30250,
   /** 192 Kbps */
   HIGH: 30280,
   /** 132 Kbps */
   MEDIUM: 30232,
   /** 64 Kbps */
   LOW: 30216,
+} as const;
+
+/**
+ * B 站 playurl 的 fnval 视频流格式标识（位掩码，见 docs/video/videostream_url.md）。
+ * 取高保真音频（杜比/Hi-Res）必须用 DASH_ALL，否则接口不返回 dash.flac/dolby。
+ */
+export const BILI_FNVAL = {
+  /** DASH 基础格式：仅返回常规音频（64K/132K/192K），免大会员 */
+  DASH: 16,
+  /** 所有可用 DASH 流的或运算结果：按账号权限返回全部流（含杜比/Hi-Res/4K/8K） */
+  DASH_ALL: 4048,
 } as const;
 
 /** 云服务 API 默认 baseURL（用户未在设置中覆盖时 fallback） */

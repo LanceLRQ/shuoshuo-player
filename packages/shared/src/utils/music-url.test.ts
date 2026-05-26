@@ -3,6 +3,7 @@ import { AUDIO_QUALITY } from '../constants';
 import { useRiskControlStore } from '../store/risk-control';
 import { useMusicUrlCacheStore } from '../store/music-url-cache';
 import { useBilibiliVideosStore } from '../store/bilibili-videos';
+import { usePlayerProfileStore } from '../store/player-profile';
 
 vi.mock('../api', async () => {
   return {
@@ -363,5 +364,98 @@ describe('B1: fetchMusicUrl page 参数（分 P 支持）', () => {
     expect(clickArgs.params?.w_part).toBe(2);
     expect(clickArgs.data?.part).toBe('2');
     vi.useRealTimers();
+  });
+});
+
+describe('默认音质偏好挑流（含大会员档 + fnval 推导）', () => {
+  // 含全部音质的 playInfo：常规三档 + 杜比 + Hi-Res
+  const fullDash = () => ({
+    dash: {
+      audio: [
+        audioStream(AUDIO_QUALITY.LOW),
+        audioStream(AUDIO_QUALITY.MEDIUM),
+        audioStream(AUDIO_QUALITY.HIGH),
+      ],
+      dolby: { type: 2, audio: [audioStream(AUDIO_QUALITY.DOLBY)] },
+      flac: { display: true, audio: audioStream(AUDIO_QUALITY.HIRES) },
+    },
+  });
+
+  const fnvalOf = (callIndex = 0): number | undefined =>
+    ((mockedPlay.mock.calls[callIndex]?.[0] ?? {}) as { params?: { fnval?: number } }).params
+      ?.fnval;
+
+  beforeEach(() => {
+    mockedView.mockReset().mockResolvedValue({ aid: 1, cid: 2, bvid: 'BVQ', desc_v2: [] });
+    mockedPlay.mockReset();
+    mockedClick.mockReset().mockResolvedValue({});
+    useMusicUrlCacheStore.setState({ entries: {} });
+    useBilibiliVideosStore.setState({ ids: [], entities: {} });
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'auto' });
+  });
+
+  it('auto + 视频有 Hi-Res：选 Hi-Res，fnval=4048', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'auto' });
+    mockedPlay.mockResolvedValueOnce(fullDash());
+    const url = await fetchMusicUrl('BV_AUTO_HR', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.HIRES}`);
+    expect(fnvalOf()).toBe(4048);
+  });
+
+  it('dolby 偏好 + 视频有杜比：选杜比，fnval=4048', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'dolby' });
+    mockedPlay.mockResolvedValueOnce(fullDash());
+    const url = await fetchMusicUrl('BV_DOLBY', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.DOLBY}`);
+    expect(fnvalOf()).toBe(4048);
+  });
+
+  it('hires 偏好但视频无无损：降级到 192K', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'hires' });
+    mockedPlay.mockResolvedValueOnce({
+      dash: {
+        audio: [audioStream(AUDIO_QUALITY.MEDIUM), audioStream(AUDIO_QUALITY.HIGH)],
+        dolby: { type: 0, audio: null },
+        flac: null,
+      },
+    });
+    const url = await fetchMusicUrl('BV_HR_FALLBACK', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.HIGH}`);
+  });
+
+  it('high 偏好：选 192K，fnval=16（不请求高保真流）', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'high' });
+    mockedPlay.mockResolvedValueOnce(fullDash());
+    const url = await fetchMusicUrl('BV_HIGH_PREF', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.HIGH}`);
+    expect(fnvalOf()).toBe(16);
+  });
+
+  it('low 偏好：选 64K，fnval=16', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'low' });
+    mockedPlay.mockResolvedValueOnce(fullDash());
+    const url = await fetchMusicUrl('BV_LOW_PREF', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.LOW}`);
+    expect(fnvalOf()).toBe(16);
+  });
+
+  it('attempt=1 降级：即使偏好 auto 也跳过高保真选 132K，fnval=16', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'auto' });
+    mockedPlay.mockResolvedValueOnce(fullDash());
+    const url = await fetchMusicUrl('BV_ATTEMPT1', 1, 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.MEDIUM}`);
+    expect(fnvalOf()).toBe(16);
+  });
+
+  it('medium 偏好 + 视频仅有 Hi-Res/64K：降级到 64K', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'medium' });
+    mockedPlay.mockResolvedValueOnce({
+      dash: {
+        audio: [audioStream(AUDIO_QUALITY.LOW)],
+        flac: { display: true, audio: audioStream(AUDIO_QUALITY.HIRES) },
+      },
+    });
+    const url = await fetchMusicUrl('BV_MED_FALLBACK', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.LOW}`);
   });
 });

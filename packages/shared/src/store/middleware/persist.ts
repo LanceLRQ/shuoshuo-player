@@ -24,6 +24,7 @@ import { useLiveSlicerCacheStore } from '../live-slicer-cache';
 import { hasPageSuffix, trackIdToBvid } from '../../utils/track-id';
 import type { FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
 import {
+  DEFAULT_AUDIO_QUALITY,
   DEFAULT_CLOSE_ACTION,
   DEFAULT_COLLECTION_PLAY_BEHAVIOR,
   DEFAULT_FAV_VIEW_MODE,
@@ -249,6 +250,7 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         collectionPlayBehavior: data.collectionPlayBehavior ?? DEFAULT_COLLECTION_PLAY_BEHAVIOR,
         homeViewMode: data.homeViewMode ?? DEFAULT_HOME_VIEW_MODE,
         favViewMode: data.favViewMode ?? DEFAULT_FAV_VIEW_MODE,
+        defaultAudioQuality: data.defaultAudioQuality ?? DEFAULT_AUDIO_QUALITY,
       });
     },
     snapshot() {
@@ -266,6 +268,7 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
         collectionPlayBehavior: s.collectionPlayBehavior,
         homeViewMode: s.homeViewMode,
         favViewMode: s.favViewMode,
+        defaultAudioQuality: s.defaultAudioQuality,
       };
     },
     subscribe(cb) {
