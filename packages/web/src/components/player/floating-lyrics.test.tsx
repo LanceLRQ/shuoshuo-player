@@ -80,12 +80,10 @@ describe('FloatingLyrics', () => {
     expect(screen.getByText('x')).toHaveStyle({ color: '#000000' });
   });
 
-  it('背景固定为黑色（与主题无关）', () => {
-    usePlayerProfileStore.setState({ theme: 'light' });
+  it('背景跟随 --foreground 主题变量（亮色深底 / 暗色浅底反色）', () => {
     render(<FloatingLyrics line="x" visible={true} />);
-    expect(screen.getByText('x')).toHaveStyle({ backgroundColor: '#000000' });
-    usePlayerProfileStore.setState({ theme: 'dark' });
-    expect(screen.getByText('x')).toHaveStyle({ backgroundColor: '#000000' });
+    // 背景值恒为 hsl(var(--foreground))，反色由 CSS 变量在主题切换时生效，inline style 不变
+    expect(screen.getByText('x').style.backgroundColor).toContain('--foreground');
   });
 
   it('bgOpacity 作为整体 opacity 同时影响文字与背景', () => {
