@@ -115,3 +115,8 @@ export interface PersistedLiveSlicerCacheShape {
   /** mid → 直播切片主播缓存条目 */
   entries?: Record<string, LiveSlicerCacheEntry>;
 }
+
+export interface PersistedTrackQualityPrefShape {
+  /** bvid → 单曲覆盖音质偏好 */
+  quality?: Record<string, AudioQualityPreference>;
+}

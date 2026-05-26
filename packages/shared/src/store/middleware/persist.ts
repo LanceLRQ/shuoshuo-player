@@ -21,8 +21,9 @@ import { useUpdateCheckerStore } from '../update-checker';
 import { useFavoritesStore } from '../favorites';
 import { useVideoPagePrefStore } from '../video-page-pref';
 import { useLiveSlicerCacheStore } from '../live-slicer-cache';
+import { useTrackQualityPrefStore } from '../track-quality-pref';
 import { hasPageSuffix, trackIdToBvid } from '../../utils/track-id';
-import type { FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
+import type { AudioQualityPreference, FavFolderCacheEntry, VideoListCacheEntry } from '../../types';
 import {
   DEFAULT_AUDIO_QUALITY,
   DEFAULT_CLOSE_ACTION,
@@ -44,7 +45,18 @@ import type {
   PersistedUpdateCheckerShape,
   PersistedVideoPagePrefShape,
   PersistedLiveSlicerCacheShape,
+  PersistedTrackQualityPrefShape,
 } from '../persisted-types';
+
+/** 单曲音质偏好的合法档位（hydrate 防脏数据过滤用） */
+const AUDIO_QUALITY_PREF_VALUES: ReadonlySet<string> = new Set([
+  'auto',
+  'hires',
+  'dolby',
+  'high',
+  'medium',
+  'low',
+]);
 
 /** 持久化数据的根 key（带 v2 命名空间，与 v1 裸名 fav_list/lyrics 等彻底隔离） */
 export const PERSIST_DATA_KEY = `${SSP_V2_NAMESPACE}player_data`;
@@ -393,6 +405,27 @@ export const STORE_PERSIST_REGISTRY: ReadonlyArray<StorePersistEntry> = [
     },
     subscribe(cb) {
       return useLiveSlicerCacheStore.subscribe(cb);
+    },
+  },
+  {
+    key: 'track_quality_pref',
+    hydrate(raw) {
+      const data = asRecord(raw) as PersistedTrackQualityPrefShape | null;
+      if (!data) return;
+      // 防御性过滤：忽略非合法档位的脏值
+      const clean: Record<string, AudioQualityPreference> = {};
+      for (const [bvid, q] of Object.entries(data.quality ?? {})) {
+        if (typeof q === 'string' && AUDIO_QUALITY_PREF_VALUES.has(q)) {
+          clean[bvid] = q as AudioQualityPreference;
+        }
+      }
+      useTrackQualityPrefStore.setState({ quality: clean });
+    },
+    snapshot() {
+      return { quality: useTrackQualityPrefStore.getState().quality };
+    },
+    subscribe(cb) {
+      return useTrackQualityPrefStore.subscribe(cb);
     },
   },
 ];

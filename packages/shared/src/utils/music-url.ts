@@ -5,6 +5,7 @@ import { useRiskControlStore } from '../store/risk-control';
 import { useMusicUrlCacheStore } from '../store/music-url-cache';
 import { useBilibiliVideosStore } from '../store/bilibili-videos';
 import { usePlayerProfileStore } from '../store/player-profile';
+import { useTrackQualityPrefStore } from '../store/track-quality-pref';
 import { pickVideosFields } from './bilibili';
 import { timeStampNow } from './format';
 import { logger } from './logger';
@@ -343,7 +344,10 @@ async function attemptFetchMusicUrl(
 
     // 高保真偏好（auto/hires/dolby）需 fnval=4048 才返回 dash.flac/dolby；
     // 常规档与降级重试（attempt>0）只要 DASH=16，减小风控面、加快返回。
-    const preference = usePlayerProfileStore.getState().defaultAudioQuality;
+    // 单曲覆盖（按 bvid）优先于全局默认音质；两者都不打断当前播放，下次取流生效
+    const preference =
+      useTrackQualityPrefStore.getState().getQuality(bvId) ??
+      usePlayerProfileStore.getState().defaultAudioQuality;
     const fnval =
       attempt === 0 && isHiFiPreference(preference) ? BILI_FNVAL.DASH_ALL : BILI_FNVAL.DASH;
 

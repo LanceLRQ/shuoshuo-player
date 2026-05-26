@@ -142,7 +142,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     return entry;
   }
 
-  it('注册表覆盖 12 个 PERSIST_KEYS', () => {
+  it('注册表覆盖 13 个 PERSIST_KEYS', () => {
     const keys = STORE_PERSIST_REGISTRY.map((e) => e.key).sort();
     expect(keys).toEqual(
       [
@@ -158,6 +158,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
         'favorites',
         'video_page_pref',
         'live_slicer_cache',
+        'track_quality_pref',
       ].sort(),
     );
   });
@@ -406,7 +407,7 @@ describe('STORE_PERSIST_REGISTRY hydrate/snapshot', () => {
     expect(cb).not.toHaveBeenCalled();
   });
 
-  it('collectPersistableSnapshot 聚合所有 11 个 store 当前状态', () => {
+  it('collectPersistableSnapshot 聚合所有 13 个 store 当前状态', () => {
     useFavListStore.setState({
       list: [{ id: 'a', name: 'A', type: 'CUSTOM' as never, bv_ids: [] } as never],
     });

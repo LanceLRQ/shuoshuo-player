@@ -4,6 +4,7 @@ import { useRiskControlStore } from '../store/risk-control';
 import { useMusicUrlCacheStore } from '../store/music-url-cache';
 import { useBilibiliVideosStore } from '../store/bilibili-videos';
 import { usePlayerProfileStore } from '../store/player-profile';
+import { useTrackQualityPrefStore } from '../store/track-quality-pref';
 
 vi.mock('../api', async () => {
   return {
@@ -457,5 +458,63 @@ describe('默认音质偏好挑流（含大会员档 + fnval 推导）', () => {
     });
     const url = await fetchMusicUrl('BV_MED_FALLBACK', 1);
     expect(url).toContain(`q${AUDIO_QUALITY.LOW}`);
+  });
+});
+
+describe('单曲音质覆盖（per-bvid 优先于全局）', () => {
+  const fnvalOf = (i = 0): number | undefined =>
+    ((mockedPlay.mock.calls[i]?.[0] ?? {}) as { params?: { fnval?: number } }).params?.fnval;
+
+  beforeEach(() => {
+    mockedView.mockReset().mockResolvedValue({ aid: 1, cid: 2, bvid: 'BVT', desc_v2: [] });
+    mockedPlay.mockReset();
+    mockedClick.mockReset().mockResolvedValue({});
+    useMusicUrlCacheStore.setState({ entries: {} });
+    useBilibiliVideosStore.setState({ ids: [], entities: {} });
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'auto' });
+    useTrackQualityPrefStore.setState({ quality: {} });
+  });
+
+  it('单曲覆盖 low 优先于全局 auto：取 64K，fnval=16', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'auto' });
+    useTrackQualityPrefStore.getState().setQuality('BV_OVERRIDE', 'low');
+    mockedPlay.mockResolvedValueOnce({
+      dash: {
+        audio: [
+          audioStream(AUDIO_QUALITY.LOW),
+          audioStream(AUDIO_QUALITY.MEDIUM),
+          audioStream(AUDIO_QUALITY.HIGH),
+        ],
+      },
+    });
+    const url = await fetchMusicUrl('BV_OVERRIDE', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.LOW}`);
+    expect(fnvalOf()).toBe(16);
+  });
+
+  it('单曲覆盖 hires 优先于全局 low：取 Hi-Res，fnval=4048', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'low' });
+    useTrackQualityPrefStore.getState().setQuality('BV_HR_OVERRIDE', 'hires');
+    mockedPlay.mockResolvedValueOnce({
+      dash: {
+        audio: [audioStream(AUDIO_QUALITY.HIGH)],
+        flac: { display: true, audio: audioStream(AUDIO_QUALITY.HIRES) },
+      },
+    });
+    const url = await fetchMusicUrl('BV_HR_OVERRIDE', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.HIRES}`);
+    expect(fnvalOf()).toBe(4048);
+  });
+
+  it('无单曲覆盖：跟随全局 high', async () => {
+    usePlayerProfileStore.setState({ defaultAudioQuality: 'high' });
+    mockedPlay.mockResolvedValueOnce({
+      dash: {
+        audio: [audioStream(AUDIO_QUALITY.MEDIUM), audioStream(AUDIO_QUALITY.HIGH)],
+      },
+    });
+    const url = await fetchMusicUrl('BV_NO_OVERRIDE', 1);
+    expect(url).toContain(`q${AUDIO_QUALITY.HIGH}`);
+    expect(fnvalOf()).toBe(16);
   });
 });

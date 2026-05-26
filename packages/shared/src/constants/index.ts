@@ -16,6 +16,7 @@ export const PERSIST_KEYS = [
   'favorites',
   'video_page_pref',
   'live_slicer_cache',
+  'track_quality_pref',
 ] as const;
 
 /** 可导出的 store key（cloud_service 出于安全不导出） */
@@ -28,6 +29,7 @@ export const EXPORT_KEYS = [
   'lyrics',
   'favorites',
   'video_page_pref',
+  'track_quality_pref',
 ] as const;
 
 /** 主 UP 主信息 */

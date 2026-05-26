@@ -17,16 +17,25 @@ import {
   ExternalLink,
   Expand,
   Layers,
+  AudioLines,
+  Crown,
+  Check,
 } from 'lucide-react';
 import {
   usePlayerProfileStore,
   usePlayingListStore,
+  useTrackQualityPrefStore,
+  useBilibiliUserStore,
+  useUIStore,
+  invalidateMusicUrlCache,
   isExplicitPageTrackId,
   urlPrefixFixed,
   formatPlayTime,
   formatTimeLyric,
   getPlatformBridge,
+  NoticeType,
   type LoopMode,
+  type AudioQualityPreference,
 } from '@shuoshuo-player/shared';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -45,6 +54,20 @@ const LOOP_MODE_TIPS: Record<LoopMode, string> = {
   loop: '列表循环',
   random: '随机播放',
 };
+
+/** 单曲音质菜单项；'follow' 表示清除覆盖、继承设置页的默认音质 */
+const TRACK_QUALITY_ITEMS: Array<{
+  value: AudioQualityPreference | 'follow';
+  label: string;
+  vipOnly?: boolean;
+}> = [
+  { value: 'follow', label: '继承设置页设置' },
+  { value: 'hires', label: 'Hi-Res 无损', vipOnly: true },
+  { value: 'dolby', label: '杜比全景声', vipOnly: true },
+  { value: 'high', label: '高品质 192K' },
+  { value: 'medium', label: '标准 132K' },
+  { value: 'low', label: '流畅 64K' },
+];
 
 // 播放控制栏 ghost 按钮文字色：亮色模式用主色调，暗色模式保持默认前景。
 const CTRL_BTN_TEXT = 'text-primary dark:text-foreground';
@@ -65,6 +88,11 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
   const lyricEditing = useUIShell((s) => s.lyricEditing);
   const floatingLyricsEnabled = usePlayerProfileStore((s) => s.floatingLyrics.enabled);
   const toggleFloatingLyrics = usePlayerProfileStore((s) => s.toggleFloatingLyrics);
+  const trackQualityMap = useTrackQualityPrefStore((s) => s.quality);
+  const setTrackQuality = useTrackQualityPrefStore((s) => s.setQuality);
+  const clearTrackQuality = useTrackQualityPrefStore((s) => s.clearQuality);
+  const isVip = useBilibiliUserStore((s) => Boolean(s.current?.vipType));
+  const sendNotice = useUIStore((s) => s.sendNotice);
 
   // 显式 :p<n> 条目播放上下文：已锁定 P，不再展示分 P 选择器
   const isExplicitContext = isExplicitPageTrackId(currentTrackId);
@@ -98,8 +126,10 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
 
   const [showQueue, setShowQueue] = useState(false);
   const [showPartSelector, setShowPartSelector] = useState(false);
+  const [showQuality, setShowQuality] = useState(false);
 
   const cur = player.currentVideo;
+  const currentTrackQuality = cur ? trackQualityMap[cur.bvid] : undefined;
   const cover = cur?.pic ? urlPrefixFixed(cur.pic) : '';
   const LoopIcon = loopMode === 'single' ? Repeat1 : loopMode === 'random' ? Shuffle : Repeat;
   const VolumeIcon = volume === 0 ? VolumeX : Volume2;
@@ -116,6 +146,20 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
     if (!cur) return;
     if (onAddToFav) onAddToFav(cur.bvid);
     else openAddToFav(cur.bvid);
+  };
+
+  const handlePickQuality = (value: AudioQualityPreference | 'follow') => {
+    if (!cur) return;
+    if (value === 'follow') clearTrackQuality(cur.bvid);
+    else setTrackQuality(cur.bvid, value);
+    // 仅失效这首的 URL 缓存，下次播放 / 切歌按新音质取流（不打断当前播放）
+    invalidateMusicUrlCache(cur.bvid);
+    setShowQuality(false);
+    sendNotice({
+      type: NoticeType.INFO,
+      message: '音质已更新，重新播放或切歌后生效',
+      duration: 3000,
+    });
   };
 
   return (
@@ -304,6 +348,53 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
                   />
                 </PopoverContent>
               </Popover>
+              {cur && (
+                <Popover open={showQuality} onOpenChange={setShowQuality}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={CTRL_BTN_TEXT}
+                          aria-label="音质"
+                        >
+                          <AudioLines className="h-5 w-5" />
+                        </Button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>音质（仅当前歌曲）</TooltipContent>
+                  </Tooltip>
+                  <PopoverContent side="top" align="end" sideOffset={10} className="w-44 p-1">
+                    {TRACK_QUALITY_ITEMS.map((item) => {
+                      const disabled = Boolean(item.vipOnly) && !isVip;
+                      const active =
+                        item.value === 'follow'
+                          ? currentTrackQuality === undefined
+                          : currentTrackQuality === item.value;
+                      return (
+                        <button
+                          key={item.value}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => handlePickQuality(item.value)}
+                          className={cn(
+                            'flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm',
+                            disabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-accent',
+                            active && 'font-medium text-primary',
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {item.label}
+                            {item.vipOnly && <Crown className="h-3 w-3 text-amber-500" />}
+                          </span>
+                          {active && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
+              )}
               {cur && (cur.videos ?? 1) > 1 && !isExplicitContext && (
                 <Popover open={showPartSelector} onOpenChange={setShowPartSelector}>
                   <Tooltip>
