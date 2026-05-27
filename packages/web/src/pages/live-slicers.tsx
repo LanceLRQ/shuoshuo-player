@@ -136,8 +136,9 @@ export function LiveSlicersPage() {
                 {entry?.hasUnread && (
                   <Badge
                     variant="destructive"
-                    className="absolute right-1 top-1 px-1.5 py-0 text-[10px]"
-                    title={`新增 ${entry.lastDelta} 个投稿`}
+                    className="absolute right-1 top-1 cursor-pointer px-1.5 py-0 text-[10px]"
+                    title={`新增 ${entry.lastDelta} 个投稿，点击标记已读`}
+                    onClick={() => markRead(slicer.mid)}
                   >
                     +{entry.lastDelta}
                   </Badge>

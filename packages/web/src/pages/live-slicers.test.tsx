@@ -4,6 +4,7 @@ import {
   setPlatformBridge,
   resetPlatformBridge,
   useUIStore,
+  useLiveSlicerCacheStore,
   type LiveSlicerMan,
 } from '@shuoshuo-player/shared';
 import { useUIShell } from '@/stores/ui-shell';
@@ -45,6 +46,7 @@ const SAMPLE: LiveSlicerMan[] = [
 function reset() {
   useUIStore.setState({ notices: [] });
   useUIShell.setState({ favEditOpen: false });
+  useLiveSlicerCacheStore.setState({ entries: {} });
   mockedList.mockReset();
   setPlatformBridge({
     type: 'web',
@@ -121,6 +123,39 @@ describe('LiveSlicersPage', () => {
         useUIStore.getState().notices.find((n) => /获取切片 UP 主列表失败/.test(n.message)),
       ).toBeDefined();
     });
+  });
+
+  it('点击红点 → 标记已读，红点消失', async () => {
+    mockedList.mockResolvedValueOnce({
+      list: [SAMPLE[0]],
+      pager: { page: 1, page_size: 100, total: 1 },
+    } as never);
+    // 预置未读缓存；lastFetchedAt 取一个不会触发 refreshSlicers 重拉的新时间戳，避免真实网络调用
+    useLiveSlicerCacheStore.setState({
+      entries: {
+        '999': {
+          mid: '999',
+          name: '小切片',
+          face: '',
+          follower: 0,
+          archiveCount: 10,
+          lastFetchedAt: Date.now(),
+          lastUpdatedAt: Date.now(),
+          lastDelta: 3,
+          hasUnread: true,
+        },
+      },
+    });
+    render(<LiveSlicersPage />);
+    await screen.findByText('小切片');
+
+    const badge = await screen.findByText('+3');
+    fireEvent.click(badge);
+
+    await waitFor(() => {
+      expect(screen.queryByText('+3')).not.toBeInTheDocument();
+    });
+    expect(useLiveSlicerCacheStore.getState().entries['999'].hasUnread).toBe(false);
   });
 
   it('点击关注按钮 → openFavEdit 预填 UPLOADER + mid + name', async () => {
