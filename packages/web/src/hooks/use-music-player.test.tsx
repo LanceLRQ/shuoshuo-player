@@ -445,6 +445,60 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(usePlayingListStore.getState().current).toBe('BV1Test00001');
   });
 
+  it('onend (once 单首播放) 触发：stop()，既不循环也不切歌', async () => {
+    useBilibiliVideosStore.setState({
+      ids: ['BV1Test00001', 'BV1Test00002'],
+      entities: {
+        BV1Test00001: TEST_VIDEO,
+        BV1Test00002: { ...TEST_VIDEO, bvid: 'BV1Test00002', title: 'Track 2' },
+      },
+    });
+    usePlayingListStore.setState({
+      favId: 'main',
+      trackIds: ['BV1Test00001', 'BV1Test00002'],
+      current: 'BV1Test00001',
+      playNext: false,
+    });
+    usePlayerProfileStore.setState({ volume: 0.5, autoPlay: true, loopMode: 'once' });
+
+    renderHook(() => useMusicPlayer());
+
+    await act(async () => {
+      usePlayingListStore.setState({ playNext: true });
+    });
+    await waitFor(() => expect(howlerState.HowlMock).toHaveBeenCalled());
+
+    act(() => {
+      howlerState.lastCb.onplay?.();
+    });
+
+    howlerState.lastInstance!.stop.mockClear();
+    howlerState.lastInstance!.play.mockClear();
+
+    act(() => {
+      howlerState.lastCb.onend?.();
+    });
+
+    // 单首播放：曲终仅调 stop()，不 seek(0)+play() 循环，也不推进到下一首
+    expect(howlerState.lastInstance!.stop).toHaveBeenCalledTimes(1);
+    expect(howlerState.lastInstance!.play).not.toHaveBeenCalled();
+    expect(usePlayingListStore.getState().current).toBe('BV1Test00001');
+  });
+
+  it('cycleLoopMode 四档轮换：loop → random → single → once → loop', () => {
+    usePlayerProfileStore.setState({ loopMode: 'loop' });
+    const { result } = renderHook(() => useMusicPlayer());
+
+    act(() => result.current.cycleLoopMode());
+    expect(usePlayerProfileStore.getState().loopMode).toBe('random');
+    act(() => result.current.cycleLoopMode());
+    expect(usePlayerProfileStore.getState().loopMode).toBe('single');
+    act(() => result.current.cycleLoopMode());
+    expect(usePlayerProfileStore.getState().loopMode).toBe('once');
+    act(() => result.current.cycleLoopMode());
+    expect(usePlayerProfileStore.getState().loopMode).toBe('loop');
+  });
+
   // 回归：onend 必须读取最新 loopMode（修复前 onend 闭包捕获创建实例那刻的旧 loopMode，
   // 播放途中切到单曲循环仍会跳下一首，跳过去后才进入单曲循环）
   it('onend 取最新 loopMode（stale closure 回归）：播放途中 loop→single，onend 循环当前曲不切歌', async () => {
