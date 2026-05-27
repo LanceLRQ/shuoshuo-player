@@ -106,7 +106,7 @@ export function ImportDataDialog({ open, summary, onCancel, onConfirm }: ImportD
         <DialogHeader className="space-y-1">
           <DialogTitle>导入数据预览</DialogTitle>
           <DialogDescription className="text-xs">
-            仅导入歌单、歌词与视频元数据；当前的播放队列、播放器设置等不会被改动。
+            仅导入歌单、歌词与视频元数据；当前的播放列表、播放器设置等不会被改动。
           </DialogDescription>
         </DialogHeader>
 

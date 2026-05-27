@@ -167,6 +167,10 @@ describe('usePlayingListStore', () => {
       expect(idx).toBeLessThan(3);
     });
 
+    it('once 模式：走顺序下一首（手动切歌不受"播完即停"约束）', () => {
+      expect(usePlayingListStore.getState().getNextIndex('once')).toBe(2);
+    });
+
     it('空列表：返回 -1', () => {
       usePlayingListStore.setState({ trackIds: [], current: '' });
       expect(usePlayingListStore.getState().getNextIndex('loop')).toBe(-1);
@@ -185,6 +189,10 @@ describe('usePlayingListStore', () => {
     it('loop 模式：首部前回到末尾', () => {
       usePlayingListStore.setState({ current: 'A' });
       expect(usePlayingListStore.getState().getPrevIndex('loop')).toBe(2);
+    });
+
+    it('once 模式：走顺序上一首（手动切歌不受"播完即停"约束）', () => {
+      expect(usePlayingListStore.getState().getPrevIndex('once')).toBe(0);
     });
 
     it('空列表：返回 -1', () => {

@@ -19,6 +19,7 @@ import {
   createLyricsFinder,
   type BilibiliVideo,
   type FetchMusicUrlError,
+  type LoopMode,
 } from '@shuoshuo-player/shared';
 import { usePlayerRuntimeStore } from '@/stores/player-runtime';
 import { useUIShell } from '@/stores/ui-shell';
@@ -122,6 +123,9 @@ async function probeAudioUrl(url: string, bvid: string): Promise<void> {
   }
 }
 
+/** 循环模式轮换顺序：播放器循环按钮逐次点击切换 */
+const LOOP_MODE_CYCLE: LoopMode[] = ['loop', 'random', 'single', 'once'];
+
 export function useMusicPlayer(): PlayerState & PlayerControls {
   const howlRef = useRef<Howl | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -219,6 +223,13 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
     if ((isEditingLyric || loopMode === 'single') && howlRef.current) {
       howlRef.current.seek(0);
       howlRef.current.play();
+      return;
+    }
+
+    // 播完就停：当前曲目播完即停，不循环不切歌（stop 触发 onstop 复位 isPlaying/progress）。
+    // 手动点上/下一首仍走 goNext/goPrev，不受此限制。
+    if (loopMode === 'once' && howlRef.current) {
+      howlRef.current.stop();
       return;
     }
 
@@ -618,8 +629,8 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
   }, []);
 
   const cycleLoopMode = useCallback(() => {
-    const next = loopMode === 'single' ? 'loop' : loopMode === 'loop' ? 'random' : 'single';
-    setLoopMode(next);
+    const idx = LOOP_MODE_CYCLE.indexOf(loopMode);
+    setLoopMode(LOOP_MODE_CYCLE[(idx + 1) % LOOP_MODE_CYCLE.length]);
   }, [loopMode, setLoopMode]);
 
   const lyricEntry = currentVideo ? lyricMaps[currentVideo.bvid] : undefined;

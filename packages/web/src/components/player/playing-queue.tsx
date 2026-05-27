@@ -35,7 +35,7 @@ interface QueueRow {
 }
 
 /**
- * 播放队列：宽屏右侧 Sheet，窄屏底部 Sheet（避免 Popover virtualRef 兼容问题）。
+ * 播放列表：宽屏右侧 Sheet，窄屏底部 Sheet（避免 Popover virtualRef 兼容问题）。
  *
  * 自 C3 起支持多 P 投稿的折叠展开：
  * - 纯 bvid 多 P 投稿在尾部加 ▾ 折叠按钮，展开后列出所有 P
@@ -110,14 +110,14 @@ export function PlayingQueue({ open, onOpenChange }: PlayingQueueProps) {
         className={cn('p-0', isNarrow ? 'h-[60vh]' : 'w-[400px] sm:max-w-md')}
       >
         <SheetHeader className="sr-only">
-          <SheetTitle>播放队列</SheetTitle>
-          <SheetDescription>当前播放队列</SheetDescription>
+          <SheetTitle>播放列表</SheetTitle>
+          <SheetDescription>当前播放列表</SheetDescription>
         </SheetHeader>
         <div className="flex h-full flex-col">
           {/* pr-12 给 SheetContent 右上角内置关闭按钮（absolute right-4 top-4）预留空间 */}
           <div className="flex items-center justify-between gap-2 border-b px-4 py-3 pr-12">
             <div className="min-w-0 flex-1">
-              <h3 className="truncate text-base font-semibold">播放队列</h3>
+              <h3 className="truncate text-base font-semibold">播放列表</h3>
               <p className="truncate text-xs text-muted-foreground">共 {trackIds.length} 首</p>
             </div>
             <Button

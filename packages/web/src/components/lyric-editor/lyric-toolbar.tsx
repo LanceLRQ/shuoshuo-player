@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { LyricHelpDialog } from './lyric-help-dialog';
 
 export interface LyricToolbarProps {
   customStep: number;
@@ -291,6 +292,9 @@ export function LyricToolbar(props: LyricToolbarProps) {
             <TooltipContent>下载 LRC 文件</TooltipContent>
           </Tooltip>
         </div>
+
+        <Separator orientation="vertical" className="mx-1 h-6" />
+        <LyricHelpDialog />
       </TooltipProvider>
     </div>
   );

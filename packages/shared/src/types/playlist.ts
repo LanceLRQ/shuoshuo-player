@@ -20,8 +20,14 @@ export interface FavListItem {
   update_time: number;
 }
 
-/** 循环模式 */
-export type LoopMode = 'single' | 'loop' | 'random';
+/**
+ * 循环模式：
+ * - 'loop'：列表循环，播完切下一首，到尾回头（默认）
+ * - 'single'：单曲循环，当前曲目无限重播
+ * - 'random'：随机播放
+ * - 'once'：播完就停，当前曲目播完即停（不循环、不切歌）；手动切歌不受此限制
+ */
+export type LoopMode = 'single' | 'loop' | 'random' | 'once';
 
 /**
  * 默认音频音质偏好（合法档位的单一来源；store 校验 / 持久化过滤均引用此数组）：

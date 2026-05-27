@@ -7,6 +7,7 @@ import {
   SkipForward,
   Repeat,
   Repeat1,
+  RepeatOff,
   Shuffle,
   Volume2,
   VolumeX,
@@ -54,6 +55,7 @@ const LOOP_MODE_TIPS: Record<LoopMode, string> = {
   single: '单曲循环',
   loop: '列表循环',
   random: '随机播放',
+  once: '播完就停',
 };
 
 /** 单曲音质菜单项；'follow' 表示清除覆盖、继承设置页的默认音质 */
@@ -135,7 +137,14 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
   const cur = player.currentVideo;
   const currentTrackQuality = cur ? trackQualityMap[cur.bvid] : undefined;
   const cover = cur?.pic ? urlPrefixFixed(cur.pic) : '';
-  const LoopIcon = loopMode === 'single' ? Repeat1 : loopMode === 'random' ? Shuffle : Repeat;
+  const LoopIcon =
+    loopMode === 'single'
+      ? Repeat1
+      : loopMode === 'random'
+        ? Shuffle
+        : loopMode === 'once'
+          ? RepeatOff
+          : Repeat;
   const VolumeIcon = volume === 0 ? VolumeX : Volume2;
 
   // 拖动中：仅更新本地显示值，让 thumb 跟手，不触碰音频
@@ -474,7 +483,7 @@ export function SPlayer({ onAddToFav }: SPlayerProps = {}) {
                     <ListMusic className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>播放队列</TooltipContent>
+                <TooltipContent>播放列表</TooltipContent>
               </Tooltip>
             </div>
           </TooltipProvider>

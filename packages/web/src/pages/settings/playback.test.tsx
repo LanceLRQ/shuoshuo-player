@@ -32,9 +32,9 @@ describe('PlaybackSettings', () => {
   });
 
   describe('合集播放行为', () => {
-    it('默认选中"替换当前播放队列"', () => {
+    it('默认选中"替换当前播放列表"', () => {
       render(<PlaybackSettings />);
-      const replace = screen.getByRole('radio', { name: /替换当前播放队列/ });
+      const replace = screen.getByRole('radio', { name: /替换当前播放列表/ });
       expect(replace.getAttribute('data-state')).toBe('checked');
     });
 
@@ -47,7 +47,7 @@ describe('PlaybackSettings', () => {
     it('append 状态下再点"替换"切回 replace', () => {
       usePlayerProfileStore.setState({ collectionPlayBehavior: 'append' });
       render(<PlaybackSettings />);
-      fireEvent.click(screen.getByRole('radio', { name: /替换当前播放队列/ }));
+      fireEvent.click(screen.getByRole('radio', { name: /替换当前播放列表/ }));
       expect(usePlayerProfileStore.getState().collectionPlayBehavior).toBe('replace');
     });
   });
