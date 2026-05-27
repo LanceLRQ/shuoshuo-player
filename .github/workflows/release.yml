@@ -251,6 +251,6 @@ jobs:
 
             本版本仅提供 **macOS（Apple Silicon）** 与 **Windows x64** 安装包；Intel Mac 与 Linux 用户请使用 Chrome 扩展。
 
-            **未签名说明**：桌面端未做代码签名/公证，首次启动会触发系统警告：
-            - **macOS**：双击 `.dmg` 安装后，在 Launchpad 右键 .app → 打开 → 弹窗中再次点击"打开"
+            **未公证说明**：桌面端做了 ad-hoc 签名但未经 Apple 公证，首次启动会被系统拦截：
+            - **macOS**：双击 `.dmg` 安装后首次打开被拦截 → 打开「系统设置 → 隐私与安全性」→ 滚动到底部点「仍要打开」
             - **Windows**：双击 `.exe` 或 `.msi` → SmartScreen 拦截 → "更多信息" → "仍要运行"
