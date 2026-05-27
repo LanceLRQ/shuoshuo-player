@@ -2,7 +2,7 @@
 
 > [简体中文](./README.md) | English
 
-[![Release](https://img.shields.io/github/v/release/LanceLRQ/shuoshuo-player?include_prereleases&label=release&color=brightgreen)](https://github.com/LanceLRQ/shuoshuo-player/releases) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/LanceLRQ/shuoshuo-player?label=release&color=brightgreen)](https://github.com/LanceLRQ/shuoshuo-player/releases) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 "Shuoshuo Player" is a third-party music player based on Bilibili. This player is a customized version for fans, allowing you to turn "说说 Crystal" or other Bilibili creators' video submissions into your playlist.
 
@@ -10,16 +10,27 @@
 
 ## Features
 
-- ✅ Build playlists from a creator's video uploads
-- ✅ Build playlists from a live-slicer man's video list
-- ✅ Build playlists from Bilibili favorite folders
-- ✅ Lyric sync display (manual creation supported)
+- ✅ Build playlists from a creator's uploads / favorite folders / live-slicer man video list
+- ✅ Custom playlists — freely mix multiple sources into one list; duplicates skipped automatically
+- ✅ Lyric sync display and manual editing, restore from history any time
 - ✅ Data import / export
-- ✅ Cross-platform desktop app (macOS / Windows / Linux) powered by Tauri
+- ✅ Cross-platform: Chrome extension + desktop app (macOS / Windows / Linux) powered by Tauri
 - ✅ Brand-new UI + pink accent + light / dark / auto theme with brightness compensation
-- ✅ Custom playlists — freely mix uploads, favorites and live slices into one list; duplicates skipped automatically
-- ✅ A better lyric editor — edit while viewing the original, restore from history any time
 - ☐ More to come
+
+### New in 2.0 (vs v1)
+
+- Audio quality preference — set a default quality (Hi-Res / Dolby Atmos for premium accounts) with auto-downgrade when unavailable; per-track override supported
+- Collections — browse a creator's Bilibili collections and play as a playlist or add by range
+- Smarter list updates — incremental "Check updates", "Fetch by range" and "Re-fetch all" (stale videos flagged)
+- Thumbnail / list dual view with a cover right-click menu
+- Enhanced lyric editor — drag box-select & multi-select, millisecond time bubble, double-click to edit
+- Floating lyrics with an independent toggle and custom appearance
+- Multi-part video page selection, a "My Favorites" system playlist, and a "stop after current" mode
+- System media keys / lock-screen control
+- Automatic v1 data migration and smart merge on import
+- Auto update check (platform-specific upgrade entry)
+- Windows portable (no-install) build
 
 ## Install
 

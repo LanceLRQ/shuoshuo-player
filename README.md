@@ -2,7 +2,7 @@
 
 > 简体中文 | [English](./README.en.md)
 
-[![Release](https://img.shields.io/github/v/release/LanceLRQ/shuoshuo-player?include_prereleases&label=release&color=brightgreen)](https://github.com/LanceLRQ/shuoshuo-player/releases) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/LanceLRQ/shuoshuo-player?label=release&color=brightgreen)](https://github.com/LanceLRQ/shuoshuo-player/releases) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 “说说播放器”是一款基于 Bilibili 的第三方音乐播放器。此播放器为粉丝定制版本，可以将说宝或者其他 Up 主的 B 站视频投稿变成你的歌单。
 
@@ -12,16 +12,27 @@
 
 ## 特性（Features）
 
-- ✅ 拉取 UP 主投稿生成歌单
-- ✅ 支持将直播切片 man 的视频列表生成歌单
-- ✅ 支持以收藏夹生成歌单
-- ✅ 支持歌词同步显示（支持手动创建）
-- ✅ 支持数据导入导出
-- ✅ 跨平台桌面应用（macOS / Windows / Linux），由 Tauri 提供
-- ✅ 全新 UI 重构 + 粉色主题 + 亮 / 暗 / 自动模式（带亮度补偿）
-- ✅ 自定义歌单：UP 主投稿、收藏夹、直播切片自由组合到一个歌单，重复的歌曲自动去重
-- ✅ 更好用的歌词编辑器：边看原歌词边改、历史版本随时回退
+- ✅ 拉取 UP 主投稿 / 收藏夹 / 直播切片 man 视频列表生成歌单
+- ✅ 自定义歌单：多来源自由组合到一个歌单，重复歌曲自动去重
+- ✅ 歌词同步显示与手动创建编辑，历史版本随时回退
+- ✅ 数据导入导出
+- ✅ 跨平台：Chrome 扩展 + 桌面应用（macOS / Windows / Linux，由 Tauri 提供）
+- ✅ 全新 UI + 粉色主题 + 亮 / 暗 / 自动模式（带亮度补偿）
 - ☐ 更多功能请期待
+
+### 2.0 相比 v1 的主要新增
+
+- 音质偏好：可设默认音质，大会员支持 Hi-Res 无损 / 杜比全景声，无权限自动降级；可给单曲单独指定音质
+- 合集支持：浏览 UP 主在 B 站整理的合集，一键当歌单播放或按范围挑选加入
+- 智能更新列表：「检查更新」增量拉取、「按范围拉取」、「重新拉取全部」（自动标记已失效视频）
+- 缩略图 / 列表双视图，封面右键快捷菜单
+- 增强歌词编辑器：拖动框选多选、毫秒级时间气泡、双击编辑
+- 悬浮歌词独立开关与自定义外观
+- 多 P 视频选 P 播放、「我的收藏」系统歌单、「播完就停」模式
+- 支持系统媒体键 / 锁屏控制
+- v1 旧版数据自动迁移、导入智能合并
+- 自动检查更新（按平台分化升级入口）
+- Windows 免安装（Portable）版
 
 ## 安装
 
@@ -31,19 +42,17 @@ Chrome 浏览器扩展可直接从应用商店一键安装：[说说播放器（
 
 桌面端（macOS / Windows）请在 [GitHub Releases](https://github.com/LanceLRQ/shuoshuo-player/releases) 下载对应安装包。
 
-> 当前版本处于 **1.x Beta 通道**，使用前请阅读下方 [1.x Beta 通道（预发布）](#1x-beta-通道预发布) 的注意事项。
+> 当前已发布 **2.0 正式版**。下载、未签名启动、Portable 版、国内镜像等说明见下方 [下载与更新](#下载与更新)。
 
-## 1.x Beta 通道（预发布）
-
-**当前版本属于 1.x Beta 通道**：2.0 正式版前的预发布阶段，可能存在已知缺陷。
+## 下载与更新
 
 ### 发布形态
 
 - **Chrome 扩展**：优先走 Web Store（自动更新）；Linux / Intel Mac 用户也用扩展兜底
-- **桌面端**：仅提供 **macOS（Apple Silicon）** 与 **Windows x64**，可在 [GitHub Releases](https://github.com/LanceLRQ/shuoshuo-player/releases) 下载；**Beta 阶段未签名**，首次启动需要：
+- **桌面端**：仅提供 **macOS（Apple Silicon）** 与 **Windows x64**，可在 [GitHub Releases](https://github.com/LanceLRQ/shuoshuo-player/releases) 下载；**安装包未签名**，首次启动需要：
     - macOS：右键 .app → 打开 → 弹窗中再次点击"打开"
     - Windows：SmartScreen 拦截 → 更多信息 → 仍要运行
-- **Windows Portable 版（实验性）**：除 `.exe / .msi` 安装包外，自 1.9.1 起额外提供 `*-portable-x64.zip`，解压即用、数据存放在程序同目录的 `data/` 文件夹。**注意事项**：
+- **Windows Portable 版（实验性）**：除 `.exe / .msi` 安装包外，另提供 `*-portable-x64.zip`，解压即用、数据存放在程序同目录的 `data/` 文件夹。**注意事项**：
     - 请勿放到 `C:\Program Files\` 等系统受保护目录（无写入权限）
     - 首次启动若系统未装 WebView2 Runtime 仍会引导联网安装
     - B 站登录态由 WebView2 管理在系统目录，**复制到另一台电脑后需重新扫码登录**
