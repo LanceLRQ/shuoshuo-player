@@ -96,7 +96,7 @@ export function HomePage() {
   });
 
   const handleSlideClick = (video: BilibiliVideo) => {
-    // 点击轮播图：替换播放队列为全量投稿并立即播放当前曲
+    // 点击轮播图：替换播放列表为全量投稿并立即播放当前曲
     const trackIds = allVideos.map((v) => v.bvid);
     setPlaylist(MAIN_FAV_ID, trackIds, video.bvid, true);
   };
@@ -107,7 +107,7 @@ export function HomePage() {
     [allVideos],
   );
 
-  // 点击缩略图：与轮播点击同款——替换播放队列为全量投稿并立即播放该条
+  // 点击缩略图：与轮播点击同款——替换播放列表为全量投稿并立即播放该条
   const handleThumbnailClick = useCallback(
     (item: ThumbnailGridItem) => {
       const trackIds = allVideos.map((v) => v.bvid);

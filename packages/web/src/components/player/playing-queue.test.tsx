@@ -43,20 +43,20 @@ describe('PlayingQueue', () => {
 
   it('open=false 时不渲染内容', () => {
     render(<PlayingQueue open={false} onOpenChange={vi.fn()} />);
-    expect(screen.queryByText('播放队列')).not.toBeInTheDocument();
+    expect(screen.queryByText('播放列表')).not.toBeInTheDocument();
   });
 
   it('open=true + 队列为空时显示空状态', () => {
     render(<PlayingQueue open onOpenChange={vi.fn()} />);
-    // SheetTitle (sr-only) + h3 (visible) 各渲染一次"播放队列"
-    expect(screen.getAllByText('播放队列').length).toBeGreaterThanOrEqual(1);
+    // SheetTitle (sr-only) + h3 (visible) 各渲染一次"播放列表"
+    expect(screen.getAllByText('播放列表').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('共 0 首')).toBeInTheDocument();
     expect(screen.getByText('队列为空')).toBeInTheDocument();
   });
 
   it('open=true 时显示可见标题 h3', () => {
     render(<PlayingQueue open onOpenChange={vi.fn()} />);
-    expect(screen.getByRole('heading', { level: 3, name: '播放队列' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: '播放列表' })).toBeInTheDocument();
   });
 
   it('队列有曲目时按 trackIds 顺序渲染', () => {

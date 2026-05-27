@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { APP_VERSION, IS_BETA_VERSION } from '@/lib/version';
 import { useUIShell } from '@/stores/ui-shell';
 import { ImportDataDialog } from '@/components/dialogs/import-data-dialog';
+import { PlayerHelpDialog } from '@/components/player/player-help-dialog';
 import logoUrl from '@/assets/logo.png';
 
 interface TopBarProps {
@@ -265,6 +266,8 @@ export function TopBar({ menuOpen, onToggleMenu }: TopBarProps) {
         )}
 
         <div className="ml-auto flex items-center gap-1">
+          <PlayerHelpDialog />
+
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>

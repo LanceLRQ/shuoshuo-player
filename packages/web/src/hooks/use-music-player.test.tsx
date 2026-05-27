@@ -445,7 +445,7 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
     expect(usePlayingListStore.getState().current).toBe('BV1Test00001');
   });
 
-  it('onend (once 单首播放) 触发：stop()，既不循环也不切歌', async () => {
+  it('onend (once 播完就停) 触发：stop()，既不循环也不切歌', async () => {
     useBilibiliVideosStore.setState({
       ids: ['BV1Test00001', 'BV1Test00002'],
       entities: {
@@ -479,7 +479,7 @@ describe('H1: useMusicPlayer Howler 回调状态同步', () => {
       howlerState.lastCb.onend?.();
     });
 
-    // 单首播放：曲终仅调 stop()，不 seek(0)+play() 循环，也不推进到下一首
+    // 播完就停：曲终仅调 stop()，不 seek(0)+play() 循环，也不推进到下一首
     expect(howlerState.lastInstance!.stop).toHaveBeenCalledTimes(1);
     expect(howlerState.lastInstance!.play).not.toHaveBeenCalled();
     expect(usePlayingListStore.getState().current).toBe('BV1Test00001');

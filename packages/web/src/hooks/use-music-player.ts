@@ -226,7 +226,7 @@ export function useMusicPlayer(): PlayerState & PlayerControls {
       return;
     }
 
-    // 单首播放：当前曲目播完即停，不循环不切歌（stop 触发 onstop 复位 isPlaying/progress）。
+    // 播完就停：当前曲目播完即停，不循环不切歌（stop 触发 onstop 复位 isPlaying/progress）。
     // 手动点上/下一首仍走 goNext/goPrev，不受此限制。
     if (loopMode === 'once' && howlRef.current) {
       howlRef.current.stop();

@@ -145,7 +145,7 @@ export function PlaybackSettings() {
                 htmlFor="collection-play-replace"
                 className="flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5 text-sm font-normal"
               >
-                <span>替换当前播放队列</span>
+                <span>替换当前播放列表</span>
                 <span className="text-xs text-muted-foreground">
                   原队列被合集全部歌曲替换，从第一首开始播。
                 </span>
