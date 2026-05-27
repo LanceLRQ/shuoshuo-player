@@ -18,17 +18,17 @@ dist-extension/
 ├── player.html              主入口
 ├── logo16.png / logo48.png / logo128.png
 └── assets/
-    ├── react-vendor-*.js    React 核心 + Router (~298 KB)
-    ├── ui-vendor-*.js       Radix UI + lucide-react (~138 KB)
+    ├── react-vendor-*.js    React 核心 + Router (~299 KB)
+    ├── ui-vendor-*.js       Radix UI + lucide-react (~158 KB)
     ├── audio-*.js           Howler (~36 KB)
     ├── lrc-*.js             LRC 解析 (~23 KB)
-    ├── player-*.js          主入口业务代码 (~189 KB)
-    ├── src-*.js             跨页面共享业务代码 (~118 KB)
-    ├── home / fav-list / discovery / ... (按页面拆分，每个 ~2-32 KB)
+    ├── player-*.js          主入口业务代码 (~458 KB)
+    ├── src-*.js             跨页面共享业务代码
+    ├── home / fav-list / discovery / ... (按页面拆分，每个 ~2-53 KB)
     └── assets/*.css         样式
 ```
 
-总未压缩体积约 **1020 KiB（< 1 MB）**，gzip 后约 280 KB。
+总未压缩体积约 **1.4 MB**，gzip 后约 300 KB。CI 体积守门为 **10240 KiB（10 MB 软警戒线）**，Chrome Web Store 实际允许 < 100 MB。
 
 ### 加载到 Chrome
 

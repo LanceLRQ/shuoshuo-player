@@ -74,13 +74,6 @@ describe('AboutSettings', () => {
     expect(screen.getByText(/^v\d+\.\d+\.\d+/)).toBeInTheDocument();
   });
 
-  it('1.x 版本显示 Beta 徽章', () => {
-    setPlatformBridge(makeBridge(vi.fn(async () => {})));
-    render(<AboutSettings />);
-    // APP_VERSION 编译期为 1.9.0，应该显示 Beta
-    expect(screen.getByText('Beta')).toBeInTheDocument();
-  });
-
   it('从未检查时显示"从未检查"', () => {
     setPlatformBridge(makeBridge(vi.fn(async () => {})));
     render(<AboutSettings />);
@@ -110,7 +103,7 @@ describe('AboutSettings', () => {
   });
 
   it('已是最新时手动检查后显示"你已经是最新版本"', async () => {
-    // mock 返回当前版本（无新版）—— APP_VERSION 是 1.9.0，返回 1.0.0（更旧）即可
+    // mock 返回当前版本（无新版）—— APP_VERSION 是 2.0.0，返回 1.0.0（更旧）即可
     const getJson = vi.fn(async () => ({
       version: '1.0.0',
       release_url: 'https://github.com/x/1.0.0',
